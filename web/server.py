@@ -8,6 +8,8 @@ import urllib.parse
 import ssl
 import os
 import sys
+import socket
+import ipaddress
 
 # Optional: Playwright for JS rendering
 try:
@@ -16,15 +18,49 @@ try:
 except ImportError:
     HAS_PLAYWRIGHT = False
 
-PORT = 8080
+PORT = int(os.environ.get('PORT', 8080))
 TOOL_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ─── SSRF Protection ─────────────────────────────────────────────────────────
+
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network('127.0.0.0/8'),
+    ipaddress.ip_network('10.0.0.0/8'),
+    ipaddress.ip_network('172.16.0.0/12'),
+    ipaddress.ip_network('192.168.0.0/16'),
+    ipaddress.ip_network('169.254.0.0/16'),
+    ipaddress.ip_network('0.0.0.0/8'),
+    ipaddress.ip_network('::1/128'),
+    ipaddress.ip_network('fc00::/7'),
+    ipaddress.ip_network('fe80::/10'),
+]
+
+def _is_safe_url(url):
+    """Validate URL is not targeting private/internal networks (SSRF protection)."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        # Resolve hostname to IP and check against blocked ranges
+        for info in socket.getaddrinfo(hostname, None):
+            addr = ipaddress.ip_address(info[4][0])
+            for network in _BLOCKED_NETWORKS:
+                if addr in network:
+                    return False
+        return True
+    except (ValueError, socket.gaierror, OSError):
+        return False
+
 
 def load_env():
     """Load .env file from tool directory"""
     env = {}
     env_path = os.path.join(os.path.dirname(TOOL_DIR), 'credentials', '.env')
     if os.path.exists(env_path):
-        with open(env_path) as f:
+        with open(env_path, encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:
@@ -33,6 +69,14 @@ def load_env():
     return env
 
 ENV = load_env()
+
+# SSL contexts
+_CTX_SCAN = ssl.create_default_context()
+_CTX_SCAN.check_hostname = False
+_CTX_SCAN.verify_mode = ssl.CERT_NONE
+
+_CTX_SECURE = ssl.create_default_context()
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -52,39 +96,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_proxy_headers()
         elif self.path.startswith('/api/crux?url='):
             self._handle_crux()
-        elif self.path == '/api/keys':
-            self._handle_keys()
         else:
-            # Block access to .env file
-            if '.env' in self.path:
+            # Block access to sensitive files (.env, credentials, etc.)
+            normalized = urllib.parse.unquote(self.path)
+            if '.env' in normalized or 'credentials' in normalized:
                 self.send_response(403)
                 self.end_headers()
                 return
             super().do_GET()
 
-    def _handle_keys(self):
-        """Serve API keys from .env to the frontend"""
-        keys = {
-            'claude_key': ENV.get('CLAUDE_API_KEY', ''),
-            'google_key': ENV.get('GOOGLE_API_KEY', '')
-        }
-        self.send_response(200)
+    def _send_error(self, status_code, message):
+        """Send a JSON error response with CORS headers."""
+        self.send_response(status_code)
         self._cors_headers()
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps(keys).encode())
+        self.wfile.write(json.dumps({'error': message}).encode())
+
+    def _extract_url(self, prefix):
+        """Extract and validate URL from query string. Returns URL or None (sends error)."""
+        url = self.path.split(prefix, 1)[1]
+        url = urllib.parse.unquote(url)
+        if not _is_safe_url(url):
+            self._send_error(403, 'URL blocked: private/internal addresses are not allowed')
+            return None
+        return url
 
     def _handle_proxy_headers(self):
-        url = self.path.split('/proxy-headers?url=', 1)[1]
-        url = urllib.parse.unquote(url)
+        url = self._extract_url('/proxy-headers?url=')
+        if not url:
+            return
         try:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
             req = urllib.request.Request(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             })
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=10, context=_CTX_SCAN) as resp:
                 headers_dict = {k: v for k, v in resp.headers.items()}
             self.send_response(200)
             self._cors_headers()
@@ -92,25 +138,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(headers_dict).encode())
         except Exception as e:
-            self.send_response(502)
-            self._cors_headers()
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            self._send_error(502, str(e))
 
     def _handle_proxy(self):
-        url = self.path.split('/proxy?url=', 1)[1]
-        url = urllib.parse.unquote(url)
+        url = self._extract_url('/proxy?url=')
+        if not url:
+            return
         try:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
             req = urllib.request.Request(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
             })
-            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=_CTX_SCAN) as resp:
                 body = resp.read()
                 content_type = resp.headers.get('Content-Type', 'text/html')
 
@@ -120,11 +160,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         except Exception as e:
-            self.send_response(502)
-            self._cors_headers()
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            self._send_error(502, str(e))
 
     def _handle_crux(self):
         """Proxy to Chrome UX Report API using GOOGLE_API_KEY from .env"""
@@ -132,11 +168,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         url = urllib.parse.unquote(url)
         google_key = ENV.get('GOOGLE_API_KEY', '')
         if not google_key:
-            self.send_response(503)
-            self._cors_headers()
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': 'GOOGLE_API_KEY not configured'}).encode())
+            self._send_error(503, 'GOOGLE_API_KEY not configured')
             return
         try:
             payload = json.dumps({
@@ -153,8 +185,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             req = urllib.request.Request(crux_url, data=payload, headers={
                 'Content-Type': 'application/json'
             })
-            ctx = ssl.create_default_context()
-            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=_CTX_SECURE) as resp:
                 data = resp.read()
             self.send_response(200)
             self._cors_headers()
@@ -162,16 +193,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
         except Exception as e:
-            self.send_response(502)
-            self._cors_headers()
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            self._send_error(502, str(e))
 
     def _handle_proxy_render(self):
         """Render URL with Playwright (headless Chromium). Falls back to static proxy."""
-        url = self.path.split('/proxy-render?url=', 1)[1]
-        url = urllib.parse.unquote(url)
+        url = self._extract_url('/proxy-render?url=')
+        if not url:
+            return
 
         if not HAS_PLAYWRIGHT:
             # Fallback to static proxy
@@ -181,15 +209,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
-                page = browser.new_page(
-                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                )
-                page.goto(url, wait_until='domcontentloaded', timeout=30000)
-                page.wait_for_timeout(3000)
-                html = page.content()
-                browser.close()
+                try:
+                    page = browser.new_page(
+                        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    )
+                    page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    page.wait_for_load_state('networkidle', timeout=10000)
+                    rendered_html = page.content()
+                finally:
+                    browser.close()
 
-            body = html.encode('utf-8')
+            body = rendered_html.encode('utf-8')
             self.send_response(200)
             self._cors_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -203,7 +233,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_proxy()
 
     def _cors_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Origin', 'http://localhost:' + str(PORT))
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', '*')
 
@@ -226,12 +256,10 @@ if __name__ == '__main__':
     print(f"  Proxy attivo su /proxy?url=...")
     print(f"  CrUX API su /api/crux?url=...")
     print(f"  Playwright rendering: {'✓ attivo' if HAS_PLAYWRIGHT else '✗ non installato (pip install playwright && playwright install chromium)'}")
-    if ENV.get('CLAUDE_API_KEY'):
-        print(f"  Claude API Key: ...{ENV['CLAUDE_API_KEY'][-8:]}")
-    if ENV.get('GOOGLE_API_KEY'):
-        print(f"  Google API Key: ...{ENV['GOOGLE_API_KEY'][-8:]}")
+    print(f"  Claude API Key: {'configured' if ENV.get('CLAUDE_API_KEY') else 'not configured'}")
+    print(f"  Google API Key: {'configured' if ENV.get('GOOGLE_API_KEY') else 'not configured'}")
     print()
-    server = http.server.HTTPServer(('', PORT), Handler)
+    server = http.server.HTTPServer(('127.0.0.1', PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -71,28 +71,33 @@ def detect_by_patterns(html_lower, html_raw, entries):
     return found
 
 
-# ─── SSL CONTEXT (ignore cert errors for scanning) ──────────────────────────
-
+# ─── SSL CONTEXTS ────────────────────────────────────────────────────────────
+# Permissive context for scanning target sites (self-signed certs, etc.)
 CTX = ssl.create_default_context()
 CTX.check_hostname = False
 CTX.verify_mode = ssl.CERT_NONE
 
-def fetch_url(url, timeout=15):
-    """Fetch URL and return (status_code, headers_dict, body_text)."""
+# Secure context for API calls (Anthropic, Google) — credentials must travel safe
+CTX_SECURE = ssl.create_default_context()
+
+def fetch_url(url, timeout=15, secure=False):
+    """Fetch URL and return (status_code, headers_dict, body_text).
+    Use secure=True for API endpoints where credentials are sent."""
     req = urllib.request.Request(url, headers={
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
     })
+    ctx = CTX_SECURE if secure else CTX
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout, context=CTX)
+        resp = urllib.request.urlopen(req, timeout=timeout, context=ctx)
         body = resp.read().decode('utf-8', errors='replace')
         hdrs = {k.lower(): v for k, v in resp.getheaders()}
         return resp.status, hdrs, body
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', errors='replace') if e.fp else ''
         return e.code, {}, body
-    except Exception as e:
+    except Exception:
         return 0, {}, ''
 
 # ─── MULTI-PAGE DISCOVERY & VALIDATION ────────────────────────────────────────
@@ -223,7 +228,7 @@ def detect_headings(html_content, page_url=''):
     path = ''
     try:
         path = urllib.parse.urlparse(page_url).path
-    except:
+    except (ValueError, AttributeError):
         pass
 
     if len(h1s) == 1:
@@ -257,7 +262,7 @@ def auto_discover(domain, extra_urls=None, use_render=False):
         status, headers, html_content = fetch_url(url)
     if not html_content:
         log('⚠️', 'Impossibile fetchare il sito', C.YELLOW)
-        return discovered, '', {}
+        return discovered, '', {}, []
 
     lower = html_content.lower()
     detection = cfg.get('detection', {})
@@ -376,7 +381,7 @@ def auto_discover(domain, extra_urls=None, use_render=False):
     if 'criteo.com' in lower or 'criteo.net' in lower: criteo_rtb.append('Criteo')
     if 'creativecdn.com' in lower or 'rtbhouse' in lower: criteo_rtb.append('RTB House')
     if criteo_rtb:
-        discovered['a2_3_6'] = {'value': True, 'note': ', '.join(criteo_rtb)}
+        discovered['a2_3_8'] = {'value': True, 'note': ', '.join(criteo_rtb)}
 
     # Snapchat Pixel
     if 'sc-static.net' in lower or 'snaptr(' in lower or shopify_pixel_match('snapchat'):
@@ -440,7 +445,8 @@ def auto_discover(domain, extra_urls=None, use_render=False):
             j = json.loads(block)
             types = [item.get('@type') for item in (j if isinstance(j, list) else [j])]
             schemas.extend(t for t in types if t)
-        except: pass
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
     if schemas:
         unique = list(dict.fromkeys(schemas))
         discovered['a4_4_1'] = {'value': True, 'note': 'Schema: ' + ', '.join(unique)}
@@ -481,7 +487,7 @@ def auto_discover(domain, extra_urls=None, use_render=False):
                             discovered['a4_4_9'] = {'value': False, 'note': f'⚠️ {t}: campi mancanti: {", ".join(v["missing"])}. Impatto: ridotta eligibilità rich results.'}
                         else:
                             discovered.setdefault('a4_4_9', {'value': True, 'note': f'{t}: tutti i campi obbligatori presenti'})
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError):
             pass
 
     if not schemas:
@@ -547,7 +553,7 @@ def auto_discover(domain, extra_urls=None, use_render=False):
                                 if ptype and ptype not in schemas:
                                     schemas.append(ptype)
                                     log('  📌', f'Schema {ptype} trovato su {page["url"]}', C.DIM)
-                    except:
+                    except (json.JSONDecodeError, ValueError, TypeError, KeyError):
                         pass
                 if page_ld and not discovered.get('a4_4_1', {}).get('value'):
                     unique = list(dict.fromkeys(schemas))
@@ -957,7 +963,7 @@ def extract_seo_summary(html_content):
         try:
             obj = json.loads(block)
             schema_objects.append(obj)
-        except:
+        except (json.JSONDecodeError, ValueError):
             schema_objects.append({'_parse_error': True, '_raw': block[:500]})
     summary['json_ld_schemas'] = schema_objects
     summary['json_ld_types'] = [
@@ -979,7 +985,7 @@ def extract_seo_summary(html_content):
 
 
 def call_claude(api_key, system_prompt, user_message, max_tokens=12000):
-    """Call Claude API via urllib."""
+    """Call Claude API via urllib with error handling and retry for transient errors."""
     payload = json.dumps({
         'model': 'claude-sonnet-4-20250514',
         'max_tokens': max_tokens,
@@ -993,9 +999,31 @@ def call_claude(api_key, system_prompt, user_message, max_tokens=12000):
         'anthropic-version': '2023-06-01',
     })
 
-    resp = urllib.request.urlopen(req, timeout=120, context=CTX)
-    data = json.loads(resp.read().decode('utf-8'))
-    return data['content'][0]['text']
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = urllib.request.urlopen(req, timeout=120, context=CTX_SECURE)
+            data = json.loads(resp.read().decode('utf-8'))
+            if 'content' not in data or not data['content']:
+                raise ValueError(f"Unexpected API response structure: {list(data.keys())}")
+            return data['content'][0]['text']
+        except urllib.error.HTTPError as e:
+            body = e.read().decode('utf-8', errors='replace') if e.fp else ''
+            if e.code in (429, 500, 502, 503, 529) and attempt < max_retries - 1:
+                wait = (2 ** attempt) + (time.time() % 1)  # exponential backoff + jitter
+                log('⏳', f'Claude API {e.code}, retry {attempt+1}/{max_retries} in {wait:.1f}s...', C.YELLOW)
+                time.sleep(wait)
+                # Rebuild request (body consumed)
+                req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
+                    'Content-Type': 'application/json',
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                })
+                continue
+            raise RuntimeError(f"Claude API error {e.code}: {body[:500]}") from e
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            raise RuntimeError(f"Claude API response parse error: {e}") from e
+    raise RuntimeError("Claude API: max retries exceeded")
 
 
 def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_htmls=None):
@@ -1018,7 +1046,7 @@ def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_h
         elif analysis_type in ('performance', 'cwv'):
             if google_key:
                 psi_url = f'https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={urllib.parse.quote(url, safe="")}&strategy=mobile&category=performance&category=accessibility&category=seo&category=best-practices&key={google_key}'
-                _, _, body = fetch_url(psi_url, timeout=60)
+                _, _, body = fetch_url(psi_url, timeout=60, secure=True)
                 try:
                     data = json.loads(body)
                     lr = data.get('lighthouseResult', {})
@@ -1040,7 +1068,7 @@ def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_h
                             if v.get('score') is not None and v.get('score', 1) < 1 and v.get('details', {}).get('type') == 'opportunity'
                         ][:10]
                     }, indent=2, ensure_ascii=False)
-                except:
+                except (json.JSONDecodeError, KeyError, TypeError):
                     content = body[:20000]
             else:
                 content = 'Google PageSpeed API key non disponibile. Analizza il sito basandoti sull\'HTML fornito.'
@@ -1095,12 +1123,14 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
                     _, _, robots_body = fetch_url(clean_url + '/robots.txt')
                     if robots_body:
                         content += f"\n\n=== ROBOTS.TXT ===\n{robots_body[:5000]}"
-                except: pass
+                except Exception:
+                    pass
                 try:
                     _, _, sitemap_body = fetch_url(clean_url + '/sitemap.xml')
                     if sitemap_body:
                         content += f"\n\n=== SITEMAP.XML (first 5000 chars) ===\n{sitemap_body[:5000]}"
-                except: pass
+                except Exception:
+                    pass
                 # Fetch a product page to analyze its schema markup
                 if homepage_html:
                     try:
@@ -1113,7 +1143,8 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
                                 prod_seo = extract_seo_summary(prod_html)
                                 content += f"\n\n=== PAGINA PRODOTTO: {product_links[0]} ===\n"
                                 content += f"DATI SEO PRODOTTO:\n{json.dumps(prod_seo, indent=2, ensure_ascii=False)[:8000]}"
-                    except: pass
+                    except Exception:
+                        pass
 
         prompts = _get_prompts()
         prompt = prompts.get(analysis_type, prompts.get('seo', ''))
@@ -1166,9 +1197,9 @@ def fetch_crux(url, api_key):
             data=payload,
             headers={'Content-Type': 'application/json'}
         )
-        resp = urllib.request.urlopen(req, timeout=15, context=CTX)
+        resp = urllib.request.urlopen(req, timeout=15, context=CTX_SECURE)
         return json.loads(resp.read().decode('utf-8'))
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -1270,14 +1301,16 @@ def fetch_rendered(url, timeout=30000):
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page(user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            page.goto(url, wait_until='domcontentloaded', timeout=timeout)
-            # Wait for JS to render (SPAs keep connections open, networkidle hangs)
-            page.wait_for_timeout(3000)
-            html = page.content()
-            browser.close()
-            return html, True
-    except Exception as e:
+            try:
+                page = browser.new_page(user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                page.goto(url, wait_until='domcontentloaded', timeout=timeout)
+                # Wait for JS to render (SPAs keep connections open, networkidle hangs)
+                page.wait_for_timeout(3000)
+                html = page.content()
+                return html, True
+            finally:
+                browser.close()
+    except Exception:
         # Fallback to static fetch
         status, headers, body = fetch_url(url)
         return body, False
@@ -1732,7 +1765,7 @@ def main():
     print(f"  {C.DIM}Dominio: {C.BOLD}{domain}{C.RESET}  |  {C.DIM}Cliente: {C.BOLD}{client_name}{C.RESET}\n")
 
     # Load .env
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'credentials', '.env')
+    env_path = os.path.join(TOOL_DIR, 'credentials', '.env')
     api_key = ''
     google_key = ''
     if os.path.exists(env_path):
@@ -1753,9 +1786,16 @@ def main():
         log('🔑', 'Google API key caricata (PageSpeed)', C.GREEN)
 
     # Load template
-    template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'checklists', 'audit-template.json')
-    with open(template_path) as f:
-        template = json.load(f)
+    template_path = os.path.join(TOOL_DIR, 'data', 'checklists', 'audit-template.json')
+    try:
+        with open(template_path, encoding='utf-8') as f:
+            template = json.load(f)
+    except FileNotFoundError:
+        print(f"  {C.RED}ERRORE: Template non trovato: {template_path}{C.RESET}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"  {C.RED}ERRORE: Template JSON malformato: {e}{C.RESET}")
+        sys.exit(1)
     log('📋', 'Template audit caricato', C.GREEN)
 
     # ── PHASE 1: Auto-Discovery ──
@@ -1893,7 +1933,7 @@ def main():
     report_html = generate_report_html(domain, client_name, scores, findings, discovered, ai_results, template)
 
     # Save report
-    reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
+    reports_dir = os.path.join(TOOL_DIR, 'output')
     os.makedirs(reports_dir, exist_ok=True)
 
     if args.output:

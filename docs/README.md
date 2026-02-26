@@ -18,7 +18,10 @@ cp credentials/.env.example credentials/.env
 # Modifica credentials/.env con le tue API keys
 ```
 
-Nessuna dipendenza esterna richiesta — usa solo la libreria standard Python.
+Il core dell'audit usa solo la libreria standard Python. Feature opzionali richiedono:
+- **Playwright** per JS rendering (`pip install playwright && playwright install chromium`)
+- **Claude API key** per analisi AI
+- **Google API key** per CrUX/PageSpeed
 
 ## Uso CLI
 
