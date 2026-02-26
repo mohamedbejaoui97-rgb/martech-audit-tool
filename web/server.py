@@ -56,7 +56,7 @@ def _is_safe_url(url):
 
 
 def load_env():
-    """Load .env file from tool directory"""
+    """Load API keys: environment variables first, then .env file as fallback."""
     env = {}
     env_path = os.path.join(os.path.dirname(TOOL_DIR), 'credentials', '.env')
     if os.path.exists(env_path):
@@ -66,9 +66,17 @@ def load_env():
                 if line and not line.startswith('#') and '=' in line:
                     key, value = line.split('=', 1)
                     env[key.strip()] = value.strip()
+    # Environment variables take priority over .env file
+    for key in ('CLAUDE_API_KEY', 'GOOGLE_API_KEY', 'AUDIT_API_TOKEN'):
+        val = os.environ.get(key)
+        if val:
+            env[key] = val
     return env
 
 ENV = load_env()
+
+# API token for authenticating proxy/API requests
+_API_TOKEN = ENV.get('AUDIT_API_TOKEN', '')
 
 # SSL contexts
 _CTX_SCAN = ssl.create_default_context()
@@ -88,14 +96,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path.startswith('/proxy-render?url='):
-            self._handle_proxy_render()
-        elif self.path.startswith('/proxy?url='):
-            self._handle_proxy()
-        elif self.path.startswith('/proxy-headers?url='):
-            self._handle_proxy_headers()
-        elif self.path.startswith('/api/crux?url='):
-            self._handle_crux()
+        if self.path.startswith(('/proxy-render?url=', '/proxy?url=', '/proxy-headers?url=', '/api/crux?url=')):
+            if not self._check_auth():
+                return
+            if self.path.startswith('/proxy-render?url='):
+                self._handle_proxy_render()
+            elif self.path.startswith('/proxy?url='):
+                self._handle_proxy()
+            elif self.path.startswith('/proxy-headers?url='):
+                self._handle_proxy_headers()
+            else:
+                self._handle_crux()
         else:
             # Block access to sensitive files (.env, credentials, etc.)
             normalized = urllib.parse.unquote(self.path)
@@ -112,6 +123,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps({'error': message}).encode())
+
+    def _check_auth(self):
+        """Verify API token on proxy/API endpoints. Returns True if authorized."""
+        if not _API_TOKEN:
+            return True  # No token configured = local dev mode (localhost only)
+        token = self.headers.get('Authorization', '').removeprefix('Bearer ').strip()
+        if token != _API_TOKEN:
+            self._send_error(401, 'Unauthorized: invalid or missing AUDIT_API_TOKEN')
+            return False
+        return True
 
     def _extract_url(self, prefix):
         """Extract and validate URL from query string. Returns URL or None (sends error)."""
@@ -258,6 +279,7 @@ if __name__ == '__main__':
     print(f"  Playwright rendering: {'✓ attivo' if HAS_PLAYWRIGHT else '✗ non installato (pip install playwright && playwright install chromium)'}")
     print(f"  Claude API Key: {'configured' if ENV.get('CLAUDE_API_KEY') else 'not configured'}")
     print(f"  Google API Key: {'configured' if ENV.get('GOOGLE_API_KEY') else 'not configured'}")
+    print(f"  API Auth Token: {'ENABLED — proxy endpoints require Bearer token' if _API_TOKEN else 'DISABLED — set AUDIT_API_TOKEN to protect proxy endpoints'}")
     print()
     server = http.server.HTTPServer(('127.0.0.1', PORT), Handler)
     try:

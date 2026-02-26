@@ -1764,21 +1764,22 @@ def main():
     print(f"  {C.DIM}MarTech Audit Tool — CLI Edition{C.RESET}")
     print(f"  {C.DIM}Dominio: {C.BOLD}{domain}{C.RESET}  |  {C.DIM}Cliente: {C.BOLD}{client_name}{C.RESET}\n")
 
-    # Load .env
-    env_path = os.path.join(TOOL_DIR, 'credentials', '.env')
-    api_key = ''
-    google_key = ''
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith('CLAUDE_API_KEY='):
-                    api_key = line.split('=', 1)[1].strip()
-                elif line.startswith('GOOGLE_API_KEY='):
-                    google_key = line.split('=', 1)[1].strip()
+    # Load API keys: environment variables first, then .env file as fallback
+    api_key = os.environ.get('CLAUDE_API_KEY', '')
+    google_key = os.environ.get('GOOGLE_API_KEY', '')
+    if not api_key or not google_key:
+        env_path = os.path.join(TOOL_DIR, 'credentials', '.env')
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not api_key and line.startswith('CLAUDE_API_KEY='):
+                        api_key = line.split('=', 1)[1].strip()
+                    elif not google_key and line.startswith('GOOGLE_API_KEY='):
+                        google_key = line.split('=', 1)[1].strip()
 
     if not api_key:
-        print(f"  {C.RED}ERRORE: CLAUDE_API_KEY non trovata in .env{C.RESET}")
+        print(f"  {C.RED}ERRORE: CLAUDE_API_KEY non trovata. Imposta la variabile d'ambiente o il file credentials/.env{C.RESET}")
         sys.exit(1)
 
     log('🔑', 'API key caricata', C.GREEN)
