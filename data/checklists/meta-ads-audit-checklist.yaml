@@ -2484,4 +2484,3 @@ pre_audit_questions:
     question: "Il dominio è verificato in Business Manager?"
     options: ["Sì", "No", "Non so"]
     purpose: "Obbligatorio per AEM e attribuzione post-iOS 14.5"
-    from the denominator.

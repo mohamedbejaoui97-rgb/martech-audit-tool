@@ -2052,4 +2052,3 @@ scoring:
       result: "Max grade D"
     - condition: "Tutti CWV Poor su mobile"
       result: "Max grade C"
-        - "Out-of-stock product handling"

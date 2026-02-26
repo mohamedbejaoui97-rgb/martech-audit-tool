@@ -12,6 +12,15 @@ import urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
+import shutil
+import subprocess
+
 # ─── COLORS & TERMINAL OUTPUT ───────────────────────────────────────────────
 
 class C:
@@ -53,6 +62,209 @@ def load_config():
         _config = {}
         return _config
 
+
+# ─── YAML CHECKLISTS ────────────────────────────────────────────────────────
+
+_checklists = {}
+
+def load_checklist(name):
+    """Load a YAML checklist by name. Returns parsed dict or empty dict."""
+    if not HAS_YAML:
+        return {}
+    if name in _checklists:
+        return _checklists[name]
+    path = os.path.join(TOOL_DIR, 'data', 'checklists', name)
+    try:
+        with open(path, encoding='utf-8') as f:
+            _checklists[name] = yaml.safe_load(f)
+        return _checklists[name]
+    except Exception:
+        return {}
+
+YAML_MAPPING = {
+    'datalayer': {
+        'file': 'gtm-ecommerce-checklist.yaml',
+        'trigger_key': 'a2_1_1',
+        'sections': ['required_tags', 'ga4_ecommerce_events_checklist', 'consent_mode',
+                     'enhanced_conversions', 'datalayer_variables', 'red_flags'],
+    },
+    'security': {
+        'file': 'iubenda-consent-checklist.yaml',
+        'trigger_key': 'a1_1_1',
+        'sections': ['cmp_detection', 'banner_configuration', 'consent_mode_v2',
+                     'prior_blocking', 'red_flags'],
+    },
+    'advertising': {
+        'file': None,
+        'trigger_key': None,
+        'sections': [],
+    },
+    'seo': {
+        'file': 'gsc-audit-checklist.yaml',
+        'trigger_key': None,
+        'sections': ['performance_report', 'page_indexing_report', 'core_web_vitals',
+                     'rich_results', 'red_flags'],
+    },
+    'seo_deep': {
+        'file': 'gsc-audit-checklist.yaml',
+        'trigger_key': None,
+        'sections': ['query_analysis', 'crawl_stats', 'ecommerce_specific',
+                     'cross_referencing', 'red_flags'],
+    },
+}
+
+def get_yaml_context(analysis_type, discovered):
+    """Extract relevant YAML checklist sections for the given analysis type."""
+    if not HAS_YAML:
+        return ''
+
+    blocks = []
+
+    # Main mapping
+    mapping = YAML_MAPPING.get(analysis_type)
+    if mapping and mapping['file']:
+        trigger = mapping['trigger_key']
+        if trigger is None or (discovered and discovered.get(trigger, {}).get('value')):
+            data = load_checklist(mapping['file'])
+            if data:
+                relevant = {k: data[k] for k in mapping['sections'] if k in data}
+                if relevant:
+                    blocks.append(f"=== CHECKLIST: {mapping['file']} ===\n{yaml.dump(relevant, default_flow_style=False, allow_unicode=True, width=200)[:8000]}")
+
+    # Advertising: load both Google Ads + Meta Ads if detected
+    if analysis_type == 'advertising':
+        if discovered and discovered.get('a2_1_3', {}).get('value'):
+            data = load_checklist('google-ads-audit-checklist.yaml')
+            if data:
+                relevant = {k: data[k] for k in ['conversion_tracking', 'red_flags', 'scoring_framework'] if k in data}
+                if relevant:
+                    blocks.append(f"=== CHECKLIST: Google Ads ===\n{yaml.dump(relevant, default_flow_style=False, allow_unicode=True, width=200)[:6000]}")
+        if discovered and discovered.get('a2_3_1', {}).get('value'):
+            data = load_checklist('meta-ads-audit-checklist.yaml')
+            if data:
+                relevant = {k: data[k] for k in ['meta_pixel', 'conversions_api', 'common_mistakes_and_red_flags', 'scoring'] if k in data}
+                if relevant:
+                    blocks.append(f"=== CHECKLIST: Meta Ads ===\n{yaml.dump(relevant, default_flow_style=False, allow_unicode=True, width=200)[:6000]}")
+
+    # Consent checklist for datalayer analysis that touches consent
+    if analysis_type == 'datalayer' and discovered:
+        consent_detected = discovered.get('a1_1_1', {}).get('value')
+        if consent_detected:
+            data = load_checklist('iubenda-consent-checklist.yaml')
+            if data:
+                relevant = {k: data[k] for k in ['consent_mode_v2', 'red_flags'] if k in data}
+                if relevant:
+                    blocks.append(f"=== CHECKLIST: Consent/Iubenda ===\n{yaml.dump(relevant, default_flow_style=False, allow_unicode=True, width=200)[:4000]}")
+
+    if not blocks:
+        return ''
+    return '\n\n'.join(blocks)
+
+# ─── SQUIRRELSCAN (L0 Deep Crawl) ───────────────────────────────────────────
+
+def _find_squirrel():
+    """Locate squirrel binary. Returns path or None."""
+    path = shutil.which('squirrel')
+    if path:
+        return path
+    # Common install locations
+    for candidate in [
+        os.path.expanduser('~/.local/bin/squirrel'),
+        os.path.expanduser('~/.squirrel/releases/latest/squirrel'),
+    ]:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+SQUIRREL_BIN = _find_squirrel()
+
+def run_squirrelscan(domain, max_pages=100):
+    """Run SquirrelScan crawl and return parsed JSON results, or empty dict on failure."""
+    if not SQUIRREL_BIN:
+        return {}
+    url = f'https://{domain}' if not domain.startswith('http') else domain
+    log('🐿️', f'SquirrelScan: crawling {url} (max {max_pages} pagine)...', C.CYAN)
+    try:
+        result = subprocess.run(
+            [SQUIRREL_BIN, 'audit', url, '-m', str(max_pages), '-f', 'json', '-C', 'surface'],
+            capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            log('⚠️', f'SquirrelScan errore (exit {result.returncode})', C.YELLOW)
+            return {}
+        # SquirrelScan prints banner/logs before JSON — extract JSON portion
+        output = result.stdout
+        json_start = output.find('{')
+        if json_start == -1:
+            log('⚠️', 'SquirrelScan: nessun JSON nell\'output', C.YELLOW)
+            return {}
+        # Use strict=False to handle control characters in SquirrelScan output
+        data = json.loads(output[json_start:], strict=False)
+        issue_count = len(data.get('issues', []))
+        log('✅', f'SquirrelScan completato: {issue_count} issue trovate', C.GREEN)
+        return data
+    except subprocess.TimeoutExpired:
+        log('⚠️', 'SquirrelScan: timeout (>300s)', C.YELLOW)
+        return {}
+    except (json.JSONDecodeError, Exception) as e:
+        log('⚠️', f'SquirrelScan: {e}', C.YELLOW)
+        return {}
+
+def squirrelscan_to_discovery(scan_data, discovered):
+    """Merge SquirrelScan results into the discovered dict."""
+    if not scan_data:
+        return
+    issues = scan_data.get('issues', [])
+    if not issues:
+        return
+
+    # Categorize issues by severity
+    by_severity = {}
+    for issue in issues:
+        sev = issue.get('severity', 'info')
+        by_severity.setdefault(sev, []).append(issue)
+
+    # Store raw summary in discovered
+    summary_parts = []
+    for sev in ['critical', 'error', 'warning', 'info']:
+        count = len(by_severity.get(sev, []))
+        if count:
+            summary_parts.append(f'{sev}: {count}')
+
+    discovered['_squirrelscan'] = {
+        'value': True,
+        'note': f'SquirrelScan: {", ".join(summary_parts)}',
+        'issues': issues[:200],  # cap to avoid bloating
+        'pages_crawled': scan_data.get('stats', {}).get('pages_crawled', 0),
+    }
+
+    # Extract specific findings into relevant check IDs
+    # SquirrelScan fields: ruleId, name, description, solution, category, severity, checks
+    for issue in issues:
+        category = issue.get('category', '').lower()
+        rule_id = issue.get('ruleId', '').lower()
+        sev = issue.get('severity', '')
+        name = issue.get('name', '')
+
+        # Broken links
+        if 'broken' in rule_id or 'broken' in name.lower() or '404' in rule_id:
+            discovered.setdefault('_broken_links', {'value': True, 'note': '', 'items': []})
+            discovered['_broken_links']['items'].append(name)
+            discovered['_broken_links']['note'] = f'{len(discovered["_broken_links"]["items"])} broken links'
+
+        # Leaked secrets
+        if 'secret' in rule_id or 'leak' in rule_id or 'exposed' in rule_id:
+            discovered.setdefault('_leaked_secrets', {'value': True, 'note': '', 'items': []})
+            discovered['_leaked_secrets']['items'].append(name)
+            discovered['_leaked_secrets']['note'] = f'{len(discovered["_leaked_secrets"]["items"])} potenziali leak'
+
+        # Security issues
+        if category == 'security':
+            discovered.setdefault('_security_issues', {'value': True, 'note': '', 'items': []})
+            discovered['_security_issues']['items'].append(f'[{sev}] {name}')
+            discovered['_security_issues']['note'] = f'{len(discovered["_security_issues"]["items"])} security issues'
+
+# ─── PATTERN DETECTION ──────────────────────────────────────────────────────
 
 def detect_by_patterns(html_lower, html_raw, entries):
     """Generic data-driven detection: loop over config entries, return list of matched names."""
@@ -984,10 +1196,17 @@ def extract_seo_summary(html_content):
     return summary
 
 
-def call_claude(api_key, system_prompt, user_message, max_tokens=12000):
+LIGHT_ANALYSIS_TYPES = {'robots', 'sitemap', 'security', 'datalayer'}
+MODEL_HAIKU = 'claude-haiku-4-5-20251001'
+MODEL_SONNET = 'claude-sonnet-4-20250514'
+
+
+def call_claude(api_key, system_prompt, user_message, max_tokens=4000, model=None):
     """Call Claude API via urllib with error handling and retry for transient errors."""
+    if model is None:
+        model = MODEL_SONNET
     payload = json.dumps({
-        'model': 'claude-sonnet-4-20250514',
+        'model': model,
         'max_tokens': max_tokens,
         'system': system_prompt,
         'messages': [{'role': 'user', 'content': user_message}]
@@ -1151,9 +1370,46 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
         discovery_block = ''
         if discovered:
             discovery_block = f"\n=== DATI AUTO-DISCOVERY (FASE 1) ===\n{json.dumps(discovered, indent=2, ensure_ascii=False, default=str)[:10000]}\n=== FINE DATI AUTO-DISCOVERY ===\n\n"
-        user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{discovery_block}{prompt}\n\nContenuto recuperato:\n```\n{content[:50000]}\n```"
 
-        result = call_claude(api_key, _get_osmani_base(), user_msg)
+        # Add YAML checklist context
+        yaml_context = get_yaml_context(analysis_type, discovered)
+        if yaml_context:
+            discovery_block += f"\n=== KNOWLEDGE BASE (usa come riferimento per i check) ===\n{yaml_context}\n=== FINE KNOWLEDGE BASE ===\n"
+
+        # Add SquirrelScan deep crawl results (relevant to analysis type)
+        if discovered and discovered.get('_squirrelscan', {}).get('value'):
+            ss_issues = discovered['_squirrelscan'].get('issues', [])
+            # Filter issues by category + ruleId matching analysis type
+            # SquirrelScan categories: Core SEO, Accessibility, Performance, Security,
+            # Links, Images, Content, Crawlability, Structured Data, E-E-A-T, Mobile
+            ss_category_map = {
+                'seo': ('core seo', 'crawlability', 'structured data', 'content', 'e-e-a-t', 'images'),
+                'seo_deep': ('core seo', 'crawlability', 'structured data', 'content', 'e-e-a-t', 'links', 'images', 'mobile'),
+                'security': ('security',),
+                'performance': ('performance', 'images'),
+                'cwv': ('performance',),
+                'accessibility': ('accessibility',),
+                'datalayer': ('core seo', 'structured data'),
+                'advertising': ('core seo', 'performance', 'structured data'),
+                'cro': ('core seo', 'performance', 'accessibility', 'links', 'mobile', 'images'),
+                'robots': ('crawlability', 'core seo'),
+                'sitemap': ('crawlability', 'core seo'),
+            }
+            match_cats = ss_category_map.get(analysis_type, ())
+            if match_cats:
+                filtered = [i for i in ss_issues if i.get('category', '').lower() in match_cats]
+            else:
+                filtered = ss_issues[:30]
+            if filtered:
+                ss_block = json.dumps(filtered[:50], indent=1, ensure_ascii=False, default=str)[:6000]
+                discovery_block += f"\n=== SQUIRRELSCAN DEEP CRAWL ({len(filtered)} issue rilevanti) ===\n{ss_block}\n=== FINE SQUIRRELSCAN ===\n"
+
+        content_limit = 20000
+        user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{discovery_block}{prompt}\n\nContenuto recuperato:\n```\n{content[:content_limit]}\n```"
+
+        # Use Haiku for deterministic/simple analyses, Sonnet for qualitative ones
+        model = MODEL_HAIKU if analysis_type in LIGHT_ANALYSIS_TYPES else MODEL_SONNET
+        result = call_claude(api_key, _get_osmani_base(), user_msg, model=model)
         return (analysis_type, result)
     except Exception as e:
         return (analysis_type, f'ERRORE: {e}')
@@ -1820,7 +2076,24 @@ def main():
         log('🎭', 'Playwright rendering abilitato', C.GREEN)
     elif args.render:
         log('⚠️', 'Playwright non installato. Usa: pip install playwright && playwright install chromium', C.YELLOW)
+    # Run auto_discover and SquirrelScan in parallel
+    squirrel_future = None
+    if SQUIRREL_BIN:
+        squirrel_executor = ThreadPoolExecutor(max_workers=1)
+        squirrel_future = squirrel_executor.submit(run_squirrelscan, domain, 100)
+
     discovered, homepage_html, resp_headers, extra_htmls = auto_discover(domain, extra_urls, use_render=args.render)
+
+    # Merge SquirrelScan results
+    if squirrel_future:
+        try:
+            scan_data = squirrel_future.result(timeout=310)
+            squirrelscan_to_discovery(scan_data, discovered)
+        except Exception as e:
+            log('⚠️', f'SquirrelScan: {e}', C.YELLOW)
+        squirrel_executor.shutdown(wait=False)
+    elif not SQUIRREL_BIN:
+        log('💡', 'SquirrelScan non installato — installa con: curl -fsSL https://squirrelscan.com/install | bash', C.DIM)
 
     for key, val in discovered.items():
         if key.startswith('_'):
