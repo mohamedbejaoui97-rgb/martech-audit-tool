@@ -210,6 +210,46 @@ def run_squirrelscan(domain, max_pages=100):
         log('⚠️', f'SquirrelScan: {e}', C.YELLOW)
         return {}
 
+def verify_squirrelscan_urls(issues, max_checks=20):
+    """Verify URLs reported as 'not crawlable' by SquirrelScan.
+    Returns (verified_issues, crawler_limitations) where crawler_limitations
+    are URLs that respond 200 but SquirrelScan couldn't reach."""
+    verified = []
+    limitations = []
+    check_count = 0
+    for issue in issues:
+        checks = issue.get('checks', [])
+        # Look for issues about unreachable/not-crawlable URLs
+        name_lower = issue.get('name', '').lower()
+        desc_lower = issue.get('description', '').lower()
+        is_crawl_issue = any(kw in name_lower or kw in desc_lower
+                           for kw in ['not crawl', 'unreachable', 'cannot access', 'non raggiungibile'])
+        if is_crawl_issue and checks and check_count < max_checks:
+            # Try HEAD request on first failing URL
+            for check in checks[:3]:
+                test_url = check.get('url', '')
+                if not test_url or not test_url.startswith('http'):
+                    continue
+                check_count += 1
+                try:
+                    req = urllib.request.Request(test_url, method='HEAD', headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; MarTechAudit/1.0)'
+                    })
+                    resp = urllib.request.urlopen(req, timeout=10, context=CTX)
+                    if resp.status == 200:
+                        issue_copy = dict(issue)
+                        issue_copy['_crawler_limitation'] = True
+                        limitations.append(issue_copy)
+                        break
+                except Exception:
+                    pass
+            else:
+                verified.append(issue)
+        else:
+            verified.append(issue)
+    return verified, limitations
+
+
 def squirrelscan_to_discovery(scan_data, discovered):
     """Merge SquirrelScan results into the discovered dict."""
     if not scan_data:
@@ -217,6 +257,9 @@ def squirrelscan_to_discovery(scan_data, discovered):
     issues = scan_data.get('issues', [])
     if not issues:
         return
+
+    # Verify crawl-related issues (Bug 10)
+    issues, crawler_limitations = verify_squirrelscan_urls(issues)
 
     # Categorize issues by severity
     by_severity = {}
@@ -237,6 +280,14 @@ def squirrelscan_to_discovery(scan_data, discovered):
         'issues': issues[:200],  # cap to avoid bloating
         'pages_crawled': scan_data.get('stats', {}).get('pages_crawled', 0),
     }
+
+    # Store crawler limitations separately
+    if crawler_limitations:
+        discovered['_crawler_limitations'] = {
+            'value': True,
+            'note': f'{len(crawler_limitations)} URL raggiungibili ma non scansionate da SquirrelScan (limite crawler)',
+            'items': [i.get('name', '') for i in crawler_limitations],
+        }
 
     # Extract specific findings into relevant check IDs
     # SquirrelScan fields: ruleId, name, description, solution, category, severity, checks
@@ -1262,8 +1313,35 @@ def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_h
                     break
             if not content:
                 content = 'Sitemap non trovata ai path comuni.'
+            else:
+                # Bug 8: Parse sitemap XML programmatically
+                try:
+                    sitemap_urls = re.findall(r'<loc>\s*(.*?)\s*</loc>', content, re.I)
+                    sitemap_lastmods = re.findall(r'<lastmod>\s*(.*?)\s*</lastmod>', content, re.I)
+                    is_index = '<sitemapindex' in content.lower()
+                    unique_domains = set()
+                    for u in sitemap_urls:
+                        try:
+                            unique_domains.add(urllib.parse.urlparse(u).netloc)
+                        except Exception:
+                            pass
+                    sitemap_data = {
+                        'tipo': 'Sitemap Index' if is_index else 'Sitemap singola',
+                        'url_count': len(sitemap_urls),
+                        'domini_unici': list(unique_domains),
+                        'lastmod_count': len(sitemap_lastmods),
+                        'lastmod_recente': sitemap_lastmods[0] if sitemap_lastmods else 'N/A',
+                        'lastmod_meno_recente': sitemap_lastmods[-1] if sitemap_lastmods else 'N/A',
+                    }
+                    content = f"=== DATI SITEMAP ESTRATTI PROGRAMMATICAMENTE (DATI CERTI) ===\n{json.dumps(sitemap_data, indent=2, ensure_ascii=False)}\n\n=== SITEMAP XML RAW ===\n{content}"
+                except Exception:
+                    pass
         elif analysis_type in ('performance', 'cwv'):
-            if google_key:
+            # Bug 6: Use shared PSI data from discovered instead of fetching again
+            if discovered and discovered.get('_shared_psi', {}).get('value'):
+                shared = discovered['_shared_psi']['data']
+                content = f"=== DATI OGGETTIVI MISURATI (PageSpeed Insights — DATI CERTI, usa SOLO questi valori) ===\n{json.dumps(shared, indent=2, ensure_ascii=False)}"
+            elif google_key:
                 psi_url = f'https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={urllib.parse.quote(url, safe="")}&strategy=mobile&category=performance&category=accessibility&category=seo&category=best-practices&key={google_key}'
                 _, _, body = fetch_url(psi_url, timeout=60, secure=True)
                 try:
@@ -1371,6 +1449,11 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
         if discovered:
             discovery_block = f"\n=== DATI AUTO-DISCOVERY (FASE 1) ===\n{json.dumps(discovered, indent=2, ensure_ascii=False, default=str)[:10000]}\n=== FINE DATI AUTO-DISCOVERY ===\n\n"
 
+        # Bug 6: Inject shared PSI metrics into ALL analyses for consistency
+        if discovered and discovered.get('_shared_psi', {}).get('value') and analysis_type not in ('performance', 'cwv'):
+            shared = discovered['_shared_psi']['data']
+            discovery_block += f"\n=== DATI OGGETTIVI MISURATI (PageSpeed Insights — riferimento, NON duplicare nell'analisi performance) ===\n{json.dumps(shared.get('metrics', {}), indent=2, ensure_ascii=False)}\nScores: {json.dumps(shared.get('scores', {}), ensure_ascii=False)}\n=== FINE DATI OGGETTIVI ===\n"
+
         # Add YAML checklist context
         yaml_context = get_yaml_context(analysis_type, discovered)
         if yaml_context:
@@ -1402,7 +1485,10 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
                 filtered = ss_issues[:30]
             if filtered:
                 ss_block = json.dumps(filtered[:50], indent=1, ensure_ascii=False, default=str)[:6000]
-                discovery_block += f"\n=== SQUIRRELSCAN DEEP CRAWL ({len(filtered)} issue rilevanti) ===\n{ss_block}\n=== FINE SQUIRRELSCAN ===\n"
+                crawler_note = ""
+                if discovered.get('_crawler_limitations', {}).get('value'):
+                    crawler_note = "\nNOTA: Le URL contrassegnate come 'limite crawler' sono raggiungibili (HTTP 200) ma non scansionate da SquirrelScan. NON segnalarle come problemi del sito.\n"
+                discovery_block += f"\n=== SQUIRRELSCAN DEEP CRAWL ({len(filtered)} issue rilevanti) ==={crawler_note}\n{ss_block}\n=== FINE SQUIRRELSCAN ===\n"
 
         content_limit = 20000
         user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{discovery_block}{prompt}\n\nContenuto recuperato:\n```\n{content[:content_limit]}\n```"
@@ -2099,6 +2185,41 @@ def main():
         if key.startswith('_'):
             continue
         log('  📌', f'{key}: {val["note"]}', C.DIM)
+
+    # ── PHASE 1.5: Shared PSI/CrUX Data (Bug 6 — fetch ONCE, share everywhere) ──
+    if google_key:
+        log('📊', 'Fetching PSI/CrUX dati condivisi...', C.CYAN)
+        try:
+            psi_url = f'https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={urllib.parse.quote(url, safe="")}&strategy=mobile&category=performance&category=accessibility&category=seo&category=best-practices&key={google_key}'
+            _, _, psi_body = fetch_url(psi_url, timeout=60, secure=True)
+            psi_data = json.loads(psi_body)
+            lr = psi_data.get('lighthouseResult', {})
+            cats = lr.get('categories', {})
+            audits = lr.get('audits', {})
+            shared_metrics = {
+                'scores': {k: round((cats.get(k, {}).get('score', 0) or 0) * 100) for k in ['performance', 'accessibility', 'seo', 'best-practices']},
+                'metrics': {
+                    'lcp': audits.get('largest-contentful-paint', {}).get('displayValue', 'N/A'),
+                    'inp': audits.get('interaction-to-next-paint', {}).get('displayValue', 'N/A'),
+                    'cls': audits.get('cumulative-layout-shift', {}).get('displayValue', 'N/A'),
+                    'fcp': audits.get('first-contentful-paint', {}).get('displayValue', 'N/A'),
+                    'tbt': audits.get('total-blocking-time', {}).get('displayValue', 'N/A'),
+                    'ttfb': audits.get('server-response-time', {}).get('displayValue', 'N/A'),
+                },
+                'opportunities': [
+                    {'title': v.get('title'), 'savings': v.get('displayValue'), 'score': v.get('score')}
+                    for k, v in audits.items()
+                    if v.get('score') is not None and v.get('score', 1) < 1 and v.get('details', {}).get('type') == 'opportunity'
+                ][:10]
+            }
+            discovered['_shared_psi'] = {
+                'value': True,
+                'note': f'PSI scores: perf={shared_metrics["scores"].get("performance", "N/A")}, seo={shared_metrics["scores"].get("seo", "N/A")}',
+                'data': shared_metrics,
+            }
+            log('✅', f'PSI dati condivisi: performance={shared_metrics["scores"].get("performance", "N/A")}/100', C.GREEN)
+        except Exception as e:
+            log('⚠️', f'PSI fetch condiviso fallito: {e}', C.YELLOW)
 
     # ── PHASE 2: AI Analysis ──
     header('FASE 2 — Analisi AI (Claude)')
