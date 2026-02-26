@@ -1,0 +1,2455 @@
+# ============================================================================
+# GOOGLE ADS AUDIT CHECKLIST — KNOWLEDGE BASE
+# ============================================================================
+# Version: 1.0
+# Date: 2026-02-26
+# Purpose: Comprehensive checklist for MarTech audit of Google Ads accounts
+#          using EXPORTED data (CSV/reports) and manual screenshots — NOT
+#          live API access. Covers account structure, conversion tracking,
+#          keywords, ad copy, bidding, Shopping/PMax, audiences, budgets,
+#          Quality Score, benchmarks, red flags, cross-platform, and 2025-2026
+#          platform changes.
+# Vertical: All (with ecommerce-specific sections)
+# ============================================================================
+
+metadata:
+  version: "1.0"
+  vertical: "all"
+  last_updated: "2026-02-26"
+  description: >
+    Structured knowledge base for auditing a Google Ads account using exported
+    CSV reports, Editor exports, and UI screenshots. Each section includes
+    report field names, thresholds, formulas, decision trees, and actionable
+    audit checks with severity ratings.
+  data_sources:
+    - "Google Ads UI CSV exports (Campaigns, Ad groups, Keywords, Ads, Extensions, Search terms)"
+    - "Google Ads Editor bulk exports (.csv)"
+    - "Google Merchant Center product feed exports"
+    - "Google Analytics 4 exported reports or Looker Studio dashboards"
+    - "Google Search Console performance exports"
+    - "Manual screenshots of settings, recommendations, auction insights"
+  export_instructions: >
+    In Google Ads UI: Reports > Predefined reports (or custom) > Download CSV.
+    In Google Ads Editor: Account > Export whole account or selected campaigns.
+    Key CSV files needed: Campaign report, Ad Group report, Keyword report,
+    Search Terms report, Ad report, Extensions report, Auction Insights,
+    Change History, Landing Pages report, Conversion actions export.
+
+# ============================================================================
+# SECTION 1: ACCOUNT STRUCTURE AUDIT
+# ============================================================================
+
+account_structure:
+
+  description: >
+    Evaluates the organizational hierarchy of the Google Ads account:
+    campaigns, ad groups, naming conventions, and campaign-level settings.
+    A well-structured account improves Quality Score, budget control,
+    and reporting clarity.
+
+  campaign_types:
+    - type: "Search"
+      network: "Google Search Network"
+      description: "Text ads triggered by keyword searches"
+      status: "active"
+      notes: "Core campaign type for intent-based advertising"
+    - type: "Shopping"
+      network: "Google Shopping / Search"
+      description: "Product listing ads from Merchant Center feed"
+      status: "active"
+      notes: "Requires linked Merchant Center; uses product data not keywords"
+    - type: "Performance Max (PMax)"
+      network: "All Google networks (Search, Shopping, Display, YouTube, Discover, Gmail, Maps)"
+      description: "AI-driven cross-channel campaign using asset groups"
+      status: "active"
+      notes: "Replaced Smart Shopping and Local campaigns; uses audience signals, search themes"
+    - type: "Display"
+      network: "Google Display Network (GDN)"
+      description: "Visual banner/responsive ads on partner websites"
+      status: "active"
+      notes: "Best for awareness and remarketing; typically lower intent"
+    - type: "Video"
+      network: "YouTube and Google video partners"
+      description: "Video ads (skippable, non-skippable, bumper, in-feed)"
+      status: "active"
+      notes: "Includes YouTube Shorts inventory"
+    - type: "Demand Gen"
+      network: "YouTube, Discover, Gmail"
+      description: "Visually immersive ads for mid-funnel demand creation"
+      status: "active"
+      notes: "Replaced Video Action Campaigns (VAC) and Discovery campaigns in 2025"
+    - type: "App"
+      network: "Search, Play, YouTube, Display"
+      description: "Automated app install and engagement campaigns"
+      status: "active"
+      notes: "Uses app store listing assets; fully automated targeting"
+    - type: "Discovery"
+      network: "Discover, YouTube, Gmail"
+      description: "Visual ads in Google feeds"
+      status: "deprecated"
+      notes: "Replaced by Demand Gen campaigns; auto-upgraded mid-2025"
+    - type: "Video Action Campaign (VAC)"
+      network: "YouTube"
+      description: "Video ads optimized for conversions"
+      status: "deprecated"
+      notes: "Auto-upgraded to Demand Gen starting March 2025, completed July 2025"
+    - type: "Smart Shopping"
+      network: "Shopping, Display, YouTube, Gmail"
+      description: "Automated Shopping + remarketing"
+      status: "deprecated"
+      notes: "Replaced by Performance Max in 2022"
+
+  csv_fields_campaign_report:
+    identifiers:
+      - field: "Campaign"
+        description: "Campaign name"
+      - field: "Campaign ID"
+        description: "Unique numeric identifier"
+      - field: "Campaign type"
+        description: "Search, Display, Shopping, Video, Performance Max, Demand Gen, App"
+      - field: "Campaign subtype"
+        description: "Standard, Smart, etc."
+      - field: "Campaign status"
+        description: "Enabled, Paused, Removed"
+    settings:
+      - field: "Bid strategy type"
+        description: "Manual CPC, Target CPA, Target ROAS, Maximize conversions, etc."
+      - field: "Budget"
+        description: "Daily budget amount"
+      - field: "Budget type"
+        description: "Daily or Shared"
+      - field: "Networks"
+        description: "Google Search, Search Partners, Display Network"
+        audit_note: "Check if Search Partners is enabled — often wastes spend"
+      - field: "Locations"
+        description: "Targeted geographic locations"
+      - field: "Excluded locations"
+        description: "Negatively targeted locations"
+      - field: "Location options (target)"
+        description: "Presence, Presence or interest, Search interest"
+        audit_note: "'Presence or interest' is default and can show ads to users outside target area"
+      - field: "Languages"
+        description: "Targeted languages"
+      - field: "Ad schedule"
+        description: "Day/time bid adjustments"
+      - field: "Start date"
+        description: "Campaign start date"
+      - field: "End date"
+        description: "Campaign end date (if set)"
+      - field: "Device bid adj. (Mobile)"
+        description: "Mobile bid adjustment percentage"
+      - field: "Device bid adj. (Desktop)"
+        description: "Desktop bid adjustment percentage"
+      - field: "Device bid adj. (Tablet)"
+        description: "Tablet bid adjustment percentage"
+      - field: "Delivery method"
+        description: "Standard (default)"
+    performance:
+      - field: "Impressions"
+      - field: "Clicks"
+      - field: "CTR"
+      - field: "Avg. CPC"
+      - field: "Cost"
+      - field: "Conversions"
+      - field: "Conv. rate"
+      - field: "Cost / conv."
+      - field: "Conv. value"
+      - field: "Conv. value / cost"
+        description: "ROAS"
+      - field: "All conv."
+      - field: "View-through conv."
+    impression_share:
+      - field: "Search impr. share"
+      - field: "Search lost IS (budget)"
+      - field: "Search lost IS (rank)"
+      - field: "Search exact match IS"
+      - field: "Display impr. share"
+      - field: "Display lost IS (budget)"
+      - field: "Display lost IS (rank)"
+      - field: "Search abs. top IS"
+        description: "Percentage of impressions shown as absolute top (position 1)"
+      - field: "Search top IS"
+        description: "Percentage of impressions shown in top positions"
+
+  naming_conventions:
+    description: >
+      A consistent naming convention enables fast filtering, reporting,
+      and bulk management. Check for a clear taxonomy.
+    recommended_pattern: "{Brand/NonBrand}_{Country}_{CampaignType}_{Objective}_{Targeting}_{Date}"
+    examples:
+      - "NB_US_Search_LeadGen_Exact_2025Q1"
+      - "Brand_UK_Shopping_Revenue_AllProducts"
+      - "NB_FR_PMax_Sales_HighValue"
+    audit_checks:
+      - id: "struct_001"
+        name: "Inconsistent naming convention"
+        description: "Campaigns lack a uniform naming pattern making reporting difficult"
+        detection: "Review Campaign column in export; check for systematic taxonomy"
+        severity: "medium"
+      - id: "struct_002"
+        name: "No brand vs non-brand separation"
+        description: "Brand and non-brand traffic mixed in same campaigns"
+        detection: "Check if brand terms exist in non-brand campaigns via search terms report"
+        severity: "high"
+
+  ad_group_structure:
+    description: >
+      Ad groups should be tightly themed around a set of closely related
+      keywords sharing the same intent and landing page.
+    approaches:
+      - name: "SKAGs (Single Keyword Ad Groups)"
+        description: "One keyword per ad group for maximum control"
+        status: "largely_outdated"
+        notes: >
+          Was popular pre-2020. With close variants expansion and RSAs,
+          SKAGs provide diminishing returns and fragment data. Google's
+          AI works better with consolidated ad groups.
+      - name: "Themed Ad Groups"
+        description: "3-15 closely related keywords per ad group sharing intent"
+        status: "recommended"
+        notes: "Balances control with enough data volume for Smart Bidding to optimize"
+      - name: "STAG (Single Theme Ad Groups)"
+        description: "Keywords grouped by single search intent theme"
+        status: "recommended"
+        notes: "Modern best practice; groups keywords by intent, not exact match"
+    audit_checks:
+      - id: "struct_003"
+        name: "Too many keywords per ad group"
+        description: "Ad groups with 30+ keywords likely cover multiple intents"
+        detection: "Count keywords per ad group in keyword export"
+        threshold: ">30 keywords per ad group"
+        severity: "medium"
+      - id: "struct_004"
+        name: "Single ad per ad group"
+        description: "Ad groups with only 1 RSA cannot benefit from ad testing"
+        detection: "Count ads per ad group in ad report export"
+        threshold: "<2 enabled ads per ad group"
+        severity: "high"
+      - id: "struct_005"
+        name: "Ad groups with zero impressions (30d)"
+        description: "Dormant ad groups add clutter and may indicate structural issues"
+        detection: "Filter ad group report: Impressions = 0 in last 30 days"
+        severity: "low"
+      - id: "struct_006"
+        name: "Missing ad group in campaign"
+        description: "Campaigns with no enabled ad groups waste budget settings"
+        detection: "Cross-reference campaign list with ad group list"
+        severity: "critical"
+
+  campaign_settings_audit:
+    audit_checks:
+      - id: "struct_007"
+        name: "Search Partners enabled without monitoring"
+        description: >
+          Search Partners can waste 10-30% of budget on low-quality placements.
+          Must be monitored via segment by Network in campaign report.
+        detection: "Check Networks column; segment performance by Network (with search partners)"
+        severity: "high"
+        recommendation: "Segment by Network; disable if Search Partners CPA > 2x Search CPA"
+      - id: "struct_008"
+        name: "Display Network opted in on Search campaigns"
+        description: "Search campaigns opted into Display Network dilute intent targeting"
+        detection: "Check Networks column for 'Google Search, Display Network'"
+        severity: "critical"
+        recommendation: "Always opt out of Display Network on Search campaigns"
+      - id: "struct_009"
+        name: "Location targeting set to 'Presence or interest'"
+        description: >
+          Default 'Presence or interest' shows ads to people searching ABOUT
+          a location, not only those physically there. Can waste budget.
+        detection: "Check 'Location options (target)' in campaign settings export"
+        severity: "high"
+        recommendation: "Use 'Presence' for local businesses; 'Presence or interest' for ecommerce"
+      - id: "struct_010"
+        name: "No ad schedule set"
+        description: "Ads running 24/7 without time-based optimization"
+        detection: "Check Ad schedule column — blank means all hours"
+        severity: "low"
+        recommendation: "Analyze hour-of-day report; set schedule if clear performance patterns exist"
+      - id: "struct_011"
+        name: "Language targeting too broad"
+        description: "Campaign set to 'All languages' showing ads to non-target users"
+        detection: "Check Languages column in campaign export"
+        severity: "medium"
+      - id: "struct_012"
+        name: "No end date on promotional campaigns"
+        description: "Time-limited campaigns running indefinitely"
+        detection: "Check End date field — blank means perpetual"
+        severity: "low"
+
+# ============================================================================
+# SECTION 2: CONVERSION TRACKING AUDIT
+# ============================================================================
+
+conversion_tracking:
+
+  description: >
+    Conversion tracking is the foundation of all optimization in Google Ads.
+    Without accurate tracking, Smart Bidding optimizes toward wrong signals
+    and budget is wasted. This section covers all conversion types, windows,
+    attribution, Enhanced Conversions, and value-based bidding requirements.
+
+  conversion_types:
+    - type: "Website"
+      description: "Actions on your website (purchases, form submissions, page views)"
+      tracking_methods:
+        - "Google Ads tag (gtag.js or Google Tag Manager)"
+        - "Import from Google Analytics 4"
+      notes: "GA4 imports may have 24-48h lag; native Google Ads tag is real-time"
+    - type: "App"
+      description: "In-app actions (installs, in-app purchases, events)"
+      tracking_methods:
+        - "Firebase SDK"
+        - "Third-party app analytics (Adjust, AppsFlyer, etc.)"
+    - type: "Phone calls"
+      description: "Calls from ads, calls to number on website, call clicks on mobile"
+      tracking_methods:
+        - "Google forwarding number"
+        - "Call reporting from ads"
+        - "Website call conversions (dynamic number insertion)"
+      notes: "Call ads deprecated Feb 2026; use call assets on RSAs instead"
+    - type: "Import"
+      description: "Offline conversions uploaded from CRM (Salesforce, HubSpot, etc.)"
+      tracking_methods:
+        - "Manual CSV upload"
+        - "Scheduled uploads"
+        - "API-based (Zapier, direct integration)"
+      subtypes:
+        - "Click conversions (GCLID-based)"
+        - "Call conversions (caller ID-based)"
+        - "Store visits (aggregated, Google-estimated)"
+        - "Store sales (first-party data upload)"
+    - type: "Enhanced conversions for leads"
+      description: "Hashed user-provided data sent with conversion to improve offline attribution"
+      tracking_methods:
+        - "Google Ads tag with user-provided data"
+        - "Google Tag Manager with enhanced conversions variable"
+
+  conversion_action_settings:
+    csv_fields:
+      - field: "Conversion action"
+        description: "Name of the conversion action"
+      - field: "Category"
+        description: "Purchase, Lead, Page view, Sign-up, Other, etc."
+      - field: "Source"
+        description: "Website, App (Firebase), Import, Phone call"
+      - field: "Status"
+        description: "Enabled, Removed, or Hidden"
+      - field: "Include in 'Conversions'"
+        description: "Yes/No — determines if this action is used for bidding optimization"
+      - field: "Attribution model"
+        description: "Data-driven, Last click"
+      - field: "Click-through conversion window"
+        values: ["1 day", "7 days", "14 days", "30 days", "45 days", "60 days", "90 days"]
+        default: "30 days"
+      - field: "Engaged-view conversion window"
+        values: ["Off", "1 day", "3 days", "7 days", "10 days", "14 days"]
+        default: "3 days"
+        description: "For video ads: user watches 10s+ of skippable ad then converts"
+      - field: "View-through conversion window"
+        values: ["Off", "1 day", "3 days", "7 days", "14 days", "30 days"]
+        default: "1 day"
+        description: "User sees but does not click ad, then converts"
+      - field: "Counting"
+        values: ["One (per click)", "Every"]
+        notes: "Use 'One' for leads, 'Every' for purchases"
+      - field: "Value"
+        values: ["Use same value for each", "Use different values for each", "Don't use a value"]
+      - field: "Enhanced conversions"
+        values: ["On", "Off"]
+
+  attribution_models:
+    description: >
+      Attribution models determine how conversion credit is distributed across
+      touchpoints. Google deprecated 4 rule-based models in September 2023.
+    current_models:
+      - model: "Data-driven attribution (DDA)"
+        status: "active — default for new conversion actions"
+        description: >
+          Uses Google's AI to analyze all touchpoints and assign fractional
+          credit based on how much each interaction contributed to the
+          conversion. Requires sufficient conversion volume to model.
+        minimum_data: "~300 conversions and ~3,000 interactions in 30 days (approximate)"
+        notes: "Falls back to last-click if insufficient data"
+      - model: "Last click"
+        status: "active"
+        description: "100% credit to the last-clicked ad and keyword"
+        notes: "Only remaining rule-based model; useful for comparison baseline"
+    deprecated_models:
+      - model: "First click"
+        deprecated_date: "2023-09"
+        description: "100% credit to first-clicked ad"
+      - model: "Linear"
+        deprecated_date: "2023-09"
+        description: "Equal credit across all touchpoints"
+      - model: "Time decay"
+        deprecated_date: "2023-09"
+        description: "More credit to touchpoints closer to conversion"
+      - model: "Position-based"
+        deprecated_date: "2023-09"
+        description: "40% first, 40% last, 20% distributed to middle"
+    notes: >
+      Fewer than 3% of conversions used the deprecated models at time of sunset.
+      Existing conversion actions on deprecated models were auto-migrated to DDA.
+
+  enhanced_conversions:
+    description: >
+      Supplements standard tracking by sending hashed first-party customer data
+      (email, phone, name, address) to Google for better conversion matching.
+      Helps maintain accuracy in a cookieless environment.
+    types:
+      - name: "Enhanced conversions for web"
+        description: "Hashed user data sent at time of website conversion"
+        implementation: "Google Ads tag, GTM, or Google Ads API"
+      - name: "Enhanced conversions for leads"
+        description: "Associates website lead with downstream offline conversion using hashed data"
+        implementation: "Tag captures hashed email at form submit; offline import matches GCLID"
+    data_fields_accepted:
+      - "Email address (SHA-256 hashed)"
+      - "Phone number (SHA-256 hashed, E.164 format)"
+      - "First name (SHA-256 hashed)"
+      - "Last name (SHA-256 hashed)"
+      - "Street address (SHA-256 hashed)"
+      - "City"
+      - "State"
+      - "Country"
+      - "Postal code"
+    reported_impact: "5-10% more conversions recovered vs standard tracking alone"
+
+  conversion_action_sets:
+    description: >
+      Groups of conversion actions that can be assigned to specific campaigns.
+      Allows different campaigns to optimize for different goals.
+    use_cases:
+      - "Lead gen campaign optimizing for form submissions only"
+      - "Ecommerce campaign optimizing for purchases only (excluding micro-conversions)"
+      - "Separate online vs offline conversion sets for different campaign strategies"
+
+  value_based_bidding_requirements:
+    description: >
+      Requirements to use Target ROAS or Maximize Conversion Value bidding.
+    requirements:
+      - "Conversion actions must have values assigned"
+      - "Use 'Every' counting for purchases (or 'One' with values for leads)"
+      - "At least 15 conversions in last 30 days (50+ recommended)"
+      - "Consistent conversion volume (avoid long gaps)"
+      - "New Customer Value Mode: requires setting value rules"
+    value_rules:
+      description: "Adjust conversion values based on audience, location, or device"
+      types:
+        - "Default value: static value for all conversions"
+        - "Dynamic value: passed via tag (e.g., transaction revenue)"
+        - "Value rules: multipliers based on audience, geo, device conditions"
+
+  audit_checks:
+    - id: "conv_001"
+      name: "No conversion tracking installed"
+      description: "Account has zero conversion actions or all are removed/disabled"
+      detection: "Check conversion actions export; count enabled actions with Include in Conversions = Yes"
+      severity: "critical"
+    - id: "conv_002"
+      name: "Counting misconfiguration"
+      description: "Lead-gen conversions set to 'Every' instead of 'One', inflating conversion counts"
+      detection: "Check Counting column on conversion actions export for lead categories"
+      severity: "high"
+    - id: "conv_003"
+      name: "Attribution model not Data-driven"
+      description: "Conversion actions still on Last Click when account has enough data for DDA"
+      detection: "Check Attribution model column; cross-reference conversion volume"
+      severity: "medium"
+    - id: "conv_004"
+      name: "Enhanced Conversions not enabled"
+      description: "Missing first-party data matching in a cookieless era"
+      detection: "Check Enhanced conversions column on conversion actions or screenshot settings"
+      severity: "high"
+    - id: "conv_005"
+      name: "Conversion window too short"
+      description: "Click-through window shorter than typical sales cycle loses late conversions"
+      detection: "Compare conversion window to known sales cycle; 7-day window for B2B is too short"
+      severity: "high"
+      decision_tree: >
+        IF sales_cycle <= 7 days THEN 30-day window is fine.
+        IF sales_cycle 7-30 days THEN use 30-60 day window.
+        IF sales_cycle > 30 days THEN use 60-90 day window.
+    - id: "conv_006"
+      name: "Micro-conversions included in primary conversions"
+      description: "Page views, time on site, or scroll depth counted as primary conversions for bidding"
+      detection: "Review all conversion actions with Include in Conversions = Yes; check category"
+      severity: "high"
+      recommendation: "Move micro-conversions to secondary (observation only); keep only business-meaningful actions as primary"
+    - id: "conv_007"
+      name: "No offline conversion import for lead gen"
+      description: "Lead-gen account not importing downstream CRM conversions (MQL, SQL, closed/won)"
+      detection: "Check Source column for 'Import' type conversion actions"
+      severity: "high"
+      recommendation: "Implement GCLID-based offline conversion import from CRM"
+    - id: "conv_008"
+      name: "No conversion values assigned"
+      description: "Account cannot use value-based bidding (Target ROAS, Maximize Conversion Value)"
+      detection: "Check Value column on conversion actions — all set to 'Don't use a value'"
+      severity: "medium"
+    - id: "conv_009"
+      name: "Duplicate conversion tracking"
+      description: "Same conversion tracked via both Google Ads tag AND GA4 import, both included in bidding"
+      detection: "Look for duplicate conversion action names with different sources"
+      severity: "critical"
+    - id: "conv_010"
+      name: "View-through window inflating conversions"
+      description: "Display/Video campaigns with 30-day view-through window claiming organic conversions"
+      detection: "Check View-through conversion window on conversion actions; segment conversions by type"
+      severity: "medium"
+
+# ============================================================================
+# SECTION 3: KEYWORD STRATEGY AUDIT
+# ============================================================================
+
+keyword_strategy:
+
+  description: >
+    Evaluates keyword selection, match types, negative keyword coverage,
+    search term quality, and Quality Score. Applies only to Search campaigns.
+
+  match_types:
+    - type: "Broad match"
+      syntax: "keyword (no modifier)"
+      description: "Matches searches related to the keyword meaning, including synonyms, related queries"
+      status: "active — significantly improved by AI in 2024-2025"
+      notes: >
+        Google recommends broad match with Smart Bidding. However, without
+        robust negative keyword lists and conversion tracking, broad match
+        can waste significant budget on irrelevant queries.
+    - type: "Phrase match"
+      syntax: '"keyword"'
+      description: "Matches searches that include the meaning of the keyword"
+      status: "active"
+      notes: "Absorbed the old Broad Match Modifier behavior in 2021"
+    - type: "Exact match"
+      syntax: "[keyword]"
+      description: "Matches searches with the same meaning as the keyword"
+      status: "active"
+      notes: "Still matches close variants (plurals, misspellings, reorderings, implied words)"
+    - type: "Broad Match Modifier (BMM)"
+      syntax: "+keyword"
+      description: "Required specific words to be present"
+      status: "deprecated (2021)"
+      notes: "Behavior absorbed into Phrase match"
+
+  close_variants:
+    description: >
+      All match types now trigger on close variants including misspellings,
+      singular/plural, stemmings, abbreviations, accents, and implied words.
+      Exact match also matches reworded queries with same intent.
+    impact: "Reduced control — must rely on negative keywords to exclude unwanted variants"
+
+  csv_fields_keyword_report:
+    - field: "Keyword"
+    - field: "Match type"
+      values: ["Broad", "Phrase", "Exact"]
+    - field: "Keyword status"
+      values: ["Eligible", "Paused", "Removed", "Below first page bid", "Rarely shown (low Quality Score)"]
+    - field: "Max CPC"
+      description: "Keyword-level bid (blank if using automated bidding)"
+    - field: "Quality Score"
+      range: "1-10 or '--' if insufficient data"
+    - field: "Exp. CTR"
+      values: ["Above average", "Average", "Below average"]
+    - field: "Ad relevance"
+      values: ["Above average", "Average", "Below average"]
+    - field: "Landing page exp."
+      values: ["Above average", "Average", "Below average"]
+    - field: "Impressions"
+    - field: "Clicks"
+    - field: "CTR"
+    - field: "Avg. CPC"
+    - field: "Cost"
+    - field: "Conversions"
+    - field: "Conv. rate"
+    - field: "Cost / conv."
+    - field: "Conv. value"
+    - field: "First page bid est."
+    - field: "Top of page bid est."
+    - field: "First position bid est."
+    - field: "Search impr. share"
+
+  negative_keywords:
+    levels:
+      - level: "Ad group negative"
+        description: "Blocks searches for a specific ad group only"
+      - level: "Campaign negative"
+        description: "Blocks searches across all ad groups in the campaign"
+      - level: "Account-level negative keyword list"
+        description: "Shared negative keyword list applied to multiple campaigns"
+        notes: "PMax campaigns now support campaign-level negatives (up to 10,000)"
+    match_types:
+      - "Broad negative (default — blocks queries containing all negative terms in any order)"
+      - "Phrase negative (blocks queries containing exact phrase)"
+      - "Exact negative (blocks only the exact query)"
+    notes: >
+      Negative keywords do NOT match close variants the same way positive
+      keywords do. You must add misspellings, plural/singular forms manually.
+
+  search_terms_report:
+    description: >
+      Shows actual search queries that triggered your ads. Essential for
+      finding wasted spend and new keyword opportunities.
+    csv_fields:
+      - field: "Search term"
+      - field: "Match type"
+        description: "How the search term matched your keyword"
+      - field: "Added / Excluded"
+        description: "Whether term was added as keyword or negative"
+      - field: "Keyword"
+        description: "The keyword that was matched"
+      - field: "Campaign"
+      - field: "Ad group"
+      - field: "Impressions"
+      - field: "Clicks"
+      - field: "Cost"
+      - field: "Conversions"
+      - field: "Conv. value"
+    limitations: >
+      Google hides search terms below a privacy threshold (insufficient
+      unique users). Typically 20-30% of clicks may be in "Other search
+      terms" category. PMax now shows search terms for Search/Shopping
+      placements as of late 2025.
+
+  brand_vs_nonbrand_segmentation:
+    description: >
+      Separating brand and non-brand keywords into different campaigns
+      is critical for accurate performance measurement and budget control.
+    reasons:
+      - "Brand keywords have 2-5x higher CTR and conversion rates"
+      - "Mixing inflates perceived performance of non-brand keywords"
+      - "Separate budgets prevent brand from cannibalizing non-brand spend"
+      - "Different bidding strategies appropriate for each"
+    detection: >
+      Filter search terms report for brand name variations.
+      Check if brand keywords exist in non-brand campaigns.
+
+  audit_checks:
+    - id: "kw_001"
+      name: "Broad match without Smart Bidding"
+      description: "Broad match keywords used with Manual CPC — high risk of irrelevant spend"
+      detection: "Cross-reference Match type = Broad with campaign Bid strategy type = Manual CPC"
+      severity: "critical"
+    - id: "kw_002"
+      name: "No negative keywords"
+      description: "Campaign or account has zero negative keywords"
+      detection: "Export negative keywords; check if empty"
+      severity: "critical"
+    - id: "kw_003"
+      name: "Search terms with high spend and zero conversions"
+      description: "Individual search terms consuming budget without converting"
+      detection: "Filter search terms: Cost > $50 AND Conversions = 0"
+      threshold: "Varies by CPA target; flag terms spending > 2x target CPA with 0 conversions"
+      severity: "high"
+      formula: "wasted_spend = SUM(cost) WHERE conversions = 0 AND cost > (2 * target_CPA)"
+    - id: "kw_004"
+      name: "Negative keyword conflicts"
+      description: "Negative keywords blocking intended positive keywords"
+      detection: "Use Google Ads Editor conflict checker or compare negative list against positive keywords"
+      severity: "high"
+    - id: "kw_005"
+      name: "Low Quality Score keywords"
+      description: "Keywords with Quality Score 1-4 paying premium CPCs"
+      detection: "Filter keyword report: Quality Score <= 4"
+      threshold: "QS <= 4"
+      severity: "high"
+    - id: "kw_006"
+      name: "Duplicate keywords across campaigns"
+      description: "Same keyword in multiple campaigns causing self-competition"
+      detection: "Sort keyword export by keyword text; identify duplicates across campaigns"
+      severity: "medium"
+    - id: "kw_007"
+      name: "Keyword to ad relevance gap"
+      description: "Keywords with 'Below average' ad relevance score"
+      detection: "Filter keyword report: Ad relevance = Below average"
+      severity: "medium"
+    - id: "kw_008"
+      name: "Stale search terms review"
+      description: "Search terms report not reviewed in 30+ days"
+      detection: "Check Change History for recent negative keyword additions"
+      severity: "medium"
+      recommendation: "Review search terms weekly for active campaigns, bi-weekly for stable ones"
+    - id: "kw_009"
+      name: "Over-reliance on exact match"
+      description: "Account using only exact match keywords limiting reach and AI optimization"
+      detection: "Check match type distribution; >90% exact match is over-constrained"
+      severity: "low"
+
+# ============================================================================
+# SECTION 4: AD COPY & EXTENSIONS (ASSETS) AUDIT
+# ============================================================================
+
+ad_copy_and_assets:
+
+  description: >
+    Evaluates Responsive Search Ads (RSAs), ad strength, and all ad asset
+    types (formerly called extensions). As of 2025, RSAs are the only
+    standard ad format for Search campaigns. Expanded Text Ads (ETAs)
+    were sunset in June 2022.
+
+  responsive_search_ads:
+    description: >
+      RSAs allow up to 15 headlines (30 chars each) and 4 descriptions
+      (90 chars each). Google's AI tests combinations to find best
+      performing assemblies per auction.
+    limits:
+      max_headlines: 15
+      max_descriptions: 4
+      headline_max_chars: 30
+      description_max_chars: 90
+      min_headlines_required: 3
+      min_descriptions_required: 2
+      headlines_shown_per_auction: "2-3"
+      descriptions_shown_per_auction: "1-2"
+    best_practices:
+      - "Provide 8-15 unique headlines with diverse messaging angles"
+      - "Include keywords in at least 3 headlines"
+      - "Vary headline length (some short, some using full 30 chars)"
+      - "Include at least one headline with a CTA"
+      - "Include at least one headline with a USP/value proposition"
+      - "Include at least one headline with a number (price, stat, offer)"
+      - "Provide 3-4 unique descriptions"
+      - "Each description should make sense standalone"
+      - "Avoid redundancy across headlines and descriptions"
+    pinning:
+      description: >
+        Pinning forces a specific headline or description into a fixed
+        position (1, 2, or 3 for headlines; 1 or 2 for descriptions).
+      impact: "Reduces ad combinations tested; lowers Ad Strength score"
+      when_to_pin:
+        - "Legal/compliance disclaimers that must always appear"
+        - "Brand name that must be in headline position 1"
+        - "Price or offer that must be visible"
+      tip: "Pin 2-3 assets to the same position to maintain some rotation"
+    ad_strength:
+      description: >
+        Google's assessment of ad quality: Poor, Average, Good, Excellent.
+        Based on asset diversity, relevance, and quantity.
+      values: ["Poor", "Average", "Good", "Excellent"]
+      impact_on_performance: >
+        Google confirmed in 2024 that Ad Strength does NOT directly
+        affect Ad Rank. However, 'Excellent' ads have more combinations
+        to test and tend to perform better empirically.
+      target: "Good or Excellent"
+
+  csv_fields_ad_report:
+    - field: "Ad group"
+    - field: "Ad type"
+      values: ["Responsive search ad", "Expanded text ad (legacy)", "Responsive display ad", "Call ad (deprecated)"]
+    - field: "Ad status"
+    - field: "Headline 1"
+    - field: "Headline 2"
+    - field: "Headline 3"
+    - field: "Headline 4 through Headline 15"
+    - field: "Description 1"
+    - field: "Description 2"
+    - field: "Description 3"
+    - field: "Description 4"
+    - field: "Final URL"
+    - field: "Path 1"
+    - field: "Path 2"
+    - field: "Ad strength"
+    - field: "Impressions"
+    - field: "Clicks"
+    - field: "CTR"
+    - field: "Conversions"
+    - field: "Labels"
+
+  asset_types:
+    description: >
+      Assets (formerly extensions) enhance ads with additional information
+      and increase clickable area. They can be set at account, campaign,
+      or ad group level.
+    types:
+      - name: "Sitelinks"
+        description: "Additional links to specific pages on your site"
+        fields: ["Link text (25 chars)", "Description line 1 (35 chars)", "Description line 2 (35 chars)", "Final URL"]
+        minimum_recommended: 4
+        notes: "Show up to 4 on desktop, 2 on mobile"
+      - name: "Callouts"
+        description: "Short highlight phrases (free shipping, 24/7 support)"
+        fields: ["Callout text (25 chars)"]
+        minimum_recommended: 4
+        notes: "Non-clickable; show 2-6 callouts"
+      - name: "Structured snippets"
+        description: "Predefined header + list of values (Brands: X, Y, Z)"
+        fields: ["Header (predefined category)", "Values (25 chars each)"]
+        headers: ["Amenities", "Brands", "Courses", "Degree programs", "Destinations",
+                  "Featured hotels", "Insurance coverage", "Models", "Neighborhoods",
+                  "Service catalog", "Shows", "Styles", "Types"]
+        minimum_recommended: 4 values per header
+      - name: "Call assets"
+        description: "Phone number displayed with the ad"
+        fields: ["Phone number", "Country code"]
+        notes: "Replacing deprecated standalone Call Ads from Feb 2026"
+      - name: "Location assets"
+        description: "Business address from linked Google Business Profile"
+        fields: ["Auto-populated from Google Business Profile"]
+        notes: "Requires linked Google Business Profile"
+      - name: "Price assets"
+        description: "Showcase products/services with prices"
+        fields: ["Type", "Header (25 chars)", "Price", "Price unit", "Description (25 chars)", "Final URL"]
+        notes: "Show 3-8 price items"
+      - name: "Promotion assets"
+        description: "Highlight sales and special offers"
+        fields: ["Occasion", "Promotion type (monetary/percent discount)", "Item (20 chars)", "Final URL", "Dates"]
+      - name: "Image assets"
+        description: "Images displayed alongside search ads"
+        fields: ["Image (landscape 1.91:1 or square 1:1)", "Alt text"]
+        requirements: "Account must have 90+ days history and active campaigns"
+      - name: "Business name"
+        description: "Verified business name shown above headline"
+        notes: "Requires advertiser verification"
+      - name: "Business logo"
+        description: "Logo shown with the ad"
+        notes: "Requires advertiser verification; square format"
+      - name: "Lead form assets"
+        description: "In-ad lead form (removed from new campaign creation 2024)"
+        status: "limited"
+
+  ad_customizers:
+    description: >
+      Dynamic content insertion into ads based on audience, location,
+      device, or time. Includes countdown timers and IF functions.
+    types:
+      - name: "Keyword insertion"
+        syntax: "{KeyWord:default text}"
+        description: "Inserts the user's search query into the ad headline/description"
+      - name: "Countdown"
+        syntax: "{=COUNTDOWN(sale_end_date)}"
+        description: "Dynamic countdown to a date"
+      - name: "IF functions"
+        syntax: "{=IF(device=mobile,Mobile CTA):Default CTA}"
+        description: "Show different text based on device or audience"
+      - name: "Ad customizer attributes"
+        description: "Feed-based dynamic insertion of text, numbers, prices, dates"
+        notes: "Set up via Business data feeds in Google Ads"
+
+  audit_checks:
+    - id: "ad_001"
+      name: "RSA with fewer than 8 headlines"
+      description: "Under-utilizing RSA headline slots reduces combination testing"
+      detection: "Count non-empty Headline columns per ad in export"
+      threshold: "<8 headlines"
+      severity: "medium"
+    - id: "ad_002"
+      name: "Ad Strength is Poor"
+      description: "Ads rated 'Poor' have limited asset variety"
+      detection: "Filter ad report: Ad strength = Poor"
+      severity: "high"
+    - id: "ad_003"
+      name: "No sitelink assets"
+      description: "Missing sitelinks reduces ad real estate and CTR"
+      detection: "Check extensions/assets export for sitelinks; count per campaign"
+      severity: "high"
+    - id: "ad_004"
+      name: "No callout assets"
+      description: "Missing callouts to highlight USPs"
+      detection: "Check extensions/assets export for callouts"
+      severity: "medium"
+    - id: "ad_005"
+      name: "No structured snippets"
+      description: "Missing structured snippets for additional context"
+      detection: "Check extensions/assets export for structured snippets"
+      severity: "medium"
+    - id: "ad_006"
+      name: "Missing image assets on Search"
+      description: "Image assets can increase CTR by 10%+ on eligible Search ads"
+      detection: "Check extensions/assets export for image assets"
+      severity: "low"
+    - id: "ad_007"
+      name: "Excessive pinning"
+      description: "All headline positions pinned, eliminating AI optimization benefit"
+      detection: "Check pin columns in ad export; count pinned vs unpinned headlines"
+      severity: "medium"
+    - id: "ad_008"
+      name: "Duplicate ad copy across ad groups"
+      description: "Same headlines/descriptions used in multiple ad groups reduce relevance"
+      detection: "Compare headline columns across ad groups"
+      severity: "low"
+    - id: "ad_009"
+      name: "No mobile-specific assets or messaging"
+      description: "No mobile-preferred ads or mobile-specific callouts"
+      detection: "Check for mobile bid adjustments and mobile-specific assets"
+      severity: "low"
+    - id: "ad_010"
+      name: "Broken final URLs"
+      description: "Ad landing pages returning 4xx/5xx errors"
+      detection: "Export Final URL column; crawl for HTTP status codes"
+      severity: "critical"
+    - id: "ad_011"
+      name: "Legacy Expanded Text Ads still running"
+      description: "ETAs can still serve but cannot be edited; should compare vs RSA performance"
+      detection: "Filter ad report: Ad type = Expanded text ad AND Status = Enabled"
+      severity: "low"
+
+# ============================================================================
+# SECTION 5: SMART BIDDING AUDIT
+# ============================================================================
+
+smart_bidding:
+
+  description: >
+    Evaluates bidding strategy selection, configuration, and performance.
+    Smart Bidding uses Google's AI to optimize bids in real time using
+    70+ billion auction signals.
+
+  strategies:
+    - name: "Target CPA (tCPA)"
+      type: "smart_bidding"
+      goal: "Get as many conversions as possible at target cost-per-acquisition"
+      available_on: ["Search", "Display", "App", "Demand Gen"]
+      requirements:
+        - "Conversion tracking enabled"
+        - "Recommended: 30+ conversions in last 30 days"
+        - "Minimum: 15 conversions in last 30 days"
+      settings:
+        - "Target CPA amount"
+        - "Set as portfolio or standard strategy"
+      notes: "Now a sub-option of Maximize Conversions (set optional tCPA target)"
+    - name: "Target ROAS (tROAS)"
+      type: "smart_bidding"
+      goal: "Maximize conversion value at target return on ad spend"
+      available_on: ["Search", "Shopping", "Display", "App", "Demand Gen", "PMax"]
+      requirements:
+        - "Conversion tracking with values"
+        - "Recommended: 50+ conversions with values in last 30 days"
+        - "Minimum: 15 conversions in last 30 days"
+      settings:
+        - "Target ROAS percentage (e.g., 400% means $4 revenue per $1 spend)"
+      notes: "Now a sub-option of Maximize Conversion Value (set optional tROAS target)"
+    - name: "Maximize Conversions"
+      type: "smart_bidding"
+      goal: "Get the most conversions within budget"
+      available_on: ["Search", "Display", "Demand Gen", "PMax"]
+      requirements:
+        - "Conversion tracking enabled"
+      settings:
+        - "Optional: Target CPA"
+      notes: "Without a tCPA cap, will spend entire budget aggressively"
+    - name: "Maximize Conversion Value"
+      type: "smart_bidding"
+      goal: "Get the most conversion value within budget"
+      available_on: ["Search", "Shopping", "Demand Gen", "PMax"]
+      requirements:
+        - "Conversion tracking with values"
+      settings:
+        - "Optional: Target ROAS"
+      notes: "Without a tROAS target, will spend entire budget chasing highest value"
+    - name: "Maximize Clicks"
+      type: "automated_bidding"
+      goal: "Get the most clicks within budget"
+      available_on: ["Search", "Display"]
+      requirements: "None"
+      settings:
+        - "Optional: Maximum CPC bid limit"
+      notes: "Not Smart Bidding (no conversion optimization). Use only for traffic/awareness goals"
+    - name: "Manual CPC"
+      type: "manual"
+      goal: "Full manual control over keyword bids"
+      available_on: ["Search", "Display"]
+      notes: "No AI optimization. Suitable for very small accounts or testing"
+    - name: "Enhanced CPC (eCPC)"
+      type: "semi_automated"
+      goal: "Adjust manual bids up/down based on conversion likelihood"
+      status: "deprecated"
+      deprecated_date: "2025-03"
+      notes: >
+        Deprecated March 31, 2025. Existing campaigns auto-migrated to
+        Manual CPC. Google recommends switching to fully automated bidding.
+    - name: "Target Impression Share"
+      type: "automated_bidding"
+      goal: "Show ads at target position (absolute top, top, anywhere)"
+      available_on: ["Search"]
+      settings:
+        - "Location: Absolute top, Top of page, Anywhere on page"
+        - "Target impression share percentage"
+        - "Maximum CPC bid limit"
+      notes: "Use for brand campaigns where visibility is the goal"
+
+  portfolio_vs_standard:
+    portfolio:
+      description: "Single bidding strategy shared across multiple campaigns"
+      benefits:
+        - "Pools conversion data across campaigns for faster learning"
+        - "Optimizes spend allocation across campaigns"
+        - "Set one CPA/ROAS target for related campaigns"
+      where_to_find: "Tools & Settings > Shared Library > Bid strategies"
+    standard:
+      description: "Bidding strategy applied to one campaign only"
+      benefits:
+        - "Independent optimization per campaign"
+        - "Appropriate when campaigns have different goals or margins"
+
+  bid_adjustments:
+    description: >
+      Bid adjustments modify bids by percentage for specific segments.
+      With Smart Bidding, most bid adjustments are IGNORED because the AI
+      handles them automatically.
+    adjustments_with_smart_bidding:
+      respected:
+        - "Device: -100% only (to exclude a device entirely)"
+        - "Audiences: Observation mode adjustments ignored by Smart Bidding"
+      ignored:
+        - "Location bid adjustments (Smart Bidding handles geo signals)"
+        - "Ad schedule bid adjustments (Smart Bidding handles time-of-day)"
+        - "Device bid adjustments other than -100%"
+        - "Demographic bid adjustments"
+    adjustments_with_manual_cpc:
+      all_respected: true
+      types: ["Device", "Location", "Ad schedule", "Demographics (age, gender, income)", "Audiences"]
+
+  auction_insights:
+    description: >
+      Competitive benchmarking report showing how your ads compare to
+      competitors in the same auctions.
+    csv_fields:
+      - field: "Display URL domain"
+        description: "Competitor domain"
+      - field: "Impression share"
+      - field: "Overlap rate"
+        description: "How often competitor's ad showed when yours did"
+      - field: "Position above rate"
+        description: "How often competitor's ad ranked above yours"
+      - field: "Top of page rate"
+      - field: "Abs. top of page rate"
+      - field: "Outranking share"
+        description: "How often your ad ranked higher or showed when theirs didn't"
+    notes: "Available for Search and Shopping campaigns only"
+
+  impression_share_metrics:
+    formulas:
+      search_impression_share: "Impressions / Eligible Impressions"
+      search_lost_is_budget: "% of eligible impressions lost due to insufficient budget"
+      search_lost_is_rank: "% of eligible impressions lost due to poor Ad Rank"
+      search_exact_match_is: "Impressions / Eligible impressions for exact match queries"
+      search_abs_top_is: "Impressions at absolute top / Eligible top impressions"
+      search_top_is: "Impressions in top / Eligible top impressions"
+    relationships: >
+      Impression Share = 100% - Lost IS (Budget) - Lost IS (Rank) - Other factors.
+      If Lost IS (Budget) is high: increase budget or narrow targeting.
+      If Lost IS (Rank) is high: improve Quality Score, increase bids, or improve ads.
+
+  audit_checks:
+    - id: "bid_001"
+      name: "Smart Bidding without enough conversion data"
+      description: "Target CPA or ROAS used with fewer than 15 conversions in 30 days"
+      detection: "Check conversions in last 30 days per campaign; compare to bidding strategy"
+      threshold: "<15 conversions/30 days with tCPA or tROAS"
+      severity: "high"
+    - id: "bid_002"
+      name: "Maximize Conversions without CPA cap"
+      description: "Campaign spending entire budget without cost efficiency guardrail"
+      detection: "Bid strategy = Maximize Conversions AND no Target CPA set"
+      severity: "medium"
+      recommendation: "Add a Target CPA based on historical CPA (start at 120% of recent avg CPA)"
+    - id: "bid_003"
+      name: "Unrealistic Target CPA or ROAS"
+      description: "Target set far below/above historical performance"
+      detection: "Compare target CPA/ROAS to actual CPA/ROAS over last 30-60 days"
+      threshold: "Target CPA < 50% of actual CPA, or Target ROAS > 200% of actual ROAS"
+      severity: "high"
+      recommendation: "Set targets within 20% of actual; adjust gradually (10-15% every 2 weeks)"
+    - id: "bid_004"
+      name: "eCPC still in use (deprecated)"
+      description: "Campaign still showing Enhanced CPC — should have migrated"
+      detection: "Bid strategy type = Enhanced CPC"
+      severity: "high"
+    - id: "bid_005"
+      name: "Manual CPC on high-volume campaign"
+      description: "Campaign with 50+ monthly conversions not leveraging Smart Bidding"
+      detection: "Bid strategy = Manual CPC AND Conversions > 50 in last 30 days"
+      severity: "medium"
+    - id: "bid_006"
+      name: "High impression share lost to budget"
+      description: "Budget-limited campaign losing significant eligible impressions"
+      detection: "Search lost IS (budget) > 20%"
+      threshold: ">20%"
+      severity: "high"
+      recommendation: "Increase budget for campaigns with strong CPA/ROAS performance"
+    - id: "bid_007"
+      name: "High impression share lost to rank"
+      description: "Poor Ad Rank causing ad suppression"
+      detection: "Search lost IS (rank) > 30%"
+      threshold: ">30%"
+      severity: "medium"
+      recommendation: "Improve Quality Score components or increase bids"
+    - id: "bid_008"
+      name: "Bidding strategy changed too frequently"
+      description: "Frequent strategy changes prevent learning; algorithm needs 2-4 weeks to stabilize"
+      detection: "Check Change History for bid strategy changes; flag if changed more than once per month"
+      severity: "medium"
+
+# ============================================================================
+# SECTION 6: SHOPPING & PERFORMANCE MAX AUDIT
+# ============================================================================
+
+shopping_and_pmax:
+
+  description: >
+    Evaluates product feed quality, Merchant Center health, PMax asset
+    groups, audience signals, search themes, and listing group structure.
+
+  product_feed_quality:
+    description: >
+      Product feed is the foundation of Shopping and PMax campaigns.
+      Feed quality directly impacts ad eligibility, impression share,
+      and conversion rate.
+    required_fields:
+      - field: "id"
+        description: "Unique product identifier"
+      - field: "title"
+        max_chars: 150
+        best_practice: "Include brand, product type, key attributes (color, size, material). Front-load important keywords."
+        audit_tip: "Titles under 70 chars are truncated on mobile; optimize first 70 chars"
+      - field: "description"
+        max_chars: 5000
+        best_practice: "Detailed description with keywords; avoid promotional text"
+      - field: "link"
+        description: "Landing page URL"
+      - field: "image_link"
+        requirements: "Min 100x100 px (non-apparel), 250x250 px (apparel). No watermarks, placeholders."
+      - field: "price"
+        description: "Must match landing page price exactly"
+        audit_tip: "Price mismatch is the #1 cause of product disapprovals"
+      - field: "availability"
+        values: ["in_stock", "out_of_stock", "preorder", "backorder"]
+        audit_tip: "Must match website availability; mismatch causes disapproval"
+      - field: "brand"
+      - field: "gtin"
+        description: "Global Trade Item Number (UPC, EAN, ISBN)"
+        audit_tip: "Missing GTIN reduces visibility; required for known branded products"
+      - field: "mpn"
+        description: "Manufacturer Part Number (if no GTIN)"
+      - field: "condition"
+        values: ["new", "refurbished", "used"]
+      - field: "google_product_category"
+        description: "Google's product taxonomy"
+      - field: "product_type"
+        description: "Your own category path"
+    recommended_fields:
+      - field: "additional_image_link"
+        description: "Up to 10 additional images"
+      - field: "sale_price"
+      - field: "sale_price_effective_date"
+      - field: "color"
+      - field: "size"
+      - field: "material"
+      - field: "pattern"
+      - field: "item_group_id"
+        description: "Groups product variants together"
+      - field: "shipping"
+      - field: "tax"
+      - field: "custom_label_0 through custom_label_4"
+        description: "For campaign segmentation (margin tier, season, bestseller, etc.)"
+
+  merchant_center_errors:
+    severity_levels:
+      - level: "Account-level issues"
+        description: "Affect entire account (suspension risk)"
+        examples:
+          - "Misrepresentation"
+          - "Website claim issues"
+          - "Missing return policy"
+          - "Checkout issues"
+      - level: "Feed-level issues"
+        description: "Affect all products in a feed"
+        examples:
+          - "Processing errors (invalid format, encoding)"
+          - "Schema validation failures"
+      - level: "Product-level issues (errors)"
+        description: "Individual products disapproved"
+        examples:
+          - "Price mismatch with landing page"
+          - "Availability mismatch"
+          - "Missing required attributes (GTIN, shipping)"
+          - "Image quality issues"
+          - "Policy violations"
+      - level: "Product-level issues (warnings)"
+        description: "Products eligible but performance limited"
+        examples:
+          - "Missing optional attributes"
+          - "Low image quality"
+          - "Generic titles"
+    feed_health_metrics:
+      - "Total products submitted"
+      - "Active / approved products"
+      - "Disapproved products (count and %)"
+      - "Expiring products"
+      - "Products pending review"
+
+  pmax_asset_groups:
+    description: >
+      Asset groups are PMax's equivalent of ad groups. Each contains
+      creative assets and targeting signals.
+    asset_limits:
+      text:
+        headlines: {min: 3, max: 15, char_limit: 30}
+        long_headlines: {min: 1, max: 5, char_limit: 90}
+        descriptions: {min: 2, max: 5, char_limit: 90}
+        business_name: {min: 1, max: 1, char_limit: 25}
+      images:
+        landscape: {min: 1, max: 20, ratio: "1.91:1", min_size: "600x314"}
+        square: {min: 1, max: 20, ratio: "1:1", min_size: "300x300"}
+        portrait: {min: 0, max: 20, ratio: "4:5", min_size: "480x600"}
+      logos:
+        square: {min: 1, max: 5, ratio: "1:1", min_size: "128x128"}
+        landscape: {min: 0, max: 5, ratio: "4:1", min_size: "512x128"}
+      videos:
+        count: {min: 0, max: 5}
+        min_duration: "10 seconds"
+        notes: "If no video provided, Google auto-generates one (quality varies)"
+
+  audience_signals:
+    description: >
+      Audience signals are SUGGESTIONS, not hard targeting. They help
+      Google's AI start optimization faster but the algorithm will
+      expand beyond these signals based on conversion data.
+    signal_types:
+      - type: "Custom segments"
+        description: "Based on search terms, URLs, or apps your ideal customers use"
+      - type: "Your data"
+        description: "Customer Match lists, website visitors, app users"
+      - type: "Interests & demographics"
+        description: "In-market, affinity, life events, detailed demographics"
+    best_practices:
+      - "Always include at least one audience signal per asset group"
+      - "Use Customer Match lists of high-value customers as top-priority signal"
+      - "Add competitor URLs and industry keywords as custom segments"
+      - "Create separate asset groups for different audience themes"
+      - "Do NOT rely on signals as sole targeting — they are directional only"
+
+  search_themes:
+    description: >
+      Keywords that guide PMax toward relevant Search and Shopping queries.
+      Behave like broad match — guide direction, not exact targeting.
+    limits:
+      per_asset_group: 50  # Increased from 25 in 2025
+    best_practices:
+      - "Add themes that represent your core product/service categories"
+      - "Include brand terms if you want PMax to cover brand searches"
+      - "Exclude brand terms via campaign negatives if separate brand campaign exists"
+      - "Review search terms report to see which themes drive conversions"
+
+  listing_groups:
+    description: >
+      For Shopping-based PMax, listing groups define which products are
+      included/excluded per asset group. Equivalent to product groups
+      in standard Shopping campaigns.
+    segmentation_dimensions:
+      - "Category (Google product category)"
+      - "Brand"
+      - "Item ID"
+      - "Condition"
+      - "Product type"
+      - "Channel (Online / Local)"
+      - "Custom label 0-4"
+
+  feed_only_vs_full_pmax:
+    feed_only:
+      description: "PMax campaign with product feed but no additional creative assets"
+      behavior: "Acts like Smart Shopping — runs primarily on Shopping and Search placements"
+      when_to_use: "When you want Shopping-like behavior with PMax's bidding capabilities"
+    full_pmax:
+      description: "PMax with both product feed and full asset groups (images, videos, text)"
+      behavior: "Runs across all Google networks including Display, YouTube, Discover"
+      when_to_use: "When you want full cross-channel reach"
+
+  audit_checks:
+    - id: "shop_001"
+      name: "High product disapproval rate"
+      description: "More than 10% of products disapproved in Merchant Center"
+      detection: "Check Merchant Center diagnostics: Disapproved / Total submitted"
+      threshold: ">10% disapproval rate"
+      severity: "critical"
+    - id: "shop_002"
+      name: "Missing GTINs on branded products"
+      description: "Products from known brands missing GTIN, reducing Shopping visibility"
+      detection: "Filter feed export: brand is not empty AND gtin is empty"
+      severity: "high"
+    - id: "shop_003"
+      name: "Generic product titles"
+      description: "Titles lacking brand, attributes, or specificity"
+      detection: "Review title column in feed; flag titles under 30 chars or missing brand"
+      severity: "high"
+    - id: "shop_004"
+      name: "No audience signals in PMax"
+      description: "PMax running without audience signals — slower optimization"
+      detection: "Screenshot PMax asset group settings; check audience signals section"
+      severity: "high"
+    - id: "shop_005"
+      name: "PMax auto-generated videos"
+      description: "No custom videos uploaded; Google creating low-quality auto-videos"
+      detection: "Check video assets in PMax; if 0 uploaded, auto-generated are serving"
+      severity: "medium"
+    - id: "shop_006"
+      name: "Single asset group for all products"
+      description: "No segmentation by product category, margin, or audience"
+      detection: "Count asset groups per PMax campaign"
+      severity: "medium"
+    - id: "shop_007"
+      name: "Price/availability mismatch"
+      description: "Feed prices or stock status don't match landing page"
+      detection: "Merchant Center diagnostics; compare feed vs landing page spot-checks"
+      severity: "critical"
+    - id: "shop_008"
+      name: "No custom labels for bidding segmentation"
+      description: "Missing margin tiers, seasonality, or priority labels in feed"
+      detection: "Check custom_label_0 through custom_label_4 columns in feed export"
+      severity: "medium"
+    - id: "shop_009"
+      name: "PMax cannibalizing brand Search"
+      description: "PMax capturing brand queries that should go to dedicated brand Search campaign"
+      detection: "Review PMax search terms report for brand keywords; check search term overlap"
+      severity: "high"
+      recommendation: "Add brand terms as campaign-level negatives on PMax; run dedicated brand Search campaign"
+    - id: "shop_010"
+      name: "Feed not updated frequently"
+      description: "Product feed older than 24 hours may have stale prices/availability"
+      detection: "Check feed fetch schedule in Merchant Center"
+      threshold: "Feed update interval > 24 hours"
+      severity: "medium"
+
+# ============================================================================
+# SECTION 7: AUDIENCE & TARGETING AUDIT
+# ============================================================================
+
+audience_and_targeting:
+
+  description: >
+    Evaluates audience segment usage, targeting modes, demographic
+    targeting, and placement controls across campaign types.
+
+  audience_segment_types:
+    - type: "In-market segments"
+      description: "Users actively researching or comparing products/services in a category"
+      available_on: ["Search", "Display", "Video", "Demand Gen", "PMax (as signal)"]
+      status: "active"
+    - type: "Affinity segments"
+      description: "Users with sustained interests, habits, and passions"
+      available_on: ["Search", "Display", "Video", "Demand Gen", "PMax (as signal)"]
+      status: "active"
+    - type: "Custom segments"
+      description: "User-defined audiences based on search terms, URLs, apps"
+      available_on: ["Display", "Video", "Demand Gen", "PMax (as signal)"]
+      status: "active"
+      notes: "Expanded to Display campaigns in 2025"
+    - type: "Life events"
+      description: "Users experiencing milestones (graduation, moving, marriage, new job)"
+      available_on: ["Display", "Video", "Demand Gen", "PMax (as signal)"]
+      status: "active"
+    - type: "Detailed demographics"
+      description: "Parental status, marital status, education, homeownership, employer size"
+      available_on: ["Search", "Display", "Video", "Demand Gen"]
+      status: "active"
+    - type: "Your data segments (Remarketing)"
+      description: "Website visitors, app users, YouTube engagers, Customer Match"
+      subtypes:
+        - "Website visitors (Google Ads tag or GA4)"
+        - "App users (Firebase)"
+        - "YouTube users (channel engagers, video viewers)"
+        - "Customer Match (email/phone/address list upload)"
+      status: "active"
+      minimum_list_size: 100  # Reduced from 1,000 in 2025
+    - type: "Lookalike segments"
+      description: "Users similar to a seed audience list"
+      available_on: ["Demand Gen only"]
+      status: "active (evolving)"
+      requirements:
+        - "Seed list minimum: 1,000 active matched members"
+      notes: >
+        Transitioning from hard targeting to audience suggestions in
+        March 2026. Only available in Demand Gen campaigns.
+    - type: "Similar audiences"
+      description: "Audiences similar to remarketing lists"
+      status: "deprecated (May 2023)"
+      replacement: "Optimized targeting, audience expansion, Lookalike segments"
+
+  customer_match_updates_2025:
+    - "540-day membership cap enforced from April 7, 2025"
+    - "Lists must have 100+ members added/updated within 540 days to stay eligible"
+    - "Policy update January 2025: accounts may lose access if ads cause harm"
+    - "Minimum audience size reduced to 100 members across all networks (was 1,000)"
+
+  targeting_modes:
+    - mode: "Targeting"
+      description: "Only show ads to people in the selected audience segment"
+      use_case: "Remarketing campaigns, Customer Match campaigns"
+    - mode: "Observation"
+      description: "Show ads to everyone but track audience performance; can add bid adjustments"
+      use_case: "Search campaigns — add audiences for reporting without restricting reach"
+      notes: "Bid adjustments on Observation audiences are IGNORED by Smart Bidding"
+
+  demographic_targeting:
+    dimensions:
+      - "Age: 18-24, 25-34, 35-44, 45-54, 55-64, 65+, Unknown"
+      - "Gender: Male, Female, Unknown"
+      - "Household income (US only): Top 10%, 11-20%, 21-30%, 31-40%, 41-50%, Lower 50%, Unknown"
+      - "Parental status: Parent, Not a parent, Unknown"
+    notes: >
+      Always keep 'Unknown' included — it typically represents 20-40% of traffic.
+      Excluding Unknown loses significant volume. Use bid adjustments instead.
+
+  placement_exclusions:
+    applies_to: ["Display", "Video", "Demand Gen", "PMax"]
+    types:
+      - "Website/URL exclusions"
+      - "App exclusions"
+      - "YouTube channel/video exclusions"
+      - "Content type exclusions (DL-G, DL-PG, DL-T, DL-MA)"
+      - "Sensitive content exclusions (tragedy, conflict, profanity)"
+      - "Topic exclusions"
+    common_exclusions:
+      - "mobileapps::2-com.google.android.apps.youtube.kids (kids app)"
+      - "adsenseformobileapps.com (all mobile apps — legacy)"
+      - "Games, Parked domains, Error pages"
+
+  audit_checks:
+    - id: "aud_001"
+      name: "No remarketing audiences set up"
+      description: "Account not leveraging website visitor or customer data"
+      detection: "Check Audience Manager; look for remarketing lists with 0 members or none created"
+      severity: "high"
+    - id: "aud_002"
+      name: "No Customer Match lists"
+      description: "First-party customer data not uploaded for targeting/signals"
+      detection: "Check Audience Manager > Customer lists"
+      severity: "medium"
+    - id: "aud_003"
+      name: "Audiences only in Observation mode on Display"
+      description: "Display campaigns relying on topic/placement targeting without audience targeting"
+      detection: "Check audience targeting mode on Display campaigns"
+      severity: "medium"
+    - id: "aud_004"
+      name: "No placement exclusions on Display/Video"
+      description: "Ads showing on low-quality or brand-unsafe placements"
+      detection: "Check placement exclusion list; review Placements report (Where ads showed)"
+      severity: "high"
+    - id: "aud_005"
+      name: "Unknown demographics excluded"
+      description: "Excluding 'Unknown' age/gender loses 20-40% of potential traffic"
+      detection: "Check demographic targeting exclusions in campaign settings"
+      severity: "medium"
+    - id: "aud_006"
+      name: "Stale remarketing lists"
+      description: "Remarketing lists with membership duration > 540 days or very small size"
+      detection: "Check audience list sizes and recency in Audience Manager"
+      severity: "low"
+
+# ============================================================================
+# SECTION 8: BUDGET & SPEND AUDIT
+# ============================================================================
+
+budget_and_spend:
+
+  description: >
+    Evaluates budget allocation, pacing, wasted spend, and cost efficiency
+    across the account.
+
+  budget_types:
+    - type: "Daily budget"
+      description: "Google can spend up to 2x daily budget on high-opportunity days"
+      notes: "Monthly spend will not exceed daily budget x 30.4"
+    - type: "Shared budget"
+      description: "Single budget pool shared across multiple campaigns"
+      pros: "Automatic allocation to highest-performing campaigns"
+      cons: "Less control; one campaign can consume disproportionate share"
+      where_to_find: "Tools & Settings > Shared Library > Shared budgets"
+    - type: "Campaign total budget"
+      description: "Fixed total budget over campaign lifetime"
+      available_on: ["Video", "some campaign types"]
+
+  csv_fields_budget_analysis:
+    - field: "Budget"
+    - field: "Cost"
+    - field: "Search lost IS (budget)"
+    - field: "Impressions"
+    - field: "Conversions"
+    - field: "Cost / conv."
+    - field: "Conv. value"
+    - field: "Conv. value / cost"
+
+  wasted_spend_detection:
+    categories:
+      - category: "Irrelevant search terms"
+        formula: "SUM(Cost) FROM search_terms WHERE Conversions = 0 AND Cost > target_CPA"
+        description: "Money spent on queries that never convert"
+      - category: "Low QS keywords"
+        formula: "SUM(Cost) FROM keywords WHERE Quality_Score <= 3"
+        description: "Keywords with terrible relevance paying premium CPCs"
+      - category: "Display placements with zero conversions"
+        formula: "SUM(Cost) FROM placements WHERE Conversions = 0 AND Clicks > 50"
+        description: "Display sites generating clicks but no conversions"
+      - category: "Search Partners overspend"
+        formula: "Compare CPA for 'Google Search' segment vs 'Search Partners' segment"
+        description: "Search Partners converting at significantly higher CPA"
+      - category: "Geographic waste"
+        formula: "SUM(Cost) FROM geo_report WHERE Conversions = 0 AND Cost > threshold"
+        description: "Locations spending budget without converting"
+
+  budget_pacing:
+    description: >
+      Compare daily/monthly spend to budget to identify under-spending
+      (opportunity cost) or over-reliance on Google's auto-pacing.
+    formula: "Daily pacing = Cost to date / Days elapsed. Budget on track if within 10% of expected."
+    decision_tree: >
+      IF Search lost IS (budget) > 10% AND CPA < target:
+        THEN increase budget (high-performing campaign constrained).
+      IF Search lost IS (budget) > 10% AND CPA > target:
+        THEN improve Quality Score or tighten targeting before increasing budget.
+      IF Search lost IS (budget) = 0% AND daily spend < 70% of budget:
+        THEN targeting is too narrow or bids too low; expand keywords or raise bids.
+
+  audit_checks:
+    - id: "bud_001"
+      name: "Budget-limited high-performing campaigns"
+      description: "Campaign with strong CPA/ROAS losing impressions due to budget"
+      detection: "Search lost IS (budget) > 10% AND Cost/conv < account avg CPA"
+      severity: "critical"
+      recommendation: "Reallocate budget from underperforming campaigns"
+    - id: "bud_002"
+      name: "Overfunded low-performing campaigns"
+      description: "Campaign spending full budget with poor CPA/ROAS"
+      detection: "Cost/conv > 2x target CPA AND Search lost IS (budget) < 5%"
+      severity: "high"
+    - id: "bud_003"
+      name: "Shared budget masking performance"
+      description: "Shared budget causing one campaign to starve another"
+      detection: "Check shared budgets; compare impression share across campaigns sharing budget"
+      severity: "medium"
+    - id: "bud_004"
+      name: "Wasted spend on non-converting search terms"
+      description: "Significant spend on search terms with zero conversions"
+      detection: "Search terms report: SUM(Cost) WHERE Conversions = 0"
+      severity: "high"
+      formula: "wasted_pct = SUM(Cost WHERE Conv=0) / Total Cost * 100"
+      threshold: ">20% of total spend on zero-conversion terms"
+    - id: "bud_005"
+      name: "No budget allocation strategy"
+      description: "Budgets distributed evenly instead of based on performance"
+      detection: "Review budget distribution vs ROAS/CPA performance across campaigns"
+      severity: "medium"
+    - id: "bud_006"
+      name: "CPA trending upward"
+      description: "Cost per acquisition increasing month-over-month"
+      detection: "Compare Cost/conv across 3+ monthly periods"
+      severity: "medium"
+      formula: "cpa_trend = (current_month_CPA - prev_month_CPA) / prev_month_CPA * 100"
+      threshold: ">15% increase month-over-month for 2+ consecutive months"
+
+# ============================================================================
+# SECTION 9: QUALITY SCORE DEEP DIVE
+# ============================================================================
+
+quality_score:
+
+  description: >
+    Quality Score (QS) is a 1-10 diagnostic tool at the keyword level that
+    reflects the quality of your ads, keywords, and landing pages. It directly
+    influences Ad Rank and actual CPC.
+
+  formula:
+    ad_rank: "Ad Rank = Max CPC Bid x Quality Score x Expected impact of assets x Ad Rank thresholds + Context signals"
+    actual_cpc: "Actual CPC = (Ad Rank of advertiser below you / Your Quality Score) + $0.01"
+    qs_impact: "A QS of 10 can reduce CPC by up to 50% vs QS of 5. A QS of 1 can increase CPC by 400%."
+
+  components:
+    - component: "Expected CTR"
+      weight: "~39%"
+      values: ["Above average", "Average", "Below average"]
+      description: >
+        Google's prediction of how likely your ad is to be clicked
+        for this keyword, normalized for ad position and extensions.
+      improvement:
+        - "Write more compelling, relevant ad copy"
+        - "Include the keyword in headlines"
+        - "Use strong CTAs"
+        - "Test different RSA headline combinations"
+    - component: "Ad Relevance"
+      weight: "~22%"
+      values: ["Above average", "Average", "Below average"]
+      description: >
+        How closely your ad copy matches the intent of the keyword.
+        Google looks for the keyword (or close meaning) in your ad text.
+      improvement:
+        - "Include target keyword in at least 2 headlines"
+        - "Ensure ad group themes are tightly focused"
+        - "Avoid mixing unrelated keywords in same ad group"
+    - component: "Landing Page Experience"
+      weight: "~39%"
+      values: ["Above average", "Average", "Below average"]
+      description: >
+        How relevant, useful, and easy-to-navigate your landing page
+        is for someone who clicked the ad.
+      factors:
+        - "Page relevance to keyword and ad copy"
+        - "Page load speed (Core Web Vitals)"
+        - "Mobile-friendliness"
+        - "Original and useful content"
+        - "Easy navigation and clear CTA"
+        - "Trust signals (SSL, privacy policy)"
+        - "Low bounce rate / high engagement"
+      improvement:
+        - "Ensure landing page content matches ad and keyword intent"
+        - "Improve page speed (target LCP < 2.5s)"
+        - "Make page mobile-responsive"
+        - "Include clear CTAs above the fold"
+        - "Add trust signals (reviews, certifications, security badges)"
+
+  quality_score_scale:
+    description: "Estimated impact on CPC relative to average (QS 5)"
+    scale:
+      1: {label: "Very poor", cpc_impact: "+400%", priority: "Pause or restructure immediately"}
+      2: {label: "Poor", cpc_impact: "+150%", priority: "Urgent fix needed"}
+      3: {label: "Poor", cpc_impact: "+67%", priority: "High priority fix"}
+      4: {label: "Below average", cpc_impact: "+25%", priority: "Needs improvement"}
+      5: {label: "Average", cpc_impact: "Baseline", priority: "Room for improvement"}
+      6: {label: "Above average", cpc_impact: "-17%", priority: "Acceptable"}
+      7: {label: "Good", cpc_impact: "-29%", priority: "Good standing"}
+      8: {label: "Very good", cpc_impact: "-38%", priority: "Strong performance"}
+      9: {label: "Excellent", cpc_impact: "-44%", priority: "Top tier"}
+      10: {label: "Best", cpc_impact: "-50%", priority: "Optimal"}
+
+  historical_quality_score:
+    description: >
+      Historical QS is available in Google Ads by adding 'Quality Score (hist.)',
+      'Exp. CTR (hist.)', 'Ad relevance (hist.)', 'Landing page exp. (hist.)'
+      columns. This shows QS at the time impressions were received, enabling
+      trend analysis.
+    csv_fields:
+      - "Quality Score (hist.)"
+      - "Exp. CTR (hist.)"
+      - "Ad relevance (hist.)"
+      - "Landing page exp. (hist.)"
+    usage: "Segment by day or week to track QS trends over time"
+
+  audit_checks:
+    - id: "qs_001"
+      name: "Keywords with Quality Score 1-3"
+      description: "Severely underperforming keywords paying massive CPC premium"
+      detection: "Filter keyword report: Quality Score <= 3"
+      severity: "critical"
+      recommendation: "Pause, restructure into tighter ad groups with relevant ads, or improve landing page"
+    - id: "qs_002"
+      name: "Below average Landing Page Experience"
+      description: "Landing pages not meeting user expectations"
+      detection: "Filter keyword report: Landing page exp. = Below average"
+      severity: "high"
+      recommendation: "Audit landing page speed, relevance, mobile-friendliness, and content quality"
+    - id: "qs_003"
+      name: "Below average Expected CTR"
+      description: "Ads not compelling enough to drive clicks"
+      detection: "Filter keyword report: Exp. CTR = Below average"
+      severity: "high"
+    - id: "qs_004"
+      name: "Below average Ad Relevance"
+      description: "Keyword-to-ad message mismatch"
+      detection: "Filter keyword report: Ad relevance = Below average"
+      severity: "medium"
+    - id: "qs_005"
+      name: "Quality Score declining over time"
+      description: "Historical QS trending downward indicates degrading performance"
+      detection: "Compare Quality Score (hist.) segmented by month"
+      severity: "high"
+    - id: "qs_006"
+      name: "High-spend keywords with low QS"
+      description: "Keywords accounting for >10% of spend with QS <= 5"
+      detection: "Filter: Cost > 10% of total AND Quality Score <= 5"
+      severity: "critical"
+      formula: "wasted_premium = cost * (1 - (5/actual_QS)) — estimates CPC premium paid due to low QS"
+
+# ============================================================================
+# SECTION 10: INDUSTRY BENCHMARKS (2025-2026)
+# ============================================================================
+
+benchmarks:
+
+  description: >
+    Industry benchmark data compiled from WordStream (16,000+ campaigns,
+    April 2024 - March 2025), uproas.io, and Search Engine Journal studies.
+    Use as directional guidance — individual account performance varies
+    significantly based on targeting, landing pages, offers, and competition.
+
+  source: "WordStream 2025 Google Ads Benchmarks Report; uproas.io 2026 Benchmarks"
+
+  search_benchmarks_by_industry:
+    overall_averages:
+      ctr: "6.66%"
+      cpc: "$5.26"
+      cvr: "7.52%"
+      cpl: "$70.11"
+    industries:
+      - industry: "Animals & Pets"
+        ctr: "6.58%"
+        cpc: "$3.97"
+        cvr: "13.07%"
+        cpl: "$31.82"
+      - industry: "Apparel / Fashion & Jewelry"
+        ctr: "6.77%"
+        cpc: "$4.31"
+        cvr: "3.99%"
+        cpl: "$101.49"
+      - industry: "Arts & Entertainment"
+        ctr: "13.10%"
+        cpc: "$1.60"
+        cvr: "4.84%"
+        cpl: "$30.27"
+      - industry: "Attorneys & Legal Services"
+        ctr: "5.97%"
+        cpc: "$8.58"
+        cvr: "5.09%"
+        cpl: "$131.63"
+      - industry: "Automotive — For Sale"
+        ctr: "8.29%"
+        cpc: "$2.41"
+        cvr: "7.76%"
+        cpl: "$38.86"
+      - industry: "Automotive — Repair, Service & Parts"
+        ctr: "5.56%"
+        cpc: "$3.90"
+        cvr: "14.67%"
+        cpl: "$28.50"
+      - industry: "Beauty & Personal Care"
+        ctr: "5.71%"
+        cpc: "$5.70"
+        cvr: "7.82%"
+        cpl: "$60.34"
+      - industry: "Business Services (B2B)"
+        ctr: "5.65%"
+        cpc: "$5.58"
+        cvr: "5.14%"
+        cpl: "$103.54"
+      - industry: "Dentists & Dental Services"
+        ctr: "5.44%"
+        cpc: "$7.85"
+        cvr: "9.08%"
+        cpl: "$83.93"
+      - industry: "Education & Instruction"
+        ctr: "5.74%"
+        cpc: "$6.23"
+        cvr: "11.38%"
+        cpl: "$90.02"
+      - industry: "Finance & Insurance"
+        ctr: "8.33%"
+        cpc: "$3.46"
+        cvr: "2.55%"
+        cpl: "$83.93"
+      - industry: "Health & Fitness"
+        ctr: "7.18%"
+        cpc: "$5.00"
+        cvr: "6.80%"
+        cpl: "$62.80"
+      - industry: "Home & Home Improvement"
+        ctr: "6.37%"
+        cpc: "$7.85"
+        cvr: "7.33%"
+        cpl: "$90.92"
+      - industry: "Personal Services"
+        ctr: "7.69%"
+        cpc: "$5.81"
+        cvr: "9.74%"
+        cpl: "$53.52"
+      - industry: "Physicians & Surgeons"
+        ctr: "6.73%"
+        cpc: "$5.00"
+        cvr: "11.62%"
+        cpl: "$56.83"
+      - industry: "Real Estate"
+        ctr: "8.43%"
+        cpc: "$2.53"
+        cvr: "3.28%"
+        cpl: "$100.48"
+      - industry: "Restaurants & Food"
+        ctr: "7.58%"
+        cpc: "$2.05"
+        cvr: "7.09%"
+        cpl: "$30.27"
+      - industry: "Shopping, Collectibles & Gifts (Ecommerce)"
+        ctr: "8.92%"
+        cpc: "$3.49"
+        cvr: "3.83%"
+        cpl: "$47.94"
+      - industry: "Sports & Recreation"
+        ctr: "9.19%"
+        cpc: "$2.64"
+        cvr: "7.62%"
+        cpl: "$47.47"
+      - industry: "Travel"
+        ctr: "8.73%"
+        cpc: "$2.12"
+        cvr: "5.75%"
+        cpl: "$73.70"
+
+  display_benchmarks:
+    overall_averages:
+      ctr: "0.46%"
+      cpc: "$0.63"
+      cvr: "0.77%"
+    notes: "Display campaigns serve awareness/remarketing; expect much lower CTR and CVR than Search"
+
+  shopping_benchmarks:
+    overall_averages:
+      ctr: "0.80% - 1.20%"
+      cpc: "$0.50 - $1.50"
+      cvr: "1.50% - 3.00%"
+      roas: "400% - 800%"
+    notes: "Highly variable by product category, price point, and competition"
+
+  pmax_benchmarks:
+    overall_averages:
+      ctr: "Varies by channel mix (blended 1% - 5%)"
+      cvr: "Typically 10-30% lower than dedicated Search campaigns"
+      roas: "Varies; often inflated by brand traffic attribution"
+    notes: >
+      PMax benchmarks are unreliable due to cross-channel blending.
+      Always compare PMax vs the campaign types it replaced, not
+      vs other PMax campaigns. Segment by channel where possible (late 2025+).
+
+  trend_highlights_2025:
+    - "CTR increased overall by 3.74% year-over-year"
+    - "CPC increased for 87% of industries"
+    - "Conversion rate declined 9.28% on average (but 65% of industries improved)"
+    - "Median CPA rose 12.35% to $23.74"
+    - "Mobile CTR generally higher than desktop"
+
+# ============================================================================
+# SECTION 11: COMMON MISTAKES & RED FLAGS
+# ============================================================================
+
+red_flags:
+
+  description: >
+    Common misconfigurations and mistakes found during Google Ads audits.
+    Each red flag includes detection method and severity.
+
+  critical_red_flags:
+    - id: "rf_001"
+      name: "No conversion tracking"
+      description: "Account running ads with zero conversion actions; optimizing blind"
+      detection: "Conversions column shows 0 or '--' across all campaigns for 30+ days"
+      impact: "Cannot optimize bids, measure ROI, or use Smart Bidding"
+      severity: "critical"
+    - id: "rf_002"
+      name: "Display Network on Search campaigns"
+      description: "Search campaigns opted into Display Network"
+      detection: "Networks column includes 'Display Network' on Search campaign type"
+      impact: "Diluted intent targeting; typically 80%+ lower conversion rate on Display"
+      severity: "critical"
+    - id: "rf_003"
+      name: "Duplicate conversion counting"
+      description: "Same action tracked twice (tag + GA4 import) both included in bidding"
+      detection: "Compare conversion action names/sources; look for parallel tracking"
+      impact: "Inflated conversion data; Smart Bidding targets wrong CPA"
+      severity: "critical"
+    - id: "rf_004"
+      name: "Broad match with no negatives and no Smart Bidding"
+      description: "Maximum exposure to irrelevant queries without safeguards"
+      detection: "Match type = Broad AND negative keyword count = 0 AND bid strategy = Manual"
+      impact: "50%+ of budget can be wasted on irrelevant searches"
+      severity: "critical"
+
+  high_priority_red_flags:
+    - id: "rf_005"
+      name: "Single RSA per ad group"
+      description: "No ad testing possible; missing optimization opportunities"
+      detection: "Count enabled ads per ad group < 2"
+      impact: "Cannot A/B test messaging; Google recommends at least 1 RSA with diverse assets"
+    - id: "rf_006"
+      name: "No ad extensions/assets"
+      description: "Ads running without any sitelinks, callouts, or other assets"
+      detection: "Empty extensions export or no assets at campaign/account level"
+      impact: "Lower CTR, smaller ad footprint, lower Ad Rank"
+    - id: "rf_007"
+      name: "Search Partners running without monitoring"
+      description: "Never segmented by network to evaluate Search Partners performance"
+      detection: "No network segmentation in reports; Change History shows no network analysis"
+      impact: "10-30% of budget potentially wasted on low-quality partner sites"
+    - id: "rf_008"
+      name: "No audience signals in PMax"
+      description: "Performance Max running without any audience signals"
+      detection: "PMax campaign settings show empty audience signals"
+      impact: "Slower AI learning; less relevant targeting in early phases"
+    - id: "rf_009"
+      name: "Budget-limited high-performing campaigns"
+      description: "Best campaigns restricted by budget while poor campaigns spend freely"
+      detection: "Sort by CPA ascending; check Search lost IS (budget) on top performers"
+      impact: "Missing conversions at efficient CPA while funding wasteful campaigns"
+    - id: "rf_010"
+      name: "Missing negative keywords"
+      description: "Account with zero or very few negative keywords"
+      detection: "Export negative keywords; count < 10 for active account is a red flag"
+      impact: "Significant irrelevant spend, especially with Broad or Phrase match"
+    - id: "rf_011"
+      name: "Location targeting 'Presence or interest' for local business"
+      description: "Local business showing ads to people merely interested in the area"
+      detection: "Location options = 'Presence or interest' on locally-targeted campaigns"
+      impact: "Ads shown to people who will never visit the physical location"
+    - id: "rf_012"
+      name: "Broken landing page URLs"
+      description: "Ads pointing to 404 or 5xx error pages"
+      detection: "Crawl Final URL column from ad export; check HTTP status"
+      impact: "100% wasted spend on those clicks; damages Quality Score"
+
+  medium_priority_red_flags:
+    - id: "rf_013"
+      name: "Auto-applied recommendations enabled without review"
+      description: "Google automatically applying optimization suggestions (budget increases, new keywords, broad match)"
+      detection: "Check Recommendations > Auto-apply settings screenshot"
+      impact: "Unwanted budget changes, keyword additions, or match type changes"
+      recommendation: "Disable auto-apply for budget, bidding, and keyword recommendations; keep ad suggestions only"
+    - id: "rf_014"
+      name: "No brand/non-brand campaign separation"
+      description: "Brand and generic keywords mixed in same campaigns"
+      detection: "Search terms report shows brand terms in generic campaigns"
+      impact: "Inflated non-brand performance metrics; inefficient budget allocation"
+    - id: "rf_015"
+      name: "Stale ad copy (unchanged 6+ months)"
+      description: "Ad copy not refreshed in over 6 months"
+      detection: "Check Change History for ad creation/edit dates"
+      impact: "Ad fatigue; missing seasonal or promotional messaging opportunities"
+    - id: "rf_016"
+      name: "Not excluding existing customers from acquisition campaigns"
+      description: "Paying to acquire customers you already have"
+      detection: "Check audience exclusions; verify Customer Match exclusion lists"
+      impact: "Wasted acquisition budget on existing customers"
+    - id: "rf_017"
+      name: "PMax without campaign-level negative keywords"
+      description: "PMax capturing irrelevant search queries without negative keyword protection"
+      detection: "PMax search terms report shows irrelevant queries; no negatives applied"
+      impact: "Budget wasted on irrelevant searches; PMax now supports up to 10,000 negatives"
+
+# ============================================================================
+# SECTION 12: GOOGLE ADS + GSC/GA4 CROSS-REFERENCE
+# ============================================================================
+
+cross_platform_analysis:
+
+  description: >
+    Cross-referencing Google Ads data with Google Search Console and
+    Google Analytics 4 provides deeper insights into paid vs organic
+    overlap, landing page quality, and full-funnel attribution.
+
+  gads_gsc_cross_reference:
+    paid_vs_organic_overlap:
+      description: >
+        Compare paid keywords in Google Ads with organic queries in GSC
+        to find overlap and opportunity gaps.
+      method: >
+        Export Google Ads keyword report (Keyword, Impressions, Clicks, CTR, CPA).
+        Export GSC Performance report (Query, Impressions, Clicks, CTR, Position).
+        Match on keyword/query. Analyze:
+      analysis_points:
+        - name: "Paid + Organic overlap"
+          description: "Keywords ranking organically AND being paid for"
+          action: >
+            IF organic position <= 3 AND paid CPA is high:
+              Consider reducing paid bids or pausing paid for these terms.
+            IF organic position > 10 AND paid performing well:
+              Continue paid; organic not yet visible enough.
+        - name: "Organic only gaps"
+          description: "Queries driving organic traffic but no paid coverage"
+          action: "Evaluate if adding paid coverage would capture more clicks"
+        - name: "Paid only gaps"
+          description: "Keywords with paid spend but no organic visibility"
+          action: "Create content to build organic presence for these terms (long-term savings)"
+    landing_page_quality_correlation:
+      description: >
+        Cross-reference Google Ads landing page experience scores with
+        GSC Core Web Vitals data and GA4 engagement metrics.
+      method: >
+        Export Google Ads Landing Pages report (Landing page, QS components).
+        Export GSC Core Web Vitals report (URL, LCP, INP, CLS).
+        Export GA4 engagement data (Landing page, Bounce rate, Avg session duration).
+        Match on URL/landing page.
+      correlation_checks:
+        - "Landing pages with 'Below average' LP experience AND poor CWV scores"
+        - "Landing pages with high bounce rate in GA4 AND low QS"
+        - "Landing pages with good organic CTR but poor paid conversion rate"
+
+  gads_ga4_cross_reference:
+    assisted_conversions:
+      description: >
+        GA4's attribution reports show how Google Ads contributes to
+        conversions that are completed via other channels.
+      reports:
+        - name: "Model comparison report"
+          location: "GA4 > Advertising > Attribution > Model comparison"
+          description: "Compare DDA vs Last Click to see how Ads assists"
+        - name: "Conversion paths"
+          location: "GA4 > Advertising > Attribution > Conversion paths"
+          description: "See full touchpoint journey including Paid Search role"
+      key_metrics:
+        - "Assisted conversions (conversions where Paid Search was on the path but not last click)"
+        - "Assisted conversion value"
+        - "Assisted / Last click ratio (>1 means more assists than direct conversions)"
+    landing_page_analysis:
+      description: >
+        GA4 provides engagement metrics that complement Google Ads landing page data.
+      ga4_metrics:
+        - "Engagement rate (inverse of bounce rate)"
+        - "Average engagement time per session"
+        - "Conversions by landing page"
+        - "Events (scroll, click, form_submit) by landing page"
+      method: >
+        Export GA4 landing page report filtered to google/cpc source/medium.
+        Compare to Google Ads landing page report.
+        Identify pages with high paid traffic but low engagement.
+
+  audit_checks:
+    - id: "cross_001"
+      name: "Paying for top organic keywords"
+      description: "High spend on keywords where organic already ranks position 1-3"
+      detection: "Match Google Ads keywords with GSC top queries; filter organic position <= 3"
+      severity: "medium"
+      recommendation: "Run incrementality test by pausing paid on top organic terms"
+    - id: "cross_002"
+      name: "Landing page CWV issues affecting QS"
+      description: "Paid landing pages failing Core Web Vitals hurting Quality Score"
+      detection: "Cross-reference ads LP experience scores with GSC CWV data"
+      severity: "high"
+    - id: "cross_003"
+      name: "High assist ratio not reflected in bidding"
+      description: "Google Ads assists many conversions but CPA appears high on last-click"
+      detection: "GA4 assisted/last-click ratio > 1.5 for Paid Search"
+      severity: "medium"
+      recommendation: "Switch to DDA attribution; adjust CPA targets to account for assists"
+    - id: "cross_004"
+      name: "GA4 and Google Ads conversion discrepancy"
+      description: "Significant mismatch between GA4 and Google Ads conversion counts"
+      detection: "Compare Google Ads conversions vs GA4 key events for same period"
+      threshold: ">15% discrepancy"
+      severity: "high"
+      common_causes:
+        - "Different attribution models"
+        - "Different conversion windows"
+        - "GA4 import lag (24-48 hours)"
+        - "Cross-device tracking differences"
+        - "Consent Mode filtering in GA4"
+
+# ============================================================================
+# SECTION 13: 2025-2026 PLATFORM CHANGES
+# ============================================================================
+
+platform_changes_2025_2026:
+
+  description: >
+    Major Google Ads platform changes from 2025 through early 2026 that
+    affect audit methodology and recommendations.
+
+  campaign_type_changes:
+    - change: "Demand Gen replaces VAC and Discovery"
+      date: "2025 (auto-upgrade completed July 2025)"
+      details: >
+        Video Action Campaigns and Discovery campaigns fully migrated
+        to Demand Gen. New features added: Target CPC bidding, new
+        customer acquisition goals (New Customer Only Mode),
+        AI-generated video tools.
+      audit_impact: "Check for legacy VAC/Discovery campaigns; verify Demand Gen migration completed"
+
+    - change: "Power Pack framework"
+      date: "May 2025"
+      details: >
+        Google introduced Power Pack as the recommended campaign
+        structure: Search + PMax + Demand Gen working together.
+        Replaces the earlier 'Power Pair' (Search + PMax).
+      audit_impact: "Evaluate if account is leveraging full Power Pack or missing Demand Gen"
+
+    - change: "AI Max for Search"
+      date: "2025"
+      details: >
+        AI Max is a feature suite that supercharges existing Search
+        campaigns with AI capabilities: advanced broad match, keywordless
+        targeting (similar to DSA), automatically created assets.
+        Not a new campaign type — applied to existing Search campaigns.
+      audit_impact: "Check if AI Max is enabled; review auto-created assets for quality"
+
+  pmax_updates:
+    - change: "Channel-level reporting"
+      date: "Late 2025"
+      details: "Performance metrics broken down by Search, Shopping, Display, YouTube, Discover/Gmail at account level"
+      audit_impact: "Use channel reporting to evaluate PMax contribution by network"
+    - change: "Full search terms reporting"
+      date: "2025"
+      details: "PMax now shows search terms for Search and Shopping placements"
+      audit_impact: "Review PMax search terms for quality; add negatives for irrelevant terms"
+    - change: "Campaign-level negative keywords"
+      date: "2025"
+      details: "PMax supports up to 10,000 campaign-level negative keywords"
+      audit_impact: "Check if negatives are applied; essential for brand isolation"
+    - change: "Expanded search themes (50 per asset group)"
+      date: "2025"
+      details: "Limit increased from 25 to 50 search themes per asset group"
+    - change: "Retention goals for lapsed customers"
+      date: "2025"
+      details: "PMax can target lapsed high-value customers for reactivation"
+    - change: "High Value Mode"
+      date: "2025"
+      details: "Increases bids when Google predicts high-LTV customer conversion"
+    - change: "Asset-level reporting"
+      date: "2025"
+      details: "Impressions, clicks, and cost data now available per asset"
+
+  bidding_changes:
+    - change: "Enhanced CPC (eCPC) deprecated"
+      date: "March 31, 2025"
+      details: >
+        eCPC removed from Search and Display campaigns. Existing campaigns
+        auto-migrated to Manual CPC. Google recommends switching to
+        fully automated Smart Bidding.
+      audit_impact: "Check for campaigns still showing eCPC; should be on Manual or Smart Bidding now"
+
+  ad_format_changes:
+    - change: "Call ads deprecated"
+      date: "February 2026 (creation blocked); February 2027 (stop serving)"
+      details: "Standalone Call Ads being phased out. Use Call assets on RSAs instead."
+      audit_impact: "Check for active Call Ads; migrate to RSAs with call assets"
+    - change: "AI-generated assets"
+      date: "2025-2026"
+      details: >
+        Google automatically generates ad headlines, descriptions, images,
+        and videos using AI. Auto-generated assets appear in RSAs and PMax.
+      audit_impact: "Review auto-generated assets for brand safety and accuracy"
+    - change: "Increased asset flexibility for RSAs"
+      date: "2025"
+      details: >
+        Google assembles ad components more dynamically. Moving toward
+        asset pool approach rather than fixed ad formats.
+
+  targeting_changes:
+    - change: "Audience list minimum reduced to 100"
+      date: "2025"
+      details: "Minimum audience size for remarketing reduced from 1,000 to 100 across all networks"
+      audit_impact: "Smaller businesses can now use remarketing; check for newly eligible lists"
+    - change: "Customer Match 540-day cap"
+      date: "April 7, 2025"
+      details: "Customer Match lists must have members added/updated within 540 days"
+      audit_impact: "Check Customer Match list freshness; ensure regular uploads"
+    - change: "Lookalike segments becoming suggestions (Demand Gen)"
+      date: "March 2026"
+      details: "Lookalike segments transitioning from hard targeting to audience suggestions"
+
+  auto_applied_recommendations:
+    description: >
+      Google can auto-apply optimization recommendations. Audit which
+      are enabled, as some can make unwanted changes.
+    categories:
+      safe_to_auto_apply:
+        - "Remove redundant keywords"
+        - "Remove conflicting negative keywords"
+        - "Update keyword bids to meet first page bid"
+      risky_auto_apply:
+        - "Upgrade keyword match types to broad" # Can massively expand spend
+        - "Raise your budget" # Unauthorized budget increases
+        - "Add new keywords" # May add irrelevant keywords
+        - "Create new ad assets" # May create off-brand messaging
+        - "Switch to Smart Bidding" # Major strategy change
+    audit_check:
+      id: "change_001"
+      name: "Risky auto-applied recommendations enabled"
+      detection: "Screenshot Recommendations > Auto-apply settings"
+      severity: "high"
+
+  consent_mode_v2:
+    description: >
+      Required for advertisers in EEA/UK. Consent Mode v2 adds two new
+      parameters: ad_user_data and ad_personalization. Without proper
+      implementation, remarketing and conversion modeling are impaired.
+    parameters:
+      - "ad_storage: Controls storage of ad-related cookies"
+      - "analytics_storage: Controls storage of analytics cookies"
+      - "ad_user_data: Controls sending user data to Google for ads"
+      - "ad_personalization: Controls personalized advertising"
+    audit_impact: "Verify Consent Mode v2 implementation; check for conversion modeling gaps"
+
+# ============================================================================
+# SECTION 14: AUDIT SCORING FRAMEWORK
+# ============================================================================
+
+scoring_framework:
+
+  description: >
+    Aggregate scoring system for the overall Google Ads audit.
+    Each section receives a score of 0-100, weighted by importance.
+
+  section_weights:
+    conversion_tracking: 20
+    keyword_strategy: 15
+    ad_copy_and_assets: 12
+    account_structure: 10
+    smart_bidding: 12
+    shopping_and_pmax: 10
+    audience_and_targeting: 8
+    budget_and_spend: 8
+    quality_score: 5
+    total: 100
+
+  severity_scoring:
+    critical: "Deduct 15-20 points per finding from section score"
+    high: "Deduct 8-12 points per finding from section score"
+    medium: "Deduct 3-5 points per finding from section score"
+    low: "Deduct 1-2 points per finding from section score"
+
+  overall_rating:
+    - range: "90-100"
+      label: "Excellent"
+      description: "Account is well-optimized with minor tweaks needed"
+    - range: "70-89"
+      label: "Good"
+      description: "Solid foundation with notable improvement areas"
+    - range: "50-69"
+      label: "Needs Improvement"
+      description: "Significant issues affecting performance and ROI"
+    - range: "30-49"
+      label: "Poor"
+      description: "Major structural and strategic problems"
+    - range: "0-29"
+      label: "Critical"
+      description: "Account requires fundamental rebuild"
+
+# ============================================================================
+# SECTION 15: ECOMMERCE-SPECIFIC DEEP DIVE
+# ============================================================================
+
+ecommerce_specific:
+
+  shopping_vs_pmax:
+    description: "Dal 2025, ad rank determina il vincitore quando lo stesso prodotto è in PMax e Standard Shopping (prima PMax vinceva sempre)"
+    decision_tree:
+      use_standard_shopping: "Controllo granulare search terms, bid manuali, negative keywords precise, gestione stock zombie/stagionale"
+      use_pmax: "Massima reach cross-canale (Search, Shopping, YouTube, Display, Discover, Gmail, Maps), audience discovery, gestione semplificata"
+      hybrid_recommended: "PMax per scala + Standard Shopping per protezione margini su segmenti specifici, stock stagionale, brand CPCs"
+
+  product_feed_optimization:
+    title_formula: "[Brand] + [Product Type] + [Key Attributes (colore, taglia, materiale)] + [Modello]"
+    title_rules:
+      - "Max 150 caratteri, front-load le keyword più importanti nei primi 70 (troncamento mobile)"
+      - "Deve corrispondere al titolo sulla landing page"
+      - "No testo promozionale, no ALL CAPS, no keyword stuffing"
+    gtin_requirements:
+      - "Obbligatorio per tutti i prodotti con GTIN assegnato dal produttore"
+      - "Se non esiste GTIN, fornire brand + MPN"
+      - "GTIN mancante riduce eligibilità e performance"
+    custom_labels_strategy:
+      label_0: "Margine profitto (alto/medio/basso)"
+      label_1: "Stagionalità (primavera, estate, holiday, evergreen)"
+      label_2: "Performance tier (best seller, medio, slow mover)"
+      label_3: "Livello stock (alto, basso, clearance)"
+      label_4: "Fascia prezzo o stato promozione"
+
+  feed_quality_scoring:
+    required_fields:
+      - { field: "id", notes: "Unico, max 50 chars" }
+      - { field: "title", notes: "Max 150 chars, front-load keywords" }
+      - { field: "description", notes: "Max 5000 chars" }
+      - { field: "link", notes: "URL landing page" }
+      - { field: "image_link", notes: "Min 800x800px, no overlay" }
+      - { field: "availability", notes: "in_stock, out_of_stock, preorder" }
+      - { field: "price", notes: "DEVE corrispondere alla landing page" }
+      - { field: "brand", notes: "Obbligatorio per tutti i prodotti con brand" }
+      - { field: "gtin", notes: "Obbligatorio se assegnato dal produttore" }
+      - { field: "condition", notes: "new, refurbished, used" }
+    impactful_optional_fields:
+      - "additional_image_link (fino a 10 immagini aggiuntive)"
+      - "product_type (categorizzazione propria, max 750 chars)"
+      - "google_product_category (tassonomia Google)"
+      - "sale_price + sale_price_effective_date"
+      - "color, size, material, pattern, gender, age_group (obbligatori per abbigliamento)"
+      - "custom_label_0 through custom_label_4"
+      - "cost_of_goods_sold (sblocca reporting profitto)"
+      - "product_highlight (bullet points)"
+    common_disapprovals:
+      - { issue: "Price mismatch (feed vs landing)", fix: "Abilitare Automatic Item Updates, sync feed giornaliero" }
+      - { issue: "Availability mismatch", fix: "Sync inventario real-time" }
+      - { issue: "Missing GTIN", fix: "Aggiungere GTIN o brand+MPN" }
+      - { issue: "Immagine bassa qualità/watermark/overlay", fix: "Min 800x800px, sfondo bianco, no testo" }
+      - { issue: "Overlay promozionale su immagine", fix: "Usare attributo sale_price" }
+      - { issue: "Attributi obbligatori mancanti (apparel)", fix: "Aggiungere color, size, gender, age_group" }
+      - { issue: "Misrepresentation", fix: "Sospensione account — assicurare corrispondenza ad/landing page" }
+    freshness:
+      google_minimum: "30 giorni (prodotti scadono dopo 30 giorni senza aggiornamento)"
+      recommended: "Aggiornamento giornaliero"
+      best_practice: "Sync automatico multiplo al giorno per prezzo/disponibilità"
+
+  pmax_ecommerce:
+    asset_group_strategy: "Un asset group per categoria prodotto principale"
+    asset_requirements:
+      headlines: "Min 3, max 20"
+      descriptions: "Min 5, max 20"
+      images: "Min 1, max 20"
+      videos: "Min 1, max 5 (altrimenti Google auto-genera video di bassa qualità)"
+      logos: "Max 5"
+    search_themes:
+      limit: "50 per asset group (aumentato da 25 nel 2025)"
+      best_practice: "Termini tematici ampi, NON duplicare exact match keywords"
+    url_expansion:
+      default: "ON"
+      recommendation: "OFF per ecommerce — rischio di mandare traffico a blog/about/category"
+      if_on: "Usare Exclude URLs per bloccare pagine non-prodotto"
+    brand_exclusions:
+      critical: true
+      reason: "Senza brand exclusions, PMax gonfia il ROAS rubando conversioni branded"
+      setup: "Brand exclusions in PMax settings + campagna Search branded separata"
+      expect_after: "Calo ROAS a breve termine in PMax — è chiarezza, non peggioramento"
+    cannibalization_detection:
+      steps:
+        - "Confrontare volume conversioni totali pre/post lancio PMax"
+        - "Se totali piatti o in calo = cannibalizzazione"
+        - "Se totali crescono = PMax trova traffico incrementale"
+        - "Controllare Search Term Insights per overlap PMax↔Search"
+        - "Aggiungere search terms PMax performanti come exact match in Search"
+
+  profit_based_bidding:
+    description: "Shift da revenue-based a profit-based bidding — trend chiave 2025"
+    setup:
+      - "Aggiungere cost_of_goods_sold (COGS) al feed Merchant Center"
+      - "Google calcola: Gross Profit = Revenue - COGS"
+      - "Metriche disponibili: gross profit, gross profit margin, COGS per articoli venduti"
+      - "Usare feed rules per calcolare COGS in bulk"
+    formula: "Gross Profit = Cart Revenue - Sum(COGS per item sold)"
+
+  new_customer_acquisition:
+    modes:
+      value_mode: "Aggiunge bonus valore alle conversioni first-purchase (bid più alto per nuovi clienti)"
+      only_mode: "Esclude clienti esistenti dal bidding"
+      high_ltv_mode: "Agosto 2025: valore incrementale ancora più alto per nuovi clienti predicted high-LTV"
+    requirement: "Customer list segmentation via UserListCustomerType"
+
+  conversion_value_rules:
+    description: "Adjustment del valore a livello di asta"
+    dimensions:
+      audience: "es. × 1.5 per membri loyalty program"
+      device: "es. × 0.7 per mobile se AOV mobile è inferiore"
+      location: "es. + €20 per aree geografiche ad alto margine"
+    limits: "Max 2 condizioni per regola"
+    requirement: "tROAS o Maximize Conversion Value bidding"
+
+  remarketing_ecommerce:
+    dynamic_remarketing_requirements:
+      - "Google Ads remarketing tag con custom parameters su tutte le pagine"
+      - "Feed Merchant Center collegato a Google Ads"
+      - "Custom parameters: ecomm_prodid (matching feed IDs), ecomm_pagetype, ecomm_totalvalue"
+    page_type_parameters:
+      home: { ecomm_pagetype: "home" }
+      category: { ecomm_pagetype: "category", extra: "ecomm_prodid (array)" }
+      product: { ecomm_pagetype: "product", extra: "ecomm_prodid, ecomm_totalvalue" }
+      cart: { ecomm_pagetype: "cart", extra: "ecomm_prodid (array), ecomm_totalvalue" }
+      purchase: { ecomm_pagetype: "purchase", extra: "ecomm_prodid (array), ecomm_totalvalue" }
+    rlsa_bid_adjustments:
+      cart_abandoners: "+20-50%"
+      product_viewers: "+10-30%"
+      past_purchasers_acquisition: "-20%"
+
+  seasonal_strategy:
+    timeline:
+      "8-6 settimane prima": "Costruire audience list, preparare creatività, testare feed"
+      "4-6 settimane prima": "Aumentare budget gradualmente, lanciare campagne awareness"
+      "2-3 settimane prima": "Budget aggressivo (2-3x spesa giornaliera normale)"
+      "Settimana di picco": "Monitorare bid performance più volte al giorno"
+      "Post-picco": "Ridurre budget gradualmente, shift a clearance"
+    budget_allocation: "60-80% del budget mensile nelle settimane a più alto traffico"
+    bid_strategy: "Abbassare target ROAS durante picco: da 400% tipico a 100-150%"
+    shopping_during_holidays: "76.4% della spesa ecommerce e 85.3% dei click"
+
+  consent_mode_impact:
+    modeled_conversions:
+      requirements: "Advanced Consent Mode + min 700 click in 7 giorni per paese/dominio"
+      recovery_rate: "15-25% delle conversioni perse recuperate tramite modellazione"
+      advanced_mode_preservation: "Fino all'80% dei dati tracking preservati anche senza consent"
+    enhanced_conversions_vs_consent_mode:
+      consent_mode: "Gestisce utenti che negano consent (modeling cookieless)"
+      enhanced_conversions: "Gestisce conversioni con cookie cancellati (hashed first-party data)"
+      recommendation: "Implementare ENTRAMBI per massima copertura"
+
+  ecommerce_benchmarks_2025:
+    roas_by_category:
+      overall_ecommerce: "2.87:1 (in calo)"
+      travel_accessories: "4.30 (-21% YoY)"
+      consumer_electronics: "3.02 (-11% YoY)"
+      beauty_personal_care: "~3.50"
+      pets_animals: "2.84 (+3% YoY — unico in crescita)"
+      health_wellness: "2.12 (-16% YoY)"
+      apparel_fashion: "~3.0+ (CTR up, CPA rising)"
+    thresholds:
+      strong_roas: "4:1"
+      excellent_roas: "5:1+"
+    shopping_stats:
+      cpc_vs_search: "43% CPC inferiore a Search"
+      cpa_vs_search: "14% CPA migliore di Search"
+      impression_share_target_brand: "90%+"
+      impression_share_typical_nonbrand: "30-60%"
+
+  competitor_analysis:
+    auction_insights_metrics:
+      search: ["Impression Share", "Overlap Rate", "Outranking Share", "Position Above Rate", "Top of Page Rate", "Absolute Top of Page Rate"]
+      shopping: ["Impression Share", "Overlap Rate", "Outranking Share"]
+    interpretation:
+      competitor_is_rising: "Stanno aumentando budget/bid — valutare se rispondere"
+      high_overlap_gt_60: "Competitor diretto sugli stessi termini — differenziare ad copy"
+      low_outranking: "Competitor domina — migliorare QS, alzare bid, o controllare feed"
+    double_serving_caveat: >
+      Da aprile 2025, Google permette double-serving: un competitor può
+      apparire sia in alto che in basso, gonfiando impression share.
+      Monitorare trend nel tempo, non snapshot singoli.
+
+# ============================================================================
+# SECTION 16: PRE-AUDIT QUESTIONS
+# ============================================================================
+
+pre_audit_questions:
+
+  - id: "Q-GA01"
+    question: "Hai accesso a Google Ads (anche solo lettura)?"
+    options: ["Sì, accesso completo", "Sì, solo lettura", "Solo export/screenshot", "Nessun accesso"]
+    purpose: "Determina il livello di audit possibile"
+    critical: true
+
+  - id: "Q-GA02"
+    question: "Quali tipi di campagne hai attivi?"
+    options: ["Search", "Shopping", "Performance Max", "Display", "Video/YouTube", "Demand Gen"]
+    multi_select: true
+    purpose: "Determina quali sezioni dell'audit applicare"
+
+  - id: "Q-GA03"
+    question: "Il conversion tracking è configurato?"
+    options: ["Sì, tramite tag Google", "Sì, tramite GA4 imported goals", "Non so", "No"]
+    purpose: "Check più critico dell'audit — senza tracking, tutto il resto è inutile"
+    critical: true
+
+  - id: "Q-GA04"
+    question: "Hai Enhanced Conversions attive?"
+    options: ["Sì", "No", "Non so"]
+    purpose: "Enhanced Conversions recuperano 5-15% conversioni perse"
+
+  - id: "Q-GA05"
+    question: "Budget mensile approssimativo?"
+    options: ["< €1.000", "€1.000-5.000", "€5.000-20.000", "> €20.000"]
+    purpose: "Scala le raccomandazioni al budget — sotto €1K alcune strategie non sono praticabili"
+
+  - id: "Q-GA06"
+    question: "Obiettivo principale delle campagne?"
+    options: ["Vendite ecommerce (ROAS)", "Lead generation (CPA)", "Brand awareness", "App installs"]
+    purpose: "Determina KPI e benchmark appropriati"
+    critical: true
+
+  - id: "Q-GA07"
+    question: "Hai un feed Merchant Center collegato?"
+    options: ["Sì", "No", "Non so"]
+    purpose: "Necessario per Shopping e PMax — senza feed, queste campagne non funzionano"
+    conditional: "Solo se ecommerce"
+
+  - id: "Q-GA08"
+    question: "Stai usando Smart Bidding o bidding manuale?"
+    options: ["Smart Bidding (tROAS/tCPA)", "Maximize Conversions/Value", "Manual CPC", "Mix", "Non so"]
+    purpose: "Determina la complessità dell'audit bidding"
+
+  - id: "Q-GA09"
+    question: "Hai notato problemi specifici o cali di performance?"
+    options: ["Sì, ROAS in calo", "Sì, CPA troppo alto", "Sì, impressioni in calo", "Performance stabile", "In crescita"]
+    purpose: "Orientare l'audit verso diagnosi problema o ottimizzazione"
+
+  - id: "Q-GA10"
+    question: "Consent Mode v2 è implementato?"
+    options: ["Sì, Advanced", "Sì, Basic", "No", "Non so"]
+    purpose: "Impatta attribuzione conversioni per traffico EEA"

@@ -1,0 +1,1273 @@
+# ============================================================================
+# IUBENDA & CONSENT COMPLIANCE AUDIT CHECKLIST — KNOWLEDGE BASE
+# ============================================================================
+# Versione: 1.0
+# Data: 2026-02-26
+# Scopo: Checklist completa per audit automatizzato della compliance consent
+# Input: HTML scraping (L0), configurazione iubenda (L1), dashboard access (L2)
+# Applicabile a: Tutti i siti con audience EU (GDPR/ePrivacy/DMA)
+# ============================================================================
+
+metadata:
+  version: "1.0"
+  vertical: "universal"
+  last_updated: "2026-02-26"
+  description: >
+    Checklist strutturata per audit della compliance consent con focus su Iubenda.
+    Copre: presenza CMP, configurazione banner, Consent Mode v2, TCF 2.2/2.3,
+    blocking dei cookie, integrazione GTM, requisiti GDPR/ePrivacy/DMA,
+    e requisiti specifici per il mercato italiano (Garante).
+  access_levels:
+    L0: "HTML scraping — nessun accesso richiesto"
+    L1: "Export configurazione + ispezionamento JS console"
+    L2: "Accesso dashboard Iubenda + API"
+
+# ============================================================================
+# SEZIONE 1: RILEVAMENTO CMP — Cosa è installato sul sito?
+# ============================================================================
+
+cmp_detection:
+
+  iubenda_presence:
+    name: "Iubenda Cookie Solution rilevata"
+    description: "Verifica che Iubenda sia effettivamente installata e funzionante"
+    access_level: "L0"
+    html_detection:
+      scripts:
+        - pattern: "cdn.iubenda.com/cs/iubenda_cs.js"
+          description: "Script principale Cookie Solution"
+        - pattern: "cs.iubenda.com/autoblocking/"
+          description: "Script auto-blocking (opzionale ma consigliato)"
+      css_selectors:
+        - selector: "#iubenda-cs-banner"
+          description: "Container del banner consent"
+        - selector: ".iubenda-cs-preferences-link"
+          description: "Link per riaprire le preferenze cookie"
+      cookies:
+        - pattern: "_iub_cs-*"
+          description: "Cookie di stato consent (contiene JSON con preferenze per purpose)"
+      js_objects:
+        - object: "_iub.csConfiguration"
+          description: "Oggetto configurazione globale"
+        - object: "_iub.cs.api"
+          description: "API JavaScript per interrogare lo stato consent"
+    validation_rules:
+      - rule: "Lo script iubenda_cs.js deve essere presente nella pagina"
+      - rule: "Il cookie _iub_cs-XXXXXXX deve esistere dopo interazione con il banner"
+      - rule: "L'oggetto _iub.cs deve essere accessibile in console"
+    impact: "critical"
+    impact_description: "Senza CMP, il sito non è conforme GDPR/ePrivacy"
+    recommendation_if_missing: >
+      Nessun CMP rilevato sul sito. Per la normativa GDPR ed ePrivacy,
+      qualsiasi sito che usa cookie non essenziali DEVE avere un sistema
+      di gestione del consenso. Installare Iubenda o un CMP equivalente.
+
+  cmp_alternative_detection:
+    name: "CMP alternativa rilevata"
+    description: "Se non è Iubenda, identificare quale CMP è in uso"
+    access_level: "L0"
+    html_detection:
+      alternatives:
+        - name: "Cookiebot"
+          pattern: "consent.cookiebot.com"
+        - name: "OneTrust"
+          pattern: "cdn.cookielaw.org"
+        - name: "Didomi"
+          pattern: "sdk.privacy-center.org"
+        - name: "Quantcast"
+          pattern: "quantcast.mgr.consensu.org"
+        - name: "CookieYes"
+          pattern: "cdn-cookieyes.com"
+        - name: "Osano"
+          pattern: "cmp.osano.com"
+        - name: "Termly"
+          pattern: "app.termly.io"
+        - name: "Shopify Native"
+          pattern: "Shopify.customerPrivacy"
+    impact: "info"
+    recommendation_if_missing: >
+      Nessun CMP riconosciuto trovato. Il sito potrebbe avere una soluzione
+      custom o non avere alcun sistema di gestione consent.
+
+  auto_blocking_status:
+    name: "Auto-blocking attivo"
+    description: "Verifica che lo script di auto-blocking Iubenda sia presente"
+    access_level: "L0"
+    html_detection:
+      script_pattern: "cs.iubenda.com/autoblocking/{siteId}.js"
+    validation_rules:
+      - rule: "Lo script auto-blocking deve caricarsi PRIMA di qualsiasi script di tracking"
+      - rule: "L'ordine nel DOM deve essere: 1) auto-blocking 2) iubenda_cs.js 3) GTM/altri script"
+      - rule: "Su Shopify, auto-blocking NON deve essere usato (usare Customer Privacy API)"
+    impact: "high"
+    impact_description: >
+      Senza auto-blocking, gli script di tracking (GA4, Meta Pixel, etc.) possono
+      eseguirsi prima del consenso, violando il principio di prior blocking.
+    recommendation_if_missing: >
+      Auto-blocking non rilevato. Gli script di terze parti potrebbero caricarsi
+      prima del consenso utente. Attivare l'auto-blocking o implementare il
+      blocking manuale via GTM triggers.
+    shopify_exception: >
+      Su Shopify, NON usare auto-blocking. Usare invece la Customer Privacy API
+      nativa di Shopify (Shopify.customerPrivacy.setTrackingConsent) integrata
+      con i segnali di consent Iubenda.
+
+# ============================================================================
+# SEZIONE 2: CONFIGURAZIONE BANNER — UX e Legal Compliance
+# ============================================================================
+
+banner_configuration:
+
+  reject_button_presence:
+    name: "Pulsante 'Rifiuta tutto' visibile al primo livello"
+    description: >
+      Il pulsante Reject deve essere presente sulla prima schermata del banner,
+      non nascosto dietro 'Personalizza'. Requisito GDPR + Garante italiano.
+    access_level: "L0"
+    detection:
+      config_key: "banner.rejectButtonDisplay"
+      expected_value: true
+      visual_check: "Verificare che il pulsante sia visibile senza cliccare 'Personalizza'"
+    validation_rules:
+      - rule: "rejectButtonDisplay deve essere true"
+      - rule: "Il pulsante Reject deve avere prominenza visiva uguale ad Accept"
+      - rule: "NON deve richiedere click aggiuntivi per raggiungere Reject"
+    impact: "critical"
+    impact_description: >
+      Multa GDPR: assenza di Reject al primo livello è un dark pattern.
+      CNIL ha multato SHEIN EUR 150M per questo nel 2025.
+    legal_references:
+      - "Garante italiano: Linee guida cookie 2021 — Reject equipollente ad Accept"
+      - "EDPB Guidelines 05/2020 — Consent must be as easy to withdraw as to give"
+      - "CNIL: Deliberazione n. SAN-2025-012 (SHEIN)"
+
+  accept_reject_visual_parity:
+    name: "Parità visiva Accept/Reject"
+    description: "I pulsanti Accept e Reject devono avere dimensioni, colore e posizione equivalenti"
+    access_level: "L0"
+    detection:
+      config_keys:
+        accept_color: "banner.acceptButtonColor"
+        reject_color: "banner.rejectButtonColor"
+        accept_caption_color: "banner.acceptButtonCaptionColor"
+        reject_caption_color: "banner.rejectButtonCaptionColor"
+      css_checks:
+        - "Dimensione font uguale"
+        - "Padding uguale"
+        - "Nessun pulsante più grande o con colore più prominente"
+    dark_pattern_indicators:
+      - pattern: "Accept in colore pieno, Reject come link di testo"
+        severity: "critical"
+      - pattern: "Accept grande, Reject piccolo"
+        severity: "critical"
+      - pattern: "Accept colorato, Reject grigio chiaro"
+        severity: "high"
+      - pattern: "Reject posizionato lontano da Accept"
+        severity: "medium"
+    impact: "critical"
+    impact_description: >
+      Dark pattern nel banner consent è una violazione GDPR tra le più sanzionate.
+      I regolatori usano strumenti automatici per rilevare asimmetrie visive.
+
+  customize_button:
+    name: "Pulsante 'Personalizza' presente"
+    description: "Accesso a preferenze granulari per categoria di cookie"
+    access_level: "L0"
+    detection:
+      config_key: "banner.customizeButtonDisplay"
+      expected_value: true
+    validation_rules:
+      - rule: "customizeButtonDisplay deve essere true"
+      - rule: "Cliccando deve mostrare toggle per ogni categoria"
+      - rule: "Toggle non essenziali devono essere OFF di default"
+    impact: "critical"
+    recommendation_if_missing: >
+      Il banner non offre la possibilità di personalizzare le preferenze per
+      categoria. Questo è obbligatorio per GDPR (consenso granulare).
+
+  per_purpose_consent:
+    name: "Consenso granulare per finalità"
+    description: "Il banner permette di scegliere separatamente per ogni categoria"
+    access_level: "L0"
+    detection:
+      config_key: "perPurposeConsent"
+      expected_value: true
+    iubenda_purposes:
+      - id: 1
+        name: "Necessari"
+        description: "Cookie strettamente necessari — sempre attivi, non disattivabili"
+        gdpr_basis: "Legittimo interesse / necessità tecnica"
+      - id: 2
+        name: "Funzionalità"
+        description: "Miglioramento funzionalità del sito (chat, preferenze lingua)"
+        gdpr_basis: "Consenso esplicito"
+      - id: 3
+        name: "Esperienza"
+        description: "Personalizzazione dell'esperienza utente"
+        gdpr_basis: "Consenso esplicito"
+      - id: 4
+        name: "Misurazione"
+        description: "Analytics e misurazione (GA4, Hotjar, Clarity)"
+        gdpr_basis: "Consenso esplicito"
+        consent_mode_mapping: "analytics_storage"
+      - id: 5
+        name: "Marketing"
+        description: "Pubblicità, remarketing, tracking cross-site"
+        gdpr_basis: "Consenso esplicito"
+        consent_mode_mapping: "ad_storage, ad_user_data, ad_personalization"
+    validation_rules:
+      - rule: "perPurposeConsent deve essere true nella configurazione"
+      - rule: "Ogni categoria non-essenziale deve avere toggle separato"
+      - rule: "I toggle devono essere OFF di default (no pre-ticked)"
+    impact: "critical"
+    impact_description: >
+      Consenso tutto-o-niente viola GDPR. L'utente deve poter accettare
+      analytics rifiutando marketing, per esempio.
+
+  withdrawal_mechanism:
+    name: "Meccanismo di revoca del consenso"
+    description: "L'utente deve poter revocare il consenso in qualsiasi momento, facilmente"
+    access_level: "L0"
+    detection:
+      methods:
+        - type: "floating_button"
+          config_key: "floatingPreferencesButtonDisplay"
+          expected_values: ["bottom-left", "bottom-right", "anchored"]
+        - type: "footer_link"
+          css_selector: ".iubenda-cs-preferences-link"
+          description: "Elemento con classe per riaprire preferenze"
+        - type: "custom_element"
+          css_selector: "a[href='#'], button"
+          text_patterns: ["Cookie Settings", "Preferenze Cookie", "Gestisci Cookie", "Cookie Policy"]
+    validation_rules:
+      - rule: "Almeno un meccanismo di revoca deve essere presente su ogni pagina"
+      - rule: "La revoca deve essere raggiungibile con massimo 2 click"
+      - rule: "Dopo la revoca, i cookie non essenziali devono essere rimossi"
+    impact: "critical"
+    impact_description: >
+      GDPR Art. 7(3): La revoca del consenso deve essere facile quanto il rilascio.
+      Senza meccanismo di revoca visibile, il sito non è conforme.
+
+  close_button_behavior:
+    name: "Comportamento pulsante X (chiudi)"
+    description: "In Italia, chiudere il banner con X equivale a rifiutare i cookie non essenziali"
+    access_level: "L0"
+    detection:
+      config_key: "banner.closeButtonDisplay"
+    italian_requirement: >
+      Garante italiano, Linee guida 2021: la X di chiusura del banner
+      equivale a rifiutare il consenso per cookie non essenziali.
+      Il banner NON deve ricomparire per 6 mesi dopo la chiusura.
+    validation_rules:
+      - rule: "Se closeButtonDisplay=true, la X deve funzionare come Reject"
+      - rule: "Dopo chiusura con X, nessun cookie non essenziale deve essere settato"
+    impact: "high"
+    country_specific: "Italia"
+
+  scroll_as_consent:
+    name: "Scroll come consenso — PROIBITO"
+    description: "Lo scroll della pagina NON può essere interpretato come consenso"
+    access_level: "L0"
+    detection:
+      config_key: "consentOnContinuedBrowsing"
+      expected_value: false
+      note: "Iubenda ha forzato questo a false, ma verificare versioni vecchie"
+    validation_rules:
+      - rule: "consentOnContinuedBrowsing deve essere false o assente"
+      - rule: "Non devono esserci event listener scroll che attivano tracking"
+    impact: "critical"
+    impact_description: >
+      Lo scroll come consenso è stato esplicitamente vietato dal Garante italiano
+      e da EDPB. È un falso consenso.
+
+  consent_renewal:
+    name: "Rinnovo periodico del consenso"
+    description: "Il consenso deve essere rinnovato periodicamente"
+    access_level: "L1"
+    detection:
+      config_keys:
+        invalidate: "invalidateConsentWithoutLog"
+        expected_value: true
+        ask_update: "askConsentAtCookiePolicyUpdate"
+    country_requirements:
+      italia: "6 mesi"
+      francia: "6 mesi"
+      spagna: "24 mesi"
+      default_eu: "12 mesi"
+    validation_rules:
+      - rule: "invalidateConsentWithoutLog deve essere true"
+      - rule: "askConsentAtCookiePolicyUpdate deve essere true"
+      - rule: "Il cookie consent non deve avere durata superiore al limite nazionale"
+    impact: "high"
+    recommendation_if_missing: >
+      Il consenso non viene invalidato quando la policy cambia. Utenti che hanno
+      acconsentito mesi fa con una versione diversa del banner sono trattati
+      come se avessero acconsentito alle condizioni attuali.
+
+# ============================================================================
+# SEZIONE 3: CONSENT MODE v2 — Integrazione con Google
+# ============================================================================
+
+consent_mode_v2:
+
+  default_state:
+    name: "Consent Mode default state configurato"
+    description: >
+      Prima di qualsiasi interazione utente, Consent Mode deve inviare uno stato
+      'denied' per tutti i segnali. Questo è il prerequisito per il funzionamento.
+    access_level: "L0"
+    detection:
+      datalayer_check: >
+        Nel dataLayer deve esserci un evento consent con command 'default'
+        PRIMA di qualsiasi evento gtm.js o page_view.
+      expected_datalayer_entry:
+        - "gtag('consent', 'default', { ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })"
+      network_check: >
+        Il primo hit GA4 deve contenere gcs=G100 (tutto denied) se l'utente
+        non ha ancora interagito col banner.
+    consent_signals:
+      - signal: "ad_storage"
+        description: "Storage dei cookie per advertising (gclid, _gcl_aw)"
+        default: "denied"
+        maps_to_purpose: 5
+      - signal: "analytics_storage"
+        description: "Storage dei cookie per analytics (_ga, _gid)"
+        default: "denied"
+        maps_to_purpose: 4
+      - signal: "ad_user_data"
+        description: "Invio dati utente a Google per advertising"
+        default: "denied"
+        maps_to_purpose: 5
+        note: "NUOVO in Consent Mode v2 — obbligatorio dal marzo 2024 (DMA)"
+      - signal: "ad_personalization"
+        description: "Pubblicità personalizzata / remarketing"
+        default: "denied"
+        maps_to_purpose: 5
+        note: "NUOVO in Consent Mode v2 — obbligatorio dal marzo 2024 (DMA)"
+    optional_signals:
+      - signal: "functionality_storage"
+        maps_to_purpose: 2
+      - signal: "personalization_storage"
+        maps_to_purpose: 3
+      - signal: "security_storage"
+        maps_to_purpose: 1
+    validation_rules:
+      - rule: "Il comando consent default DEVE precedere gtm.js nel dataLayer"
+      - rule: "Tutti e 4 i segnali obbligatori devono essere presenti"
+      - rule: "Il default deve essere 'denied' per tutti i segnali non essenziali"
+      - rule: "Se manca ad_user_data o ad_personalization, è Consent Mode v1 (non conforme DMA)"
+    impact: "critical"
+    impact_description: >
+      Senza Consent Mode v2, Google non attribuisce conversioni per traffico EEA.
+      Dal marzo 2024 (DMA), Google richiede i 4 segnali per qualsiasi
+      tracciamento advertising su utenti EU.
+
+  consent_update:
+    name: "Consent Mode update dopo consenso"
+    description: "Quando l'utente acconsente, i segnali devono essere aggiornati a 'granted'"
+    access_level: "L0"
+    detection:
+      datalayer_check: >
+        Dopo click su Accept, deve comparire nel dataLayer un evento consent
+        con command 'update' che cambia i segnali a 'granted'.
+      network_check: >
+        Le richieste GA4 successive devono contenere gcs=G111 (tutto granted)
+        o gcs=G1xy con valori appropriati per il consenso dato.
+    gcs_parameter_decoding:
+      format: "G1xy"
+      x_values:
+        "0": "ad_storage denied"
+        "1": "ad_storage granted"
+      y_values:
+        "0": "analytics_storage denied"
+        "1": "analytics_storage granted"
+    gcd_parameter: >
+      Parametro più dettagliato che codifica tutti i segnali. Formato complesso
+      con lettera per ogni segnale (a=ad_storage, s=analytics_storage, etc.)
+      e cifra per stato (1=default denied, 3=update denied, 5=default granted,
+      7=update granted).
+    validation_rules:
+      - rule: "Dopo Accept All, gcs deve diventare G111"
+      - rule: "Dopo Reject All, gcs deve rimanere G100"
+      - rule: "Dopo consenso parziale (solo analytics), gcs deve essere G101"
+    impact: "critical"
+
+  basic_vs_advanced_mode:
+    name: "Basic vs Advanced Consent Mode"
+    description: >
+      Basic: tag Google completamente bloccati fino al consenso.
+      Advanced: tag caricano prima del consenso ma inviano ping cookieless.
+    access_level: "L1"
+    detection:
+      advanced_mode_indicator: >
+        In Advanced mode, GA4 invia richieste anche senza consenso (cookieless pings).
+        Verificare: ricaricare pagina con consenso denied, controllare se ci sono
+        richieste a google-analytics.com/g/collect.
+      basic_mode_indicator: >
+        In Basic mode, NESSUNA richiesta a google-analytics.com prima del consenso.
+    trade_offs:
+      basic:
+        pro: "Nessun dato raccolto senza consenso — massima privacy"
+        con: "Perdita dati per utenti che non interagiscono con banner"
+      advanced:
+        pro: "Google usa ping cookieless per modellazione conversioni (recupero 5-15%)"
+        con: "Alcuni regolatori potrebbero considerare i ping come raccolta dati non consensata"
+    impact: "medium"
+    recommendation: >
+      Advanced mode consente a Google di recuperare fino al 15% delle conversioni perse
+      tramite modellazione. Per la maggior parte dei siti, Advanced è il migliore
+      compromesso tra privacy e data quality. Verificare che il CMP supporti
+      entrambe le modalità.
+
+  dma_compliance:
+    name: "Compliance Digital Markets Act (DMA)"
+    description: >
+      Dal marzo 2024, Google richiede consent signals validi per il traffico EEA
+      come requisito DMA. Senza, le conversioni non vengono attribuite.
+    access_level: "L0"
+    requirements:
+      - "ad_user_data e ad_personalization DEVONO essere presenti (Consent Mode v2)"
+      - "CMP certificato Google (Iubenda è certificato)"
+      - "TCF 2.2+ per advertising programmatico"
+    validation_rules:
+      - rule: "Verificare presenza di ad_user_data nel consent default"
+      - rule: "Verificare presenza di ad_personalization nel consent default"
+      - rule: "Se mancano, il sito sta usando Consent Mode v1 — non conforme DMA"
+    impact: "critical"
+    impact_description: >
+      Impatto diretto su revenue: Google non attribuisce conversioni Google Ads
+      senza consent signals v2 validi. Perdita potenziale del 100% dell'attribuzione
+      per traffico EEA.
+
+# ============================================================================
+# SEZIONE 4: TCF 2.2 / 2.3 — IAB Transparency & Consent Framework
+# ============================================================================
+
+tcf_compliance:
+
+  tcf_presence:
+    name: "TCF implementato"
+    description: "Verifica se il framework TCF di IAB è attivo"
+    access_level: "L0"
+    detection:
+      js_api: "__tcfapi"
+      js_check: >
+        typeof __tcfapi !== 'undefined'
+      tc_string_cookie: "euconsent-v2"
+    validation_rules:
+      - rule: "L'API __tcfapi deve essere disponibile"
+      - rule: "Il cookie euconsent-v2 deve contenere la TC string dopo il consenso"
+    impact: "high"
+    when_required: >
+      TCF è obbligatorio per advertising programmatico (AdSense, Ad Manager, AdMob)
+      su utenti EEA/UK. Senza TCF + CMP certificato, Google limita a "Limited Ads"
+      con riduzione revenue fino al 50%.
+
+  tcf_version:
+    name: "Versione TCF"
+    description: "TCF 2.3 diventa obbligatorio il 28 febbraio 2026"
+    access_level: "L0"
+    detection:
+      js_check: >
+        __tcfapi('getTCData', 2, function(d,s) { console.log(d.tcfPolicyVersion) })
+    validation_rules:
+      - rule: "tcfPolicyVersion deve essere >= 4 per TCF 2.2"
+      - rule: "Dopo 28/02/2026, le TC string TCF 2.2 non saranno più valide"
+    impact: "high"
+    deadline: "2026-02-28"
+    recommendation: >
+      TCF 2.3 è obbligatorio dal 28 febbraio 2026. Verificare che Iubenda
+      abbia aggiornato automaticamente. Le TC string 2.2 saranno invalide
+      dopo questa data.
+
+  legitimate_interest_advertising:
+    name: "Nessun legittimo interesse per advertising"
+    description: "TCF 2.2+ richiede consenso esplicito per scopi 3-6 (advertising)"
+    access_level: "L1"
+    detection:
+      js_check: >
+        __tcfapi('getTCData', 2, function(d,s) {
+          // purposes.legitimateInterests should NOT include 3,4,5,6
+          console.log(d.purpose.legitimateInterests)
+        })
+    validation_rules:
+      - rule: "I purpose 3-6 NON devono usare legitimate interest come base giuridica"
+      - rule: "Solo consenso esplicito è ammesso per advertising-related purposes"
+    impact: "high"
+    impact_description: >
+      Usare legittimo interesse per advertising viola TCF 2.2. I vendor
+      che ricevono la TC string possono rifiutare la processing.
+
+# ============================================================================
+# SEZIONE 5: PRIOR BLOCKING — Cookie prima del consenso
+# ============================================================================
+
+prior_blocking:
+
+  no_tracking_before_consent:
+    name: "Nessun tracking prima del consenso"
+    description: >
+      NESSUN cookie non essenziale e NESSUNA richiesta di tracking deve
+      partire prima che l'utente interagisca col banner.
+    access_level: "L0"
+    test_methodology:
+      steps:
+        - "Aprire il sito in finestra privata / cancellare tutti i cookie"
+        - "Aprire Network tab PRIMA di caricare la pagina"
+        - "Caricare la pagina — NON interagire col banner"
+        - "Verificare le richieste di rete e i cookie presenti"
+      forbidden_requests_before_consent:
+        - pattern: "google-analytics.com/g/collect"
+          exception: "Consentito in Consent Mode Advanced (cookieless ping con gcs=G100)"
+        - pattern: "facebook.com/tr"
+          exception: "Mai consentito senza consenso"
+        - pattern: "doubleclick.net"
+          exception: "Mai consentito senza consenso"
+        - pattern: "bat.bing.com"
+          exception: "Mai consentito senza consenso"
+        - pattern: "snap.licdn.com"
+          exception: "Mai consentito senza consenso"
+        - pattern: "analytics.tiktok.com"
+          exception: "Mai consentito senza consenso"
+        - pattern: "connect.facebook.net/en_US/fbevents.js"
+          exception: "Il caricamento dello script senza firing è zona grigia"
+        - pattern: "clarity.ms"
+          exception: "Mai consentito senza consenso"
+        - pattern: "hotjar.com"
+          exception: "Mai consentito senza consenso"
+      forbidden_cookies_before_consent:
+        - "_ga"
+        - "_ga_*"
+        - "_gid"
+        - "_gcl_au"
+        - "_gcl_aw"
+        - "_fbp"
+        - "_fbc"
+        - "_ttp"
+        - "_uetsid"
+        - "_uetmsclkid"
+        - "IDE"
+        - "_clck"
+        - "_clsk"
+      allowed_cookies:
+        - name: "_iub_cs-*"
+          reason: "Cookie di stato consent — necessario per CMP"
+        - name: "PHPSESSID / session cookies"
+          reason: "Cookie di sessione — strettamente necessari"
+        - name: "cart_*"
+          reason: "Cookie carrello ecommerce — strettamente necessari"
+        - name: "__cf_bm"
+          reason: "Cloudflare bot management — sicurezza"
+    impact: "critical"
+    impact_description: >
+      Cookie prima del consenso è la violazione più comune e più sanzionata.
+      CNIL ha multato per EUR 150M per cookie pre-consent. Il 72% dei siti
+      financial services commette questa violazione.
+
+  script_loading_order:
+    name: "Ordine di caricamento script"
+    description: "Iubenda DEVE caricarsi prima di tutti gli script di tracking"
+    access_level: "L0"
+    detection:
+      dom_order_check: >
+        Nel DOM, verificare che gli script Iubenda precedano GTM e qualsiasi
+        script di tracking diretto.
+      expected_order:
+        1: "cs.iubenda.com/autoblocking/ (se presente)"
+        2: "cdn.iubenda.com/cs/iubenda_cs.js"
+        3: "googletagmanager.com/gtm.js (se presente)"
+        4: "Altri script di tracking"
+    validation_rules:
+      - rule: "Iubenda auto-blocking deve essere il primo script di tracking-related nel DOM"
+      - rule: "Se GTM carica prima di Iubenda, c'è una finestra dove i tag possono eseguirsi senza consent"
+    impact: "critical"
+    common_issue: >
+      Con plugin cache o optimization (WP Rocket, Autoptimize, LiteSpeed Cache),
+      l'ordine degli script può essere alterato. Verificare che il plugin di cache
+      non stia riordinando o combinando gli script Iubenda.
+
+  manual_blocking_verification:
+    name: "Blocking manuale corretto"
+    description: "Script bloccati manualmente hanno la sintassi corretta"
+    access_level: "L0"
+    detection:
+      html_patterns:
+        correct:
+          - '<script type="text/plain" class="_iub_cs_activate" data-iub-purposes="4">'
+          - '<script type="text/plain" class="_iub_cs_activate" data-suppressedsrc="...">'
+        incorrect:
+          - '<script type="text/javascript" class="_iub_cs_activate">'
+            # type deve essere text/plain, non text/javascript
+          - '<script class="_iub_cs_activate" src="...">'
+            # src deve diventare data-suppressedsrc
+    validation_rules:
+      - rule: "type deve essere 'text/plain' (non 'text/javascript')"
+      - rule: "src deve essere sostituito con data-suppressedsrc"
+      - rule: "la classe _iub_cs_activate deve essere presente"
+      - rule: "data-iub-purposes deve specificare le categorie corrette"
+    impact: "high"
+
+# ============================================================================
+# SEZIONE 6: INTEGRAZIONE GTM — Trigger e tag consent-aware
+# ============================================================================
+
+gtm_integration:
+
+  iubenda_gtm_template:
+    name: "Template Iubenda GTM installato"
+    description: "Verifica se il template ufficiale Iubenda è usato in GTM"
+    access_level: "L1"
+    json_detection:
+      tag_type: "cvt_*"
+      tag_name_patterns:
+        - "iubenda"
+        - "Iubenda"
+        - "Cookie Solution"
+    validation_rules:
+      - rule: "Se Iubenda è gestita via GTM, il template ufficiale è il metodo consigliato"
+      - rule: "Il template deve gestire sia consent default che consent update"
+    impact: "medium"
+    recommendation: >
+      Il template GTM di Iubenda dalla Community Template Gallery gestisce
+      automaticamente i segnali Consent Mode. Preferirlo al Custom HTML tag.
+
+  consent_based_triggers:
+    name: "Tag GTM con trigger basati su consent"
+    description: >
+      Ogni tag non essenziale in GTM deve avere un trigger condizionato
+      al consenso appropriato.
+    access_level: "L1"
+    detection:
+      datalayer_events:
+        - event: "iubenda_consent_given"
+          description: "Consenso globale dato"
+        - event: "iubenda_consent_rejected"
+          description: "Consenso rifiutato"
+        - event: "iubenda_consent_given_purpose_1"
+          description: "Consenso Necessari (sempre true)"
+        - event: "iubenda_consent_given_purpose_2"
+          description: "Consenso Funzionalità"
+        - event: "iubenda_consent_given_purpose_3"
+          description: "Consenso Esperienza"
+        - event: "iubenda_consent_given_purpose_4"
+          description: "Consenso Misurazione (analytics)"
+        - event: "iubenda_consent_given_purpose_5"
+          description: "Consenso Marketing (ads)"
+        - event: "iubenda_preference_not_needed"
+          description: "Utente in area dove il consenso non è richiesto"
+    tag_consent_mapping:
+      analytics_tags:
+        required_purpose: 4
+        required_trigger: "iubenda_consent_given_purpose_4"
+        tags: ["GA4 Config", "GA4 Events", "Hotjar", "Clarity", "Matomo"]
+      marketing_tags:
+        required_purpose: 5
+        required_trigger: "iubenda_consent_given_purpose_5"
+        tags: ["Google Ads Conversion", "Google Ads Remarketing", "Meta Pixel",
+               "LinkedIn Insight Tag", "TikTok Pixel", "Pinterest Tag",
+               "Criteo", "RTB House"]
+      functionality_tags:
+        required_purpose: 2
+        required_trigger: "iubenda_consent_given_purpose_2"
+        tags: ["Intercom", "Drift", "LiveChat", "Zendesk Chat"]
+    validation_rules:
+      - rule: "Ogni tag di analytics deve avere trigger purpose_4 o Consent Mode built-in"
+      - rule: "Ogni tag marketing deve avere trigger purpose_5 o Consent Mode built-in"
+      - rule: "Tag Google (GA4, Ads) possono usare Consent Mode built-in invece di trigger manuali"
+      - rule: "Tag NON-Google (Meta, LinkedIn, TikTok) DEVONO usare trigger manuali"
+      - rule: "Nessun tag non essenziale deve avere trigger 'All Pages' senza condizione consent"
+    impact: "critical"
+    impact_description: >
+      Tag GTM che si eseguono senza verificare il consenso violano il prior blocking.
+      Questo è il punto dove la maggior parte dei siti fallisce: banner presente
+      ma tag che si eseguono comunque.
+
+  gtm_consent_overview:
+    name: "GTM Consent Overview configurato"
+    description: "GTM ha la funzionalità Consent Overview attiva per gestire il consent a livello di tag"
+    access_level: "L1"
+    json_detection:
+      container_level: >
+        Nel JSON export, verificare se i tag hanno campi 'consentSettings'
+        con 'consentStatus' impostato.
+    built_in_consent:
+      description: >
+        GTM permette di configurare consent requirements a livello di tag
+        (Tag Settings > Consent Settings > Require additional consent).
+        Questo è AGGIUNTIVO rispetto ai trigger.
+      google_tags: >
+        I tag Google (GA4, Google Ads) rispettano automaticamente Consent Mode
+        senza bisogno di configurare consent settings aggiuntivi.
+      non_google_tags: >
+        Per tag non-Google, aggiungere i consent types richiesti nelle
+        Consent Settings del tag.
+    impact: "medium"
+
+# ============================================================================
+# SEZIONE 7: COMPLIANCE LEGALE SPECIFICA — Italia (Garante)
+# ============================================================================
+
+italian_compliance:
+
+  garante_requirements:
+    name: "Requisiti specifici Garante italiano"
+    description: "Linee guida cookie giugno 2021 — in vigore da gennaio 2022"
+    access_level: "L0"
+    requirements:
+      first_layer_banner:
+        - "Informativa breve con finalità dei cookie"
+        - "Pulsante Accept All"
+        - "Pulsante Reject All (stessa prominenza di Accept)"
+        - "Link a Preferenze/Personalizza per scelta granulare"
+        - "Link alla cookie policy completa"
+      second_layer_preferences:
+        - "Toggle per ogni categoria di cookie"
+        - "Toggle OFF di default per categorie non essenziali"
+        - "Descrizione chiara di ogni categoria"
+        - "Lista dei cookie per ogni categoria"
+      scroll_prohibition:
+        rule: "Lo scroll NON è mai consenso valido"
+        details: "Garante ha esplicitamente vietato consentOnContinuedBrowsing"
+      x_button:
+        rule: "La X chiude il banner E rifiuta i cookie non essenziali"
+        details: "Diverso da molti paesi EU dove X = 'non ho scelto'"
+      re_presentation:
+        rule: "Non ripresentare il banner per 6 mesi dopo la scelta"
+        details: "Cookie consent duration max 6 mesi per l'Italia"
+      analytics_exemption:
+        rule: "Google Analytics POTREBBE essere esente da consenso SE:"
+        conditions:
+          - "IP maskato (almeno 1/4 dell'IPv4 rimosso)"
+          - "Nessun cross-site tracking"
+          - "Nessuna condivisione con terze parti"
+          - "Solo dati aggregati"
+          - "GA4 con le impostazioni standard NON è esente (Google è terza parte)"
+        recommendation: >
+          In pratica, GA4 richiede sempre consenso in Italia perché Google
+          riceve i dati come terza parte e può incrociarli. Solo strumenti
+          first-party come Matomo (self-hosted) possono essere esenti.
+    impact: "critical"
+    country: "IT"
+
+  privacy_policy_link:
+    name: "Link alla privacy/cookie policy"
+    description: "Il banner deve contenere un link alla cookie policy completa"
+    access_level: "L0"
+    detection:
+      iubenda_link_patterns:
+        - "iubenda.com/privacy-policy/"
+        - "iubenda.com/cookie-policy/"
+      html_check: "Link visibile nel banner con testo 'Cookie Policy' o 'Privacy Policy'"
+    validation_rules:
+      - rule: "Il link deve essere funzionante e portare alla policy aggiornata"
+      - rule: "La policy deve elencare tutti i cookie effettivamente usati sul sito"
+      - rule: "La policy deve essere nella lingua del sito"
+    impact: "high"
+
+# ============================================================================
+# SEZIONE 8: AUDIT DA DASHBOARD IUBENDA (Level 2)
+# ============================================================================
+
+dashboard_audit:
+
+  cookie_scanner:
+    name: "Scanner cookie aggiornato"
+    description: "Lo scanner Iubenda deve essere eseguito dopo ogni modifica al sito"
+    access_level: "L2"
+    checks:
+      - check: "Data ultimo scan"
+        rule: "Lo scan deve essere stato eseguito negli ultimi 30 giorni"
+        impact: "high"
+      - check: "Cookie dichiarati vs cookie effettivi"
+        rule: "I cookie trovati dallo scanner devono corrispondere a quelli in policy"
+        impact: "high"
+      - check: "Nuovi servizi non dichiarati"
+        rule: "Nessun servizio attivo sul sito deve mancare dalla policy"
+        impact: "critical"
+    recommendation: >
+      Eseguire lo scanner dopo ogni aggiunta di nuovo script, redesign,
+      o cambio di piattaforma. I cookie non dichiarati in policy sono
+      una violazione documentabile.
+
+  consent_log:
+    name: "Log delle preferenze cookie"
+    description: "Verifica che i log di consent siano attivi e popolati"
+    access_level: "L2"
+    location: "Dashboard > [Sito] > Cookie and Consent Preference Log"
+    checks:
+      - check: "Log attivo e popolato"
+        rule: "Devono esserci record di consent recenti"
+      - check: "Proporzione accept/reject"
+        rule: "Se 100% accept, potrebbe indicare dark pattern"
+        benchmark:
+          typical_accept_rate: "40-60% per banner ben configurati"
+          suspicious_high: ">85% potrebbe indicare dark pattern"
+          suspicious_low: "<20% potrebbe indicare problema UX"
+      - check: "Proof of consent"
+        rule: "Ogni record deve contenere: timestamp, scelte per purpose, versione policy"
+    impact: "high"
+    impact_description: >
+      I log consent sono la prova di conformità in caso di audit da parte
+      del Garante. Senza log, non c'è modo di dimostrare che il consenso
+      è stato raccolto correttamente.
+
+  consent_database_api:
+    name: "Consent Database / Solution"
+    description: "Verifica se il Consent Database è attivo per form/newsletter"
+    access_level: "L2"
+    note: >
+      Il Consent Database (Consent Solution) è SEPARATO dal Cookie Solution.
+      Serve per registrare il consenso per form, newsletter, registrazioni —
+      non per i cookie del browser.
+    api_endpoints:
+      base_url: "https://consent.iubenda.com/beta/"
+      auth: "API key (chiave privata dalla dashboard)"
+      key_endpoints:
+        - "POST /consent/ — Crea record di consenso"
+        - "GET /consent/ — Lista record"
+        - "POST /subjects/ — Crea soggetto"
+        - "GET /subjects/ — Lista soggetti"
+    checks:
+      - check: "Consent Database attivo"
+        rule: "Se il sito ha form di contatto/newsletter, il Consent Database dovrebbe essere attivo"
+      - check: "Form collegati al database"
+        rule: "Ogni form che raccoglie dati personali deve registrare il consenso"
+    impact: "medium"
+    recommendation: >
+      Il Consent Database non è obbligatorio per la cookie compliance, ma è
+      best practice per GDPR Art. 7 (prova del consenso per il trattamento dati).
+
+# ============================================================================
+# SEZIONE 9: INTEGRAZIONE CON PIATTAFORME — Shopify, Meta, Google Ads
+# ============================================================================
+
+platform_integration:
+
+  shopify_consent:
+    name: "Integrazione consent su Shopify"
+    description: "Su Shopify, il consent flow ha requisiti specifici"
+    access_level: "L0"
+    critical_rules:
+      - rule: "NON usare auto-blocking Iubenda su Shopify"
+        reason: "Shopify ha la sua Customer Privacy API che gestisce il blocking nativo"
+      - rule: "Iubenda deve segnalare il consent alla Customer Privacy API di Shopify"
+        code: |
+          Shopify.customerPrivacy.setTrackingConsent({
+            analytics: true/false,
+            marketing: true/false,
+            preferences: true/false,
+            sale_of_data: true/false
+          }, function() { /* callback */ });
+      - rule: "Verificare che i Web Pixels Shopify rispettino il consent"
+        details: >
+          Dal 10 dicembre 2025, le Web Pixel extensions richiedono
+          protected customer data scopes. Il consent Iubenda deve
+          propagarsi correttamente ai Web Pixels.
+    known_issues:
+      - issue: "Consent Iubenda non propaga a Shopify checkout"
+        details: >
+          Il checkout Shopify è su dominio separato. Il consent
+          dato sul sito principale potrebbe non essere riconosciuto
+          al checkout. Verificare con test end-to-end.
+      - issue: "Plugin Shopify installano tracking ignorando consent"
+        details: >
+          Molti plugin Shopify (reviews, upsell, etc.) installano
+          il proprio tracking che bypassa sia Iubenda che GTM.
+    impact: "critical"
+    platform_specific: "shopify"
+
+  meta_consent:
+    name: "Meta Pixel / CAPI consent compliance"
+    description: "Meta richiede consent signals per il traffico EU"
+    access_level: "L0"
+    requirements:
+      browser_pixel:
+        - "fbq('consent', 'revoke') deve essere chiamato PRIMA di fbq('init')"
+        - "fbq('consent', 'grant') solo dopo consenso esplicito"
+        - "Se consent revocato, nessun evento Meta deve partire"
+      server_capi:
+        - "Non inviare eventi CAPI senza consenso per utenti EU"
+        - "data_processing_options ['LDU'] è per US/CCPA, NON soddisfa GDPR"
+        - "Per GDPR, l'evento non deve essere inviato affatto senza consenso"
+    gtm_trigger: >
+      In GTM, il tag Meta Pixel deve avere come trigger
+      'iubenda_consent_given_purpose_5' (Marketing consent).
+      Meta NON supporta Consent Mode nativo — serve trigger manuale.
+    impact: "critical"
+
+  google_ads_consent:
+    name: "Google Ads consent per conversioni"
+    description: "Google Ads richiede Consent Mode v2 per attribuzione conversioni EEA"
+    access_level: "L0"
+    requirements:
+      - "Consent Mode v2 con tutti e 4 i segnali"
+      - "Enhanced Conversions richiede ad_user_data=granted"
+      - "Remarketing richiede ad_personalization=granted"
+      - "Senza consent valido, conversioni EEA non attribuite"
+    impact: "critical"
+
+# ============================================================================
+# SEZIONE 10: RED FLAGS — Violazioni critiche da segnalare immediatamente
+# ============================================================================
+
+red_flags:
+
+  - id: "RF-C01"
+    name: "Cookie tracking attivi senza banner consent"
+    severity: "critical"
+    detection: "Cookie _ga, _fbp, _gcl_au presenti senza #iubenda-cs-banner nel DOM"
+    legal_risk: "Multa GDPR fino al 4% del fatturato annuo"
+
+  - id: "RF-C02"
+    name: "Tracking prima del consenso"
+    severity: "critical"
+    detection: "Richieste a google-analytics.com/g/collect, facebook.com/tr in Network tab prima di interazione banner"
+    legal_risk: "Violazione ePrivacy Directive — prior blocking obbligatorio"
+
+  - id: "RF-C03"
+    name: "Nessun pulsante Reject al primo livello"
+    severity: "critical"
+    detection: "Banner visibile senza pulsante Reject/Rifiuta sulla prima schermata"
+    legal_risk: "Dark pattern — CNIL ha multato EUR 150M per questo (SHEIN 2025)"
+
+  - id: "RF-C04"
+    name: "Consent Mode v1 invece di v2"
+    severity: "critical"
+    detection: "consent default presente ma senza ad_user_data e ad_personalization"
+    legal_risk: "Non conforme DMA — Google non attribuisce conversioni EEA"
+
+  - id: "RF-C05"
+    name: "TCF 2.2 dopo deadline 2.3"
+    severity: "high"
+    detection: "tcfPolicyVersion < 5 dopo il 28/02/2026"
+    legal_risk: "TC string invalide — advertising programmatico non funzionante"
+
+  - id: "RF-C06"
+    name: "Scroll come consenso attivo"
+    severity: "critical"
+    detection: "consentOnContinuedBrowsing=true in configurazione"
+    legal_risk: "Vietato esplicitamente dal Garante italiano"
+
+  - id: "RF-C07"
+    name: "Nessun meccanismo di revoca"
+    severity: "critical"
+    detection: "Nessun floating button, footer link o elemento con classe iubenda-cs-preferences-link"
+    legal_risk: "GDPR Art. 7(3) — revoca deve essere facile quanto il consenso"
+
+  - id: "RF-C08"
+    name: "Cookie policy non aggiornata"
+    severity: "high"
+    detection: "Cookie presenti sul sito ma non dichiarati nella cookie policy"
+    legal_risk: "Violazione obbligo di trasparenza GDPR Art. 13"
+
+  - id: "RF-C09"
+    name: "Tag GTM senza condizione consent"
+    severity: "critical"
+    detection: "Tag non essenziali in GTM con trigger All Pages senza exception consent"
+    legal_risk: "Prior blocking violato — tracking attivo senza consenso"
+
+  - id: "RF-C10"
+    name: "Accept e Reject con prominenza diversa"
+    severity: "high"
+    detection: "Dimensione, colore o posizione asimmetrica tra Accept e Reject"
+    legal_risk: "Dark pattern — EDPB Guidelines 05/2020"
+
+  - id: "RF-C11"
+    name: "Consent non propagato a Shopify checkout"
+    severity: "high"
+    detection: "Consent dato su dominio principale ma checkout Shopify traccia senza consent"
+    legal_risk: "Tracking non consensato nella fase più sensibile (acquisto)"
+    platform_specific: "shopify"
+
+  - id: "RF-C12"
+    name: "Meta Pixel senza fbq consent revoke"
+    severity: "critical"
+    detection: "fbq('init') presente senza precedente fbq('consent','revoke')"
+    legal_risk: "Meta Pixel attivo prima del consenso — violazione ePrivacy"
+
+# ============================================================================
+# SEZIONE 11: PRE-AUDIT QUESTIONS — Domande al cliente prima dell'audit
+# ============================================================================
+
+pre_audit_questions:
+
+  - id: "Q-C01"
+    question: "Quale CMP stai usando?"
+    options: ["Iubenda", "Cookiebot", "OneTrust", "Didomi", "Altro", "Nessuno"]
+    purpose: "Determinare quale knowledge base applicare"
+    critical: true
+
+  - id: "Q-C02"
+    question: "Hai il piano Iubenda Ultimate o inferiore?"
+    options: ["Ultimate", "Pro", "Basic", "Non so"]
+    purpose: "Ultimate include TCF, Consent Database, scanner illimitato"
+    conditional: "Solo se CMP = Iubenda"
+
+  - id: "Q-C03"
+    question: "In quali paesi operi / hai clienti?"
+    options: ["Solo Italia", "Italia + EU", "EU + UK", "Globale"]
+    purpose: "Determina quali requisiti legali applicare (Garante, CNIL, etc.)"
+    critical: true
+
+  - id: "Q-C04"
+    question: "Fai advertising programmatico (AdSense, Ad Manager)?"
+    options: ["Sì", "No", "Non so"]
+    purpose: "Se sì, TCF è obbligatorio"
+
+  - id: "Q-C05"
+    question: "Hai attivato il Consent Mode v2?"
+    options: ["Sì, Advanced", "Sì, Basic", "Non so", "No"]
+    purpose: "Capire se consent signals sono configurati"
+
+  - id: "Q-C06"
+    question: "Il tracking è gestito via GTM, direttamente nell'HTML, o mix?"
+    options: ["Tutto via GTM", "Mix GTM + diretto", "Tutto diretto", "Plugin piattaforma"]
+    purpose: "Determina la strategia di audit per il blocking"
+
+  - id: "Q-C07"
+    question: "Hai form di contatto, newsletter, o registrazione?"
+    options: ["Sì", "No"]
+    purpose: "Se sì, verificare Consent Database per GDPR Art. 7"
+
+  - id: "Q-C08"
+    question: "Piattaforma ecommerce?"
+    options: ["Shopify", "WooCommerce", "Magento", "PrestaShop", "Custom", "Non ecommerce"]
+    purpose: "Shopify ha requisiti specifici per consent integration"
+
+# ============================================================================
+# SEZIONE 12: SCORING SYSTEM — Valutazione complessiva consent compliance
+# ============================================================================
+
+scoring:
+
+  categories:
+    - name: "Banner UX & Legal"
+      weight: 0.25
+      checks:
+        - "reject_button_presence"
+        - "accept_reject_visual_parity"
+        - "customize_button"
+        - "per_purpose_consent"
+        - "withdrawal_mechanism"
+        - "close_button_behavior"
+        - "scroll_as_consent"
+        - "privacy_policy_link"
+      description: "Il banner rispetta i requisiti GDPR/Garante per UX e informativa"
+
+    - name: "Consent Mode & Signals"
+      weight: 0.25
+      checks:
+        - "default_state"
+        - "consent_update"
+        - "basic_vs_advanced_mode"
+        - "dma_compliance"
+      description: "Consent Mode v2 correttamente implementato con tutti i segnali"
+
+    - name: "Prior Blocking"
+      weight: 0.30
+      checks:
+        - "no_tracking_before_consent"
+        - "script_loading_order"
+        - "manual_blocking_verification"
+        - "consent_based_triggers"
+      description: "Nessun tracking prima del consenso — il test più importante"
+
+    - name: "Legal & Compliance"
+      weight: 0.20
+      checks:
+        - "garante_requirements"
+        - "tcf_presence"
+        - "tcf_version"
+        - "consent_renewal"
+        - "cookie_scanner"
+        - "consent_log"
+      description: "Requisiti legali specifici per mercato e framework"
+
+  severity_weights:
+    critical: 5.0
+    high: 3.0
+    medium: 1.5
+    low: 0.5
+
+  grade_scale:
+    A: { min: 90, label: "Eccellente", description: "Compliance completa — best practice" }
+    B: { min: 75, label: "Buono", description: "Sostanzialmente conforme con margini di miglioramento" }
+    C: { min: 60, label: "Sufficiente", description: "Compliance parziale — interventi necessari" }
+    D: { min: 40, label: "Insufficiente", description: "Violazioni significative — rischio sanzioni" }
+    F: { min: 0, label: "Critico", description: "Non conforme — intervento urgente richiesto" }
+
+  automatic_fail_conditions:
+    - condition: "Nessun CMP presente"
+      result: "F automatico"
+    - condition: "Tracking prima del consenso (non Consent Mode Advanced)"
+      result: "Max grade D"
+    - condition: "Nessun pulsante Reject al primo livello"
+      result: "Max grade D"
+    - condition: "Consent Mode v1 (manca ad_user_data/ad_personalization)"
+      result: "Max grade C"
+
+# ============================================================================
+# SEZIONE 13: TESTING METHODOLOGY — Come verificare tecnicamente
+# ============================================================================
+
+testing_methodology:
+
+  test_scenarios:
+
+    - id: "T01"
+      name: "Initial Load — No Interaction"
+      description: "Caricare il sito senza interagire col banner"
+      steps:
+        - "Aprire Chrome in modalità incognito"
+        - "Aprire DevTools > Network tab"
+        - "Attivare 'Preserve log'"
+        - "Navigare al sito"
+        - "NON interagire con il banner"
+      expected_results:
+        - "Banner visibile con Accept, Reject, Customize"
+        - "Nessuna richiesta a domini tracking (tranne Consent Mode Advanced)"
+        - "Nessun cookie non essenziale"
+        - "dataLayer contiene consent default con tutti denied"
+      network_filter: "/google-analytics|doubleclick|facebook.*tr|fbevents|bat.bing|snap.licdn|clarity|hotjar/"
+
+    - id: "T02"
+      name: "Reject All"
+      description: "Rifiutare tutti i cookie"
+      steps:
+        - "Partire da T01"
+        - "Cliccare 'Rifiuta tutto' / Reject All"
+      expected_results:
+        - "Banner scompare"
+        - "Nessun nuovo cookie di tracking"
+        - "Nessuna nuova richiesta di tracking"
+        - "gcs=G100 nelle richieste GA4 (se Consent Mode Advanced)"
+        - "Cookie _iub_cs-* presente con tutti i purposes denied"
+      console_check: >
+        JSON.parse(decodeURIComponent(document.cookie.match(/_iub_cs-\d+=(.*?)(?:;|$)/)[1]))
+        // purposes dovrebbero essere tutti false tranne 1
+
+    - id: "T03"
+      name: "Accept All"
+      description: "Accettare tutti i cookie"
+      steps:
+        - "Partire da nuovo incognito"
+        - "Caricare il sito"
+        - "Cliccare 'Accetta tutto' / Accept All"
+      expected_results:
+        - "Banner scompare"
+        - "Cookie analytics presenti (_ga, _gid)"
+        - "Cookie advertising presenti se advertising attivo (_gcl_au, _fbp)"
+        - "Richieste GA4 con gcs=G111"
+        - "dataLayer contiene consent update con granted"
+
+    - id: "T04"
+      name: "Granular Consent — Solo Analytics"
+      description: "Accettare solo la categoria Misurazione (purpose 4)"
+      steps:
+        - "Partire da nuovo incognito"
+        - "Caricare il sito"
+        - "Cliccare 'Personalizza'"
+        - "Attivare solo 'Misurazione/Analytics'"
+        - "Salvare le preferenze"
+      expected_results:
+        - "_ga e _gid presenti"
+        - "_gcl_au, _fbp, _fbc NON presenti"
+        - "gcs=G101 (analytics granted, ads denied)"
+        - "Meta Pixel NON deve eseguirsi"
+        - "Google Ads remarketing NON deve eseguirsi"
+
+    - id: "T05"
+      name: "Consent Persistence"
+      description: "Verificare che il consent sopravviva alla chiusura del browser"
+      steps:
+        - "Eseguire T03 (Accept All)"
+        - "Chiudere il tab"
+        - "Riaprire il sito"
+      expected_results:
+        - "Banner NON riappare"
+        - "Cookie consent presente"
+        - "Tracking attivo come dopo Accept"
+
+    - id: "T06"
+      name: "Consent Withdrawal"
+      description: "Revocare il consenso precedentemente dato"
+      steps:
+        - "Partire da T05 (consent già dato)"
+        - "Trovare il meccanismo di revoca (floating button o footer link)"
+        - "Riaprire preferenze e rifiutare tutto"
+      expected_results:
+        - "Cookie non essenziali rimossi"
+        - "Tracking si ferma"
+        - "Consent Mode update con denied"
+
+  devtools_commands:
+    check_iubenda_loaded: "typeof _iub !== 'undefined' && typeof _iub.cs !== 'undefined'"
+    check_consent_state: "JSON.stringify(_iub.cs.api.cs.consent)"
+    check_consent_mode: "dataLayer.filter(e => e[0] === 'consent')"
+    check_tcf: "__tcfapi('getTCData', 2, (d,s) => console.log(d))"
+    check_cookies: "document.cookie.split(';').map(c => c.trim().split('=')[0])"
+    check_banner_visible: "!!document.querySelector('#iubenda-cs-banner')"
+    check_purposes: "_iub.cs.api.cs.consent.purposes"
+
+# ============================================================================
+# SEZIONE 14: CONSOLE PARSING REFERENCE — Per automazione
+# ============================================================================
+
+console_parsing_reference:
+
+  iubenda_config_extraction:
+    description: "Come estrarre la configurazione Iubenda dal sito"
+    method: "JavaScript console"
+    commands:
+      full_config: "_iub.csConfiguration"
+      site_id: "_iub.csConfiguration.siteId"
+      cookie_policy_id: "_iub.csConfiguration.cookiePolicyId"
+      per_purpose: "_iub.csConfiguration.perPurposeConsent"
+      banner_config: "_iub.csConfiguration.banner"
+      reject_display: "_iub.csConfiguration.banner.rejectButtonDisplay"
+      consent_state: "_iub.cs.api.cs.consent"
+      purposes: "_iub.cs.api.cs.consent.purposes"
+      is_consent_given: "_iub.cs.api.isConsentGiven()"
+
+  cookie_parsing:
+    description: "Come parsare il cookie consent di Iubenda"
+    cookie_name_pattern: "_iub_cs-{cookiePolicyId}"
+    value_format: "JSON URL-encoded"
+    parse_command: >
+      JSON.parse(decodeURIComponent(
+        document.cookie.match(/_iub_cs-\d+=(.*?)(?:;|$)/)?.[1] || '{}'
+      ))
+    expected_structure:
+      purposes:
+        1: "boolean — Necessari"
+        2: "boolean — Funzionalità"
+        3: "boolean — Esperienza"
+        4: "boolean — Misurazione"
+        5: "boolean — Marketing"
+      timestamp: "ISO date — quando il consenso è stato dato"
+      id: "numeric — ID del record consent"
+
+  consent_mode_verification:
+    description: "Come verificare Consent Mode v2 nel dataLayer"
+    commands:
+      find_default: >
+        dataLayer.filter(e =>
+          e[0] === 'consent' && e[1] === 'default'
+        )
+      find_update: >
+        dataLayer.filter(e =>
+          e[0] === 'consent' && e[1] === 'update'
+        )
+      check_v2_signals: >
+        // Consent Mode v2 se presenti ad_user_data E ad_personalization
+        dataLayer.filter(e =>
+          e[0] === 'consent' && e[1] === 'default'
+        ).map(e => ({
+          has_ad_user_data: 'ad_user_data' in e[2],
+          has_ad_personalization: 'ad_personalization' in e[2]
+        }))
+    gcs_decoding:
+      G100: "ad_storage=denied, analytics_storage=denied"
+      G101: "ad_storage=denied, analytics_storage=granted"
+      G110: "ad_storage=granted, analytics_storage=denied"
+      G111: "ad_storage=granted, analytics_storage=granted"

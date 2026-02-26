@@ -1,0 +1,481 @@
+{
+  "version": "2.0",
+  "phases": [
+    {
+      "id": "A0",
+      "name": "Ricognizione Pre-Sito",
+      "icon": "🔍",
+      "description": "Analisi preliminare prima di aprire il dominio",
+      "scoring_area": null,
+      "sections": [
+        {
+          "id": "A0.1",
+          "name": "Stack Tecnologico",
+          "tool": "Builtwith / Wappalyzer",
+          "items": [
+            {"id": "a0_1_1", "label": "CMS / Framework identificato", "note_placeholder": "Es: Shopify, Magento, WooCommerce, custom..."},
+            {"id": "a0_1_2", "label": "CDN identificato", "note_placeholder": "Es: Cloudflare, Akamai, Azure..."},
+            {"id": "a0_1_3", "label": "Payment gateway identificato", "note_placeholder": "Es: Stripe, Adyen, PayPal..."},
+            {"id": "a0_1_4", "label": "Analytics tools installati", "note_placeholder": "Es: GA4, Hotjar, Clarity, Mixpanel..."},
+            {"id": "a0_1_5", "label": "Email marketing identificato", "note_placeholder": "Es: Klaviyo, Mailchimp, Brevo..."},
+            {"id": "a0_1_6", "label": "A/B testing tool presente", "note_placeholder": "Es: Optimizely, VWO..."},
+            {"id": "a0_1_7", "label": "CRM / Customer platform", "note_placeholder": "Es: Salesforce, HubSpot..."},
+            {"id": "a0_1_8", "label": "Chat / Support tool", "note_placeholder": "Es: Zendesk, Intercom, Tidio..."}
+          ]
+        },
+        {
+          "id": "A0.2",
+          "name": "Performance & Core Web Vitals",
+          "tool": "PageSpeed Insights",
+          "ai_enabled": true,
+          "ai_action": "performance",
+          "items": [
+            {"id": "a0_2_1", "label": "Score Mobile verificato", "note_placeholder": "Score: /100"},
+            {"id": "a0_2_2", "label": "Score Desktop verificato", "note_placeholder": "Score: /100"},
+            {"id": "a0_2_3", "label": "LCP <= 2.5s", "note_placeholder": "Buono <2.5s, Migliorabile 2.5-4s, Scarso >4s"},
+            {"id": "a0_2_4", "label": "INP <= 200ms", "note_placeholder": "Buono <200ms, Migliorabile 200-500ms, Scarso >500ms"},
+            {"id": "a0_2_5", "label": "CLS <= 0.1", "note_placeholder": "Buono <0.1, Migliorabile 0.1-0.25, Scarso >0.25"},
+            {"id": "a0_2_6", "label": "FCP verificato", "note_placeholder": "First Contentful Paint"},
+            {"id": "a0_2_7", "label": "TTFB < 800ms", "note_placeholder": "Time to First Byte"},
+            {"id": "a0_2_8", "label": "Page weight totale < 1.5MB", "note_placeholder": "Peso totale pagina"},
+            {"id": "a0_2_9", "label": "JS bundle < 300KB (compressed)", "note_placeholder": ""},
+            {"id": "a0_2_10", "label": "CSS < 100KB", "note_placeholder": ""},
+            {"id": "a0_2_11", "label": "Third-party scripts < 200KB", "note_placeholder": "Peso script di terze parti"}
+          ]
+        },
+        {
+          "id": "A0.3",
+          "name": "Advertising Intelligence",
+          "tool": "Ads Transparency + Meta Ad Library",
+          "ai_enabled": true,
+          "ai_action": "advertising",
+          "items": [
+            {"id": "a0_3_1", "label": "Google Ads attive verificato", "note_placeholder": "N. annunci, formati (Shopping, Search, Display...)"},
+            {"id": "a0_3_2", "label": "Advertiser verificato su Google", "note_placeholder": "Nome legale, sede"},
+            {"id": "a0_3_3", "label": "Meta Ads verificato", "note_placeholder": "N. inserzioni attive/inattive, periodo"},
+            {"id": "a0_3_4", "label": "TikTok Ads verificato", "note_placeholder": "Attivo/Non attivo"},
+            {"id": "a0_3_5", "label": "LinkedIn Ads verificato", "note_placeholder": "Attivo/Non attivo"}
+          ]
+        },
+        {
+          "id": "A0.4",
+          "name": "Security & Best Practices",
+          "tool": "securityheaders.com + Ispeziona",
+          "ai_enabled": true,
+          "ai_action": "security",
+          "items": [
+            {"id": "a0_4_1", "label": "HTTPS attivo (no mixed content)", "note_placeholder": ""},
+            {"id": "a0_4_2", "label": "HSTS header presente", "note_placeholder": "Strict-Transport-Security"},
+            {"id": "a0_4_3", "label": "CSP (Content Security Policy)", "note_placeholder": ""},
+            {"id": "a0_4_4", "label": "X-Frame-Options presente", "note_placeholder": ""},
+            {"id": "a0_4_5", "label": "X-Content-Type-Options", "note_placeholder": "nosniff"},
+            {"id": "a0_4_6", "label": "Referrer-Policy configurata", "note_placeholder": ""},
+            {"id": "a0_4_7", "label": "Permissions-Policy presente", "note_placeholder": ""},
+            {"id": "a0_4_8", "label": "Nessuna libreria JS vulnerabile", "note_placeholder": "jQuery obsoleto? Librerie con CVE?"},
+            {"id": "a0_4_9", "label": "No document.write / API deprecate", "note_placeholder": ""},
+            {"id": "a0_4_10", "label": "Console errors in produzione", "note_placeholder": "Errori JS visibili nella console?"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A1",
+      "name": "Consent & Compliance",
+      "icon": "🛡️",
+      "description": "Cookie banner, Consent Mode, compliance GDPR",
+      "scoring_area": "consent",
+      "sections": [
+        {
+          "id": "A1.1",
+          "name": "Cookie Banner - Analisi UX",
+          "tool": "Osservazione visuale",
+          "items": [
+            {"id": "a1_1_1", "label": "Banner presente", "note_placeholder": ""},
+            {"id": "a1_1_2", "label": "Provider identificato", "note_placeholder": "Cookiebot, Iubenda, OneTrust, Didomi, custom..."},
+            {"id": "a1_1_3", "label": "Tipo banner verificato", "note_placeholder": "Modal overlay (invasivo) / Banner bottom-top"},
+            {"id": "a1_1_4", "label": "Comportamento click fuori verificato", "note_placeholder": "Si chiude? Non si chiude?"},
+            {"id": "a1_1_5", "label": "Design bottoni analizzato", "note_placeholder": "Accetta tutti prominente? Rifiuta visibile?"},
+            {"id": "a1_1_6", "label": "Toggle default verificati", "note_placeholder": "Tutti OFF tranne Necessari?"},
+            {"id": "a1_1_7", "label": "Link Privacy Policy nel banner", "note_placeholder": "Presente / Assente"},
+            {"id": "a1_1_8", "label": "Testo personalizzato o template", "note_placeholder": ""},
+            {"id": "a1_1_9", "label": "Verificato su MOBILE", "note_placeholder": "Design diverso? Problemi?"},
+            {"id": "a1_1_10", "label": "Stima opt-in da design pattern", "note_placeholder": "Benchmark: prominente 70-85%, bilanciato 45-60%, toggle OFF 30-50%"}
+          ]
+        },
+        {
+          "id": "A1.2",
+          "name": "Consent Mode - Verifica Tecnica",
+          "tool": "InfoTrust / Consent Mode Inspector",
+          "items": [
+            {"id": "a1_2_1", "label": "Consent Mode attiva", "note_placeholder": ""},
+            {"id": "a1_2_2", "label": "Tipo: Basic o Advanced", "note_placeholder": "GCS Code only = Basic, GCS + GCD = Advanced"},
+            {"id": "a1_2_3", "label": "analytics_storage default: denied", "note_placeholder": ""},
+            {"id": "a1_2_4", "label": "ad_storage default: denied", "note_placeholder": ""},
+            {"id": "a1_2_5", "label": "ad_user_data default: denied", "note_placeholder": "Obbligatorio dal marzo 2024 (DMA)"},
+            {"id": "a1_2_6", "label": "ad_personalization default: denied", "note_placeholder": ""},
+            {"id": "a1_2_7", "label": "personalization_storage default: denied", "note_placeholder": ""},
+            {"id": "a1_2_8", "label": "functionality_storage default: denied", "note_placeholder": ""},
+            {"id": "a1_2_9", "label": "security_storage default: granted", "note_placeholder": "Deve essere sempre granted"},
+            {"id": "a1_2_10", "label": "Post-accettazione: tutti granted", "note_placeholder": "Cliccare Accetta tutti e verificare"},
+            {"id": "a1_2_11", "label": "Post-rifiuto: tutti denied (no tag leak)", "note_placeholder": "Nuova sessione, cliccare Rifiuta"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Tracking & Tag Setup",
+      "icon": "📊",
+      "description": "GTM, GA4, Google Ads, pixel, server-side",
+      "scoring_area": "tracking",
+      "sections": [
+        {
+          "id": "A2.1",
+          "name": "Tag Inventory",
+          "tool": "Google Tag Assistant",
+          "items": [
+            {"id": "a2_1_1", "label": "GTM presente", "note_placeholder": "GTM-XXXXXXX"},
+            {"id": "a2_1_2", "label": "GA4 presente", "note_placeholder": "G-XXXXXXXXXX"},
+            {"id": "a2_1_3", "label": "Google Ads tag presente", "note_placeholder": "AW-XXXXXXXXX (se fa Ads)"},
+            {"id": "a2_1_4", "label": "gtag.js diretto verificato", "note_placeholder": "Presente oltre GTM? Duplicazione?"},
+            {"id": "a2_1_5", "label": "Coerenza Ads attive vs tag installati", "note_placeholder": "Se fa Ads ma no tag = CRITICO"}
+          ]
+        },
+        {
+          "id": "A2.2",
+          "name": "Client-Side vs Server-Side",
+          "tool": "Ispeziona elemento / View Source",
+          "items": [
+            {"id": "a2_2_1", "label": "Dominio caricamento GTM verificato", "note_placeholder": "googletagmanager.com = client-side, sottodominio = server-side"},
+            {"id": "a2_2_2", "label": "Server-side presente/assente", "note_placeholder": ""},
+            {"id": "a2_2_3", "label": "Se server-side: Stape Checker audit", "note_placeholder": "Score e raccomandazioni"},
+            {"id": "a2_2_4", "label": "First-party domain per tag", "note_placeholder": "Tag serviti da dominio/sottodominio cliente?"}
+          ]
+        },
+        {
+          "id": "A2.3",
+          "name": "Pixel & Script Terze Parti",
+          "tool": "Meta Pixel Helper + View Source",
+          "items": [
+            {"id": "a2_3_1", "label": "Meta Pixel presente e funzionante", "note_placeholder": "ID: , PageView fires? Warning?"},
+            {"id": "a2_3_2", "label": "Microsoft Clarity / Hotjar", "note_placeholder": ""},
+            {"id": "a2_3_3", "label": "LinkedIn Insight Tag", "note_placeholder": ""},
+            {"id": "a2_3_4", "label": "TikTok Pixel", "note_placeholder": ""},
+            {"id": "a2_3_5", "label": "Pinterest Tag", "note_placeholder": ""},
+            {"id": "a2_3_6", "label": "Criteo / RTB House", "note_placeholder": ""},
+            {"id": "a2_3_7", "label": "Email marketing pixel (Klaviyo etc.)", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A2.4",
+          "name": "Cross-Domain",
+          "tool": "Network tab / Parametro _gl",
+          "items": [
+            {"id": "a2_4_1", "label": "Domini multipli identificati", "note_placeholder": "Blog, checkout, CDN..."},
+            {"id": "a2_4_2", "label": "Cross-domain linker verificato", "note_placeholder": "Parametro _gl passato tra domini?"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Ecommerce Funnel",
+      "icon": "🛒",
+      "description": "DataLayer, eventi GA4, Meta, purchase test",
+      "scoring_area": "ecommerce",
+      "sections": [
+        {
+          "id": "A3.1",
+          "name": "Event Matrix - Navigazione",
+          "tool": "Tag Assistant + EC Assist + Meta Pixel Helper",
+          "items": [
+            {"id": "a3_1_1", "label": "page_view (Homepage)", "note_placeholder": "GA4 + Meta PageView"},
+            {"id": "a3_1_2", "label": "view_item_list (Categoria)", "note_placeholder": "GA4 + Meta ViewCategory"},
+            {"id": "a3_1_3", "label": "view_item (Prodotto)", "note_placeholder": "GA4 + Meta ViewContent"},
+            {"id": "a3_1_4", "label": "add_to_cart", "note_placeholder": "GA4 + Meta AddToCart"},
+            {"id": "a3_1_5", "label": "add_to_wishlist", "note_placeholder": "GA4 + Meta AddToWishlist"},
+            {"id": "a3_1_6", "label": "view_cart", "note_placeholder": "GA4"},
+            {"id": "a3_1_7", "label": "begin_checkout", "note_placeholder": "GA4 + Meta InitiateCheckout"},
+            {"id": "a3_1_8", "label": "add_shipping_info", "note_placeholder": "GA4"},
+            {"id": "a3_1_9", "label": "add_payment_info", "note_placeholder": "GA4 + Meta AddPaymentInfo"},
+            {"id": "a3_1_10", "label": "purchase", "note_placeholder": "GA4 + Meta Purchase"}
+          ]
+        },
+        {
+          "id": "A3.2",
+          "name": "DataLayer Quality Check",
+          "tool": "Console browser + DataLayer Checker",
+          "ai_enabled": true,
+          "ai_action": "datalayer",
+          "items": [
+            {"id": "a3_2_1", "label": "Struttura conforme Google Dev Docs", "note_placeholder": ""},
+            {"id": "a3_2_2", "label": "ecommerce:null prima di ogni push", "note_placeholder": "Pulizia dataLayer tra eventi"},
+            {"id": "a3_2_3", "label": "currency presente e corretto", "note_placeholder": ""},
+            {"id": "a3_2_4", "label": "value coerente col totale", "note_placeholder": ""},
+            {"id": "a3_2_5", "label": "Tipi dati corretti (price=number, id=string)", "note_placeholder": ""},
+            {"id": "a3_2_6", "label": "items[] completo (name, id, brand, category, price, qty)", "note_placeholder": ""},
+            {"id": "a3_2_7", "label": "Nessun campo vuoto/undefined critico", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A3.3",
+          "name": "Purchase Test",
+          "tool": "Acquisto di prova (prodotto economico + bonifico)",
+          "items": [
+            {"id": "a3_3_1", "label": "transaction_id presente e unico", "note_placeholder": ""},
+            {"id": "a3_3_2", "label": "value coerente (incl. shipping)", "note_placeholder": ""},
+            {"id": "a3_3_3", "label": "shipping presente", "note_placeholder": ""},
+            {"id": "a3_3_4", "label": "tax presente", "note_placeholder": ""},
+            {"id": "a3_3_5", "label": "Purchase fired UNA sola volta", "note_placeholder": "No duplicazioni dataLayer.push + gtag"},
+            {"id": "a3_3_6", "label": "Deduplication: reload thank you page", "note_placeholder": "Il purchase riscatta? Se si = problema"},
+            {"id": "a3_3_7", "label": "Enhanced Conversions trovate", "note_placeholder": "EC Assist: Found / Not Found"},
+            {"id": "a3_3_8", "label": "User data presente negli eventi", "note_placeholder": "No user data found = problema"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "SEO Tecnico",
+      "icon": "🔎",
+      "description": "robots.txt, sitemap, schema markup, on-page SEO",
+      "scoring_area": "seo",
+      "sections": [
+        {
+          "id": "A4.1",
+          "name": "robots.txt",
+          "tool": "Browser diretto",
+          "ai_enabled": true,
+          "ai_action": "robots",
+          "items": [
+            {"id": "a4_1_1", "label": "File presente", "note_placeholder": ""},
+            {"id": "a4_1_2", "label": "Sitemap indicata", "note_placeholder": "URL sitemap"},
+            {"id": "a4_1_3", "label": "User-agent configurati", "note_placeholder": "Solo Googlebot? Anche * e Bingbot?"},
+            {"id": "a4_1_4", "label": "Disallow sensati", "note_placeholder": "Aree utente, filtri, parametri"},
+            {"id": "a4_1_5", "label": "Nessun Disallow su pagine importanti", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A4.2",
+          "name": "Sitemap",
+          "tool": "Browser + Redirect checker",
+          "ai_enabled": true,
+          "ai_action": "sitemap",
+          "items": [
+            {"id": "a4_2_1", "label": "Sitemap accessibile (200 OK)", "note_placeholder": ""},
+            {"id": "a4_2_2", "label": "Nessun redirect anomalo", "note_placeholder": "301 verso altro dominio?"},
+            {"id": "a4_2_3", "label": "Struttura sitemap index", "note_placeholder": "Sub-sitemap per country/tipo?"},
+            {"id": "a4_2_4", "label": "lastmod aggiornato", "note_placeholder": "Dinamica o statica?"},
+            {"id": "a4_2_5", "label": "URL coerenti col dominio", "note_placeholder": ""},
+            {"id": "a4_2_6", "label": "Max 50K URL per sitemap", "note_placeholder": ""},
+            {"id": "a4_2_7", "label": "XML valido", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A4.3",
+          "name": "On-Page SEO",
+          "tool": "PERSEO / SEO META extension",
+          "ai_enabled": true,
+          "ai_action": "seo",
+          "items": [
+            {"id": "a4_3_1", "label": "Title tag: 50-60 char, keyword, unico", "note_placeholder": ""},
+            {"id": "a4_3_2", "label": "Meta description: 150-160 char, CTA", "note_placeholder": ""},
+            {"id": "a4_3_3", "label": "H1 singolo con keyword", "note_placeholder": ""},
+            {"id": "a4_3_4", "label": "Heading hierarchy logica (H1>H2>H3)", "note_placeholder": "No livelli saltati"},
+            {"id": "a4_3_5", "label": "Immagini: alt text descrittivo", "note_placeholder": ""},
+            {"id": "a4_3_6", "label": "Immagini: formato moderno (WebP/AVIF)", "note_placeholder": ""},
+            {"id": "a4_3_7", "label": "Internal linking con anchor text descrittivo", "note_placeholder": "No 'click here'"},
+            {"id": "a4_3_8", "label": "URL puliti (hyphens, lowercase, <75 char)", "note_placeholder": ""},
+            {"id": "a4_3_9", "label": "Canonical URL presente", "note_placeholder": "Self-referencing canonical?"},
+            {"id": "a4_3_10", "label": "hreflang per multi-lingua", "note_placeholder": "Se sito multi-country"},
+            {"id": "a4_3_11", "label": "html lang attribute", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A4.4",
+          "name": "Schema Markup / Structured Data",
+          "tool": "Schema Markup Validator / Rich Results Test",
+          "ai_enabled": true,
+          "ai_action": "seo_deep",
+          "items": [
+            {"id": "a4_4_1", "label": "Schema Product (JSON-LD)", "note_placeholder": ""},
+            {"id": "a4_4_2", "label": "Schema Offer (price, availability, currency)", "note_placeholder": ""},
+            {"id": "a4_4_3", "label": "Schema BreadcrumbList", "note_placeholder": ""},
+            {"id": "a4_4_4", "label": "Schema Organization", "note_placeholder": ""},
+            {"id": "a4_4_5", "label": "Schema FAQ (se presente)", "note_placeholder": ""},
+            {"id": "a4_4_6", "label": "Schema WebSite (sitelinks search box)", "note_placeholder": "potentialAction SearchAction"},
+            {"id": "a4_4_7", "label": "Schema LocalBusiness (se fisico)", "note_placeholder": "Indirizzo, orari, telefono"},
+            {"id": "a4_4_8", "label": "Schema Article (se blog)", "note_placeholder": "headline, author, datePublished"},
+            {"id": "a4_4_9", "label": "Nessun errore nello validator", "note_placeholder": "Rich Results Test / Schema Validator"},
+            {"id": "a4_4_10", "label": "Rich results eligibility verificata", "note_placeholder": "Stelle, prezzo, disponibilita, FAQ in SERP"}
+          ]
+        },
+        {
+          "id": "A4.5",
+          "name": "Mobile SEO",
+          "tool": "Chrome DevTools / Mobile simulation",
+          "items": [
+            {"id": "a4_5_1", "label": "Viewport meta tag presente", "note_placeholder": ""},
+            {"id": "a4_5_2", "label": "Tap targets >= 48px", "note_placeholder": ""},
+            {"id": "a4_5_3", "label": "Font size >= 16px", "note_placeholder": ""},
+            {"id": "a4_5_4", "label": "No horizontal scroll", "note_placeholder": ""},
+            {"id": "a4_5_5", "label": "Responsive images (srcset)", "note_placeholder": ""},
+            {"id": "a4_5_6", "label": "Lazy loading below-fold", "note_placeholder": ""}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A5",
+      "name": "Accessibility",
+      "icon": "♿",
+      "description": "WCAG 2.1 AA - Perceivable, Operable, Understandable, Robust",
+      "scoring_area": "accessibility",
+      "sections": [
+        {
+          "id": "A5.1",
+          "name": "Perceivable",
+          "tool": "Lighthouse + axe DevTools + Ispezione manuale",
+          "ai_enabled": true,
+          "ai_action": "accessibility",
+          "items": [
+            {"id": "a5_1_1", "label": "Immagini: alt text significativo", "note_placeholder": "Decorative = alt empty, Content = descrittivo"},
+            {"id": "a5_1_2", "label": "Icon buttons: accessible name", "note_placeholder": "aria-label o visually-hidden text"},
+            {"id": "a5_1_3", "label": "Contrasto colori >= 4.5:1 (testo normale)", "note_placeholder": "3:1 per testo grande"},
+            {"id": "a5_1_4", "label": "Colore non unico indicatore", "note_placeholder": "Icone + testo oltre al colore"},
+            {"id": "a5_1_5", "label": "Video con captions/sottotitoli", "note_placeholder": "Se presenti video"}
+          ]
+        },
+        {
+          "id": "A5.2",
+          "name": "Operable",
+          "tool": "Navigazione tastiera + Screen reader",
+          "items": [
+            {"id": "a5_2_1", "label": "Tutto navigabile da tastiera", "note_placeholder": "Tab through page"},
+            {"id": "a5_2_2", "label": "No keyboard traps", "note_placeholder": "Modal: Escape chiude, focus torna"},
+            {"id": "a5_2_3", "label": "Focus indicator visibile", "note_placeholder": ":focus-visible styles presenti?"},
+            {"id": "a5_2_4", "label": "Skip link presente", "note_placeholder": "'Skip to main content'"},
+            {"id": "a5_2_5", "label": "Reduced motion rispettato", "note_placeholder": "prefers-reduced-motion media query"},
+            {"id": "a5_2_6", "label": "Tap targets >= 48px su mobile", "note_placeholder": ""}
+          ]
+        },
+        {
+          "id": "A5.3",
+          "name": "Understandable",
+          "tool": "Ispezione codice",
+          "items": [
+            {"id": "a5_3_1", "label": "html lang attribute impostato", "note_placeholder": "Es: lang='it'"},
+            {"id": "a5_3_2", "label": "Form labels associati correttamente", "note_placeholder": "for/id association"},
+            {"id": "a5_3_3", "label": "Error handling form: aria-invalid", "note_placeholder": "aria-describedby per messaggi errore"},
+            {"id": "a5_3_4", "label": "Navigazione consistente", "note_placeholder": "aria-current per pagina attiva"}
+          ]
+        },
+        {
+          "id": "A5.4",
+          "name": "Robust",
+          "tool": "W3C Validator + axe-core",
+          "items": [
+            {"id": "a5_4_1", "label": "HTML valido (no ID duplicati)", "note_placeholder": ""},
+            {"id": "a5_4_2", "label": "Elementi nativi preferiti su ARIA", "note_placeholder": "button vs div role=button"},
+            {"id": "a5_4_3", "label": "ARIA usato correttamente", "note_placeholder": "Roles, states, properties validi"},
+            {"id": "a5_4_4", "label": "Live regions per contenuto dinamico", "note_placeholder": "aria-live polite/assertive"},
+            {"id": "a5_4_5", "label": "Lighthouse Accessibility score", "note_placeholder": "Score: /100"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A6",
+      "name": "CRO & Conversion Optimization",
+      "icon": "🎯",
+      "description": "Value proposition, copywriting, trust signals, friction analysis",
+      "scoring_area": null,
+      "sections": [
+        {
+          "id": "A6.1",
+          "name": "Value Proposition & Messaging",
+          "tool": "Analisi visuale pagina",
+          "ai_enabled": true,
+          "ai_action": "cro",
+          "items": [
+            {"id": "a6_1_1", "label": "Value proposition chiara above-the-fold", "note_placeholder": "Il visitatore capisce cosa offri in 5 secondi?"},
+            {"id": "a6_1_2", "label": "Headline specifica (no generico)", "note_placeholder": "Outcome concreto vs buzzword vago"},
+            {"id": "a6_1_3", "label": "Subheadline di supporto", "note_placeholder": "Spiega come/perché, complementa headline"},
+            {"id": "a6_1_4", "label": "Benefici > Features", "note_placeholder": "Focus su outcome cliente, non solo specifiche"},
+            {"id": "a6_1_5", "label": "Linguaggio del cliente usato", "note_placeholder": "Parla come il target, non come l'azienda"}
+          ]
+        },
+        {
+          "id": "A6.2",
+          "name": "CTA & Conversion Flow",
+          "tool": "Analisi visuale + Click flow",
+          "items": [
+            {"id": "a6_2_1", "label": "CTA primaria visibile above-the-fold", "note_placeholder": "Contrasto alto, testo specifico (no 'Scopri di più')"},
+            {"id": "a6_2_2", "label": "CTA action-oriented", "note_placeholder": "'Inizia prova gratuita' > 'Submit', 'Acquista ora' > 'Invia'"},
+            {"id": "a6_2_3", "label": "Un solo CTA primario per sezione", "note_placeholder": "No scelta multipla che paralizza"},
+            {"id": "a6_2_4", "label": "Gerarchia CTA chiara", "note_placeholder": "Primario (pieno) > Secondario (outline) > Terziario (link)"},
+            {"id": "a6_2_5", "label": "Micro-copy sotto CTA", "note_placeholder": "'Nessuna carta richiesta', 'Cancella quando vuoi'"},
+            {"id": "a6_2_6", "label": "Form checkout semplificato", "note_placeholder": "Campi minimi necessari, no registrazione forzata"}
+          ]
+        },
+        {
+          "id": "A6.3",
+          "name": "Trust Signals & Social Proof",
+          "tool": "Analisi visuale",
+          "items": [
+            {"id": "a6_3_1", "label": "Recensioni/testimonial visibili", "note_placeholder": "Con nome, foto, dettagli specifici"},
+            {"id": "a6_3_2", "label": "Rating aggregato (stelle)", "note_placeholder": "Trustpilot, Google Reviews, prodotto"},
+            {"id": "a6_3_3", "label": "Loghi clienti / media / certificazioni", "note_placeholder": "'Usato da...', 'Visto su...'"},
+            {"id": "a6_3_4", "label": "Numeri concreti", "note_placeholder": "'10.000+ clienti', '+35% conversioni'"},
+            {"id": "a6_3_5", "label": "Garanzia esplicita", "note_placeholder": "Soddisfatti o rimborsati, reso gratuito"},
+            {"id": "a6_3_6", "label": "Badge sicurezza pagamento", "note_placeholder": "SSL, metodi pagamento, certificazioni"},
+            {"id": "a6_3_7", "label": "Case study / risultati misurabili", "note_placeholder": "Prima/dopo, ROI concreto"}
+          ]
+        },
+        {
+          "id": "A6.4",
+          "name": "Objection Handling & Friction",
+          "tool": "User flow analysis",
+          "items": [
+            {"id": "a6_4_1", "label": "FAQ presenti nelle pagine chiave", "note_placeholder": "Rispondono alle obiezioni principali?"},
+            {"id": "a6_4_2", "label": "Prezzo trasparente (no sorprese)", "note_placeholder": "Costi spedizione, tasse visibili prima del checkout"},
+            {"id": "a6_4_3", "label": "Policy reso/rimborso facilmente trovabile", "note_placeholder": "Link visibile, non nascosta"},
+            {"id": "a6_4_4", "label": "Contatto facile (chat, telefono, email)", "note_placeholder": "Visibile, non solo in footer"},
+            {"id": "a6_4_5", "label": "No friction inutile nel checkout", "note_placeholder": "Guest checkout disponibile? Campi non necessari?"},
+            {"id": "a6_4_6", "label": "Loading speed percepito", "note_placeholder": "Skeleton screens, progress indicators"},
+            {"id": "a6_4_7", "label": "Error recovery chiaro", "note_placeholder": "Messaggi errore specifici, non generici"}
+          ]
+        },
+        {
+          "id": "A6.5",
+          "name": "Page-Type Specific CRO",
+          "tool": "Analisi per tipo pagina",
+          "items": [
+            {"id": "a6_5_1", "label": "Homepage: hero efficace + percorso chiaro", "note_placeholder": "Segmentazione se più target"},
+            {"id": "a6_5_2", "label": "Categoria: filtri utili + product cards info", "note_placeholder": "Prezzo, rating, disponibilità visibili"},
+            {"id": "a6_5_3", "label": "Prodotto: gallery + descrizione + urgency", "note_placeholder": "Zoom, video, stock limitato"},
+            {"id": "a6_5_4", "label": "Carrello: summary chiaro + cross-sell", "note_placeholder": "Upsell non invasivo"},
+            {"id": "a6_5_5", "label": "Checkout: progress bar + salvataggio", "note_placeholder": "Step visibili, dati non persi"},
+            {"id": "a6_5_6", "label": "Thank you: next step + referral", "note_placeholder": "Conferma ordine + engagement post-acquisto"}
+          ]
+        }
+      ]
+    }
+  ],
+  "scoring": {
+    "areas": [
+      {"id": "consent", "name": "Consent & Compliance", "max": 10},
+      {"id": "tracking", "name": "Tracking Setup", "max": 10},
+      {"id": "ecommerce", "name": "Ecommerce Funnel", "max": 10},
+      {"id": "seo", "name": "SEO Tecnico", "max": 10},
+      {"id": "accessibility", "name": "Accessibility", "max": 10},
+      {"id": "advertising", "name": "Advertising Readiness", "max": 10}
+    ],
+    "levels": [
+      {"min": 0, "max": 15, "label": "Critico", "color": "#EF4444"},
+      {"min": 16, "max": 30, "label": "Base", "color": "#F59E0B"},
+      {"min": 31, "max": 45, "label": "Intermedio", "color": "#3B82F6"},
+      {"min": 46, "max": 60, "label": "Avanzato", "color": "#10B981"}
+    ]
+  }
+}

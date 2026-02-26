@@ -1,0 +1,2055 @@
+# ============================================================================
+# GOOGLE SEARCH CONSOLE (GSC) AUDIT CHECKLIST — KNOWLEDGE BASE
+# ============================================================================
+# Version: 1.0
+# Date: 2026-02-26
+# Purpose: Comprehensive checklist for MarTech audit of Google Search Console
+#          data, covering API access, UI exports, performance analysis,
+#          indexing, Core Web Vitals, structured data, and cross-platform insights.
+# Vertical: All (with ecommerce-specific sections)
+# ============================================================================
+
+metadata:
+  version: "1.0"
+  vertical: "all"
+  last_updated: "2026-02-26"
+  description: >
+    Structured knowledge base for auditing a website's Google Search Console
+    configuration and data. Covers every GSC report, API endpoint, metric,
+    dimension, and actionable audit check. Designed for both automated
+    (API-driven) and manual (UI/export) audit workflows.
+
+# ============================================================================
+# SECTION 1: GSC API — ENDPOINTS, PARAMETERS, RESPONSE FIELDS
+# ============================================================================
+
+api_reference:
+
+  base_url: "https://searchconsole.googleapis.com"
+  auth: "OAuth 2.0 (scope: https://www.googleapis.com/auth/webmasters.readonly)"
+  api_version: "v1"
+
+  # --------------------------------------------------------------------------
+  # 1A: Search Analytics API
+  # --------------------------------------------------------------------------
+  search_analytics:
+    endpoint: "POST /webmasters/v3/sites/{siteUrl}/searchAnalytics/query"
+    description: >
+      Core performance data endpoint. Returns clicks, impressions, CTR,
+      and average position grouped by dimensions and filtered by criteria.
+
+    request_parameters:
+      required:
+        - name: "startDate"
+          type: "string"
+          format: "YYYY-MM-DD"
+          description: "Start date in Pacific Time"
+        - name: "endDate"
+          type: "string"
+          format: "YYYY-MM-DD"
+          description: "End date in Pacific Time"
+      optional:
+        - name: "dimensions[]"
+          type: "list of strings"
+          values:
+            - "date"
+            - "hour"       # Only with dataState=hourly_all; date dimension also required
+            - "query"
+            - "page"
+            - "country"    # ISO 3166-1 alpha-3
+            - "device"     # DESKTOP, MOBILE, TABLET
+            - "searchAppearance"
+          description: "Grouping dimensions. Order determines key[] order in response."
+        - name: "type"
+          type: "string"
+          default: "web"
+          values:
+            - "web"
+            - "image"
+            - "video"
+            - "news"
+            - "googleNews"
+            - "discover"
+          description: "Search type filter. Replaces deprecated 'searchType'."
+        - name: "dimensionFilterGroups[]"
+          type: "list of objects"
+          description: "Filter groups combined with AND logic."
+          children:
+            - name: "groupType"
+              type: "string"
+              default: "and"
+            - name: "filters[]"
+              type: "list of objects"
+              children:
+                - name: "dimension"
+                  values: ["query", "page", "country", "device", "searchAppearance"]
+                - name: "operator"
+                  values:
+                    - "equals"          # default
+                    - "notEquals"
+                    - "contains"
+                    - "notContains"
+                    - "includingRegex"
+                    - "excludingRegex"
+                - name: "expression"
+                  type: "string"
+                  description: "Value to filter on"
+        - name: "aggregationType"
+          type: "string"
+          default: "auto"
+          values:
+            - "auto"
+            - "byPage"
+            - "byProperty"
+            - "byNewsShowcasePanel"
+        - name: "rowLimit"
+          type: "integer"
+          default: 1000
+          min: 1
+          max: 25000
+        - name: "startRow"
+          type: "integer"
+          default: 0
+          description: "Zero-based row offset for pagination"
+        - name: "dataState"
+          type: "string"
+          default: "final"
+          values:
+            - "final"        # Only finalized data
+            - "all"          # Includes fresh (partial) data
+            - "hourly_all"   # Hourly granularity; requires 'hour' + 'date' dimensions
+
+    response_fields:
+      - name: "rows[]"
+        type: "list of objects"
+        children:
+          - name: "keys[]"
+            type: "list of strings"
+            description: "Dimension values in same order as request dimensions[]"
+          - name: "clicks"
+            type: "double"
+          - name: "impressions"
+            type: "double"
+          - name: "ctr"
+            type: "double"
+            description: "Click-through rate (0.0 to 1.0)"
+          - name: "position"
+            type: "double"
+            description: "Average position in search results (1-based)"
+      - name: "responseAggregationType"
+        type: "string"
+        values: ["auto", "byPage", "byProperty"]
+      - name: "metadata"
+        type: "object"
+        description: "Contains first_incomplete_date or first_incomplete_hour when using fresh data"
+
+    limits:
+      max_rows_per_request: 25000
+      max_rows_total_via_pagination: 50000
+      ui_export_limit: 1000
+      data_retention_days: 16  # months actually — ~16 months of data
+      data_retention_months: 16
+      anonymized_queries: >
+        Queries with fewer than ~50 unique users over 2-3 months are
+        anonymized and excluded from query-dimension results.
+      freshness_lag_days: 2  # Typically 2-4 days for final data
+
+  # --------------------------------------------------------------------------
+  # 1B: URL Inspection API
+  # --------------------------------------------------------------------------
+  url_inspection:
+    endpoint: "POST /v1/urlInspection/index:inspect"
+    description: >
+      Programmatic access to URL Inspection tool data. Returns index status,
+      crawl info, canonical, mobile usability, rich results, and AMP status.
+    rate_limit: "2000 queries per day per property; 600 queries per minute"
+
+    request_body:
+      - name: "inspectionUrl"
+        type: "string"
+        required: true
+        description: "Full URL to inspect"
+      - name: "siteUrl"
+        type: "string"
+        required: true
+        description: "SC property (https://example.com/ or sc-domain:example.com)"
+      - name: "languageCode"
+        type: "string"
+        required: false
+        description: "BCP-47 language code for localized error messages"
+
+    response_structure:
+      inspectionResultLink:
+        type: "string"
+        description: "Deep link to SC URL Inspection UI"
+
+      indexStatusResult:
+        verdict:
+          type: "enum"
+          values: ["VERDICT_UNSPECIFIED", "PASS", "PARTIAL", "FAIL", "NEUTRAL"]
+        coverageState:
+          type: "string"
+          description: "Human-readable indexability status"
+        robotsTxtState:
+          type: "enum"
+          values: ["ROBOTS_TXT_STATE_UNSPECIFIED", "ALLOWED", "DISALLOWED"]
+        indexingState:
+          type: "enum"
+          values:
+            - "INDEXING_STATE_UNSPECIFIED"
+            - "INDEXING_ALLOWED"
+            - "BLOCKED_BY_META_TAG"
+            - "BLOCKED_BY_HTTP_HEADER"
+            - "BLOCKED_BY_ROBOTS_TXT"
+        lastCrawlTime:
+          type: "timestamp"
+        pageFetchState:
+          type: "enum"
+          values:
+            - "PAGE_FETCH_STATE_UNSPECIFIED"
+            - "SUCCESSFUL"
+            - "SOFT_404"
+            - "BLOCKED_ROBOTS_TXT"
+            - "NOT_FOUND"
+            - "ACCESS_DENIED"
+            - "SERVER_ERROR"
+            - "REDIRECT_ERROR"
+            - "ACCESS_FORBIDDEN"
+            - "BLOCKED_4XX"
+            - "INTERNAL_CRAWL_ERROR"
+            - "INVALID_URL"
+        googleCanonical:
+          type: "string"
+          description: "Google-selected canonical URL"
+        userCanonical:
+          type: "string"
+          description: "Declared canonical URL (rel=canonical / Link header)"
+        crawledAs:
+          type: "enum"
+          values: ["CRAWLING_USER_AGENT_UNSPECIFIED", "DESKTOP", "MOBILE"]
+        sitemap:
+          type: "list of strings"
+          description: "Sitemaps that reference this URL"
+        referringUrls:
+          type: "list of strings"
+          description: "Internal URLs linking to this page (sample)"
+
+      mobileUsabilityResult:
+        deprecated: true
+        verdict:
+          type: "enum"
+          values: ["VERDICT_UNSPECIFIED", "PASS", "PARTIAL", "FAIL", "NEUTRAL"]
+        issues:
+          type: "list of MobileUsabilityIssue"
+          issue_types:
+            - "MOBILE_USABILITY_ISSUE_TYPE_UNSPECIFIED"
+            - "USES_INCOMPATIBLE_PLUGINS"
+            - "CONFIGURE_VIEWPORT"
+            - "FIXED_WIDTH_VIEWPORT"
+            - "SIZE_CONTENT_TO_VIEWPORT"
+            - "USE_LEGIBLE_FONT_SIZES"
+            - "TAP_TARGETS_TOO_CLOSE"
+
+      richResultsResult:
+        verdict:
+          type: "enum"
+          values: ["VERDICT_UNSPECIFIED", "PASS", "PARTIAL", "FAIL", "NEUTRAL"]
+        detectedItems:
+          type: "list of DetectedItems"
+          children:
+            richResultType:
+              type: "string"
+              description: "Schema type name (e.g. 'FAQ', 'Product')"
+            items:
+              type: "list of Item"
+              children:
+                name:
+                  type: "string"
+                issues:
+                  type: "list of RichResultsIssue"
+                  children:
+                    issueMessage: "string"
+                    severity:
+                      type: "enum"
+                      values: ["SEVERITY_UNSPECIFIED", "WARNING", "ERROR"]
+
+      ampResult:
+        verdict:
+          type: "enum"
+        ampUrl:
+          type: "string"
+        robotsTxtState:
+          type: "enum"
+        indexingState:
+          type: "enum"
+          values:
+            - "AMP_INDEXING_STATE_UNSPECIFIED"
+            - "AMP_INDEXING_ALLOWED"
+            - "BLOCKED_DUE_TO_NOINDEX"
+            - "BLOCKED_DUE_TO_EXPIRED_UNAVAILABLE_AFTER"
+        lastCrawlTime:
+          type: "timestamp"
+        pageFetchState:
+          type: "enum"
+        issues:
+          type: "list of AmpIssue"
+          children:
+            issueMessage: "string"
+            severity: "enum (WARNING, ERROR)"
+
+  # --------------------------------------------------------------------------
+  # 1C: Sitemaps API
+  # --------------------------------------------------------------------------
+  sitemaps:
+    endpoints:
+      list:
+        method: "GET"
+        path: "/webmasters/v3/sites/{siteUrl}/sitemaps"
+        description: "List all sitemaps submitted for a site"
+      get:
+        method: "GET"
+        path: "/webmasters/v3/sites/{siteUrl}/sitemaps/{feedpath}"
+        description: "Get details for a specific sitemap"
+      submit:
+        method: "PUT"
+        path: "/webmasters/v3/sites/{siteUrl}/sitemaps/{feedpath}"
+        description: "Submit a sitemap"
+      delete:
+        method: "DELETE"
+        path: "/webmasters/v3/sites/{siteUrl}/sitemaps/{feedpath}"
+        description: "Delete a sitemap submission"
+
+    response_fields:
+      - name: "path"
+        type: "string"
+      - name: "lastSubmitted"
+        type: "timestamp"
+      - name: "isPending"
+        type: "boolean"
+      - name: "isSitemapsIndex"
+        type: "boolean"
+      - name: "type"
+        type: "string"
+        values: ["atomFeed", "rssFeed", "sitemap", "urlList", "notSitemap"]
+      - name: "lastDownloaded"
+        type: "timestamp"
+      - name: "warnings"
+        type: "integer"
+      - name: "errors"
+        type: "integer"
+      - name: "contents[]"
+        children:
+          - name: "type"
+            values: ["web", "image", "video", "news", "mobile", "androidApp", "pattern"]
+          - name: "submitted"
+            type: "integer"
+            description: "Number of URLs submitted in this content type"
+          - name: "indexed"
+            type: "integer"
+            description: "Number of URLs indexed"
+
+  # --------------------------------------------------------------------------
+  # 1D: Sites API
+  # --------------------------------------------------------------------------
+  sites:
+    endpoints:
+      list:
+        method: "GET"
+        path: "/webmasters/v3/sites"
+        description: "List all SC properties for authenticated user"
+      get:
+        method: "GET"
+        path: "/webmasters/v3/sites/{siteUrl}"
+      add:
+        method: "PUT"
+        path: "/webmasters/v3/sites/{siteUrl}"
+      delete:
+        method: "DELETE"
+        path: "/webmasters/v3/sites/{siteUrl}"
+    response_fields:
+      - name: "siteUrl"
+        type: "string"
+      - name: "permissionLevel"
+        type: "string"
+        values: ["siteFullUser", "siteOwner", "siteRestrictedUser", "siteUnverifiedUser"]
+
+# ============================================================================
+# SECTION 2: GSC DATA AVAILABILITY — API vs UI vs EXPORT
+# ============================================================================
+
+data_availability:
+
+  api_accessible:
+    - report: "Performance (Search Analytics)"
+      access: "Full via searchAnalytics.query"
+      limits: "50K rows max via pagination (25K per request)"
+    - report: "URL Inspection"
+      access: "Full via urlInspection.index:inspect"
+      limits: "2000 requests/day/property, 600/minute"
+    - report: "Sitemaps"
+      access: "Full CRUD via sitemaps API"
+    - report: "Sites"
+      access: "Full CRUD via sites API"
+
+  ui_only_not_in_api:
+    - report: "Page Indexing (Index Coverage)"
+      notes: "No API endpoint; must review in UI or use URL Inspection API per-URL"
+    - report: "Core Web Vitals"
+      notes: "No API; data comes from CrUX (Chrome UX Report) which has its own API"
+    - report: "Mobile Usability"
+      notes: "Deprecated from API; mobileUsabilityResult still returned but marked deprecated"
+    - report: "Manual Actions"
+      notes: "No API; UI-only check"
+    - report: "Security Issues"
+      notes: "No API; UI-only check"
+    - report: "Links Report"
+      notes: "No API; export CSV from UI (1000 rows max per table)"
+    - report: "Removals"
+      notes: "No API; UI-only management"
+    - report: "Rich Results / Enhancements"
+      notes: "Aggregate reports UI-only; per-URL data via URL Inspection API"
+    - report: "Crawl Stats"
+      notes: "No API; UI-only under Settings > Crawl Stats"
+
+  export_options:
+    ui_csv_export:
+      description: "Download button in each report"
+      limit: "1,000 rows max"
+      formats: ["CSV", "Google Sheets"]
+    api_export:
+      description: "Programmatic via searchAnalytics.query"
+      limit: "50,000 rows max (paginated)"
+    bulk_data_export:
+      description: >
+        GSC Bulk Data Export to BigQuery (available since 2023).
+        Exports full performance data daily to a BigQuery dataset.
+        No row limits. Includes anonymized query data buckets.
+      setup: "Settings > Bulk data export > BigQuery"
+      tables_exported:
+        - "searchdata_site_impression"
+        - "searchdata_url_impression"
+      notes: "Requires Google Cloud project with BigQuery enabled"
+
+# ============================================================================
+# SECTION 3: PERFORMANCE REPORT — DEEP DIVE
+# ============================================================================
+
+performance_report:
+
+  metrics:
+    clicks:
+      description: "Count of clicks from Google Search to your property"
+      notes: "Only counts clicks that lead the user away from Google Search"
+    impressions:
+      description: "Count of times a link to your site appeared in search results"
+      notes: "Counted even if not scrolled into view; for continuous scroll counted when loaded"
+    ctr:
+      description: "Click-through rate = clicks / impressions"
+      range: "0.0 to 1.0 (API) or 0% to 100% (UI)"
+    position:
+      description: "Average position of topmost result for your site in search results"
+      notes: "1-based. For property-level, it's the topmost URL from your site."
+
+  dimensions:
+    query:
+      description: "Search query string"
+      notes: "Anonymized queries excluded; ~50+ unique users threshold over 2-3 months"
+    page:
+      description: "Final URL after redirects (canonical URL in some cases)"
+    country:
+      description: "Country of the searcher (ISO 3166-1 alpha-3 in API, full name in UI)"
+    device:
+      description: "Device category"
+      values: ["DESKTOP", "MOBILE", "TABLET"]
+    date:
+      description: "Date of the search (Pacific Time)"
+    search_appearance:
+      description: "Special search result features"
+      known_values:
+        - "AMP_ARTICLE"
+        - "AMP_BLUE_LINK"
+        - "MERCHANT_LISTINGS"
+        - "ORGANIC_SHOPPING"
+        - "PRODUCT_SNIPPETS"
+        - "REVIEW_SNIPPET"
+        - "RICHCARD"
+        - "VIDEO"
+        - "WEB_LIGHT"
+        - "WEB_STORY"
+        - "FAQ_RICH_RESULT"
+        - "HOW_TO_RICH_RESULT"
+        - "SPECIAL_ANNOUNCEMENT"
+        - "SUBSCRIPTION"
+        - "TRANSLATED_RESULT"
+
+  search_types:
+    - "web"          # Default; includes Discover if type=discover
+    - "image"
+    - "video"
+    - "news"
+    - "googleNews"   # Google News app / news.google.com
+    - "discover"     # Google Discover feed
+
+  filters:
+    operators:
+      - "equals"
+      - "notEquals"
+      - "contains"
+      - "notContains"
+      - "includingRegex"
+      - "excludingRegex"
+    filterable_dimensions:
+      - "query"
+      - "page"
+      - "country"
+      - "device"
+      - "searchAppearance"
+
+  date_ranges:
+    max_history: "~16 months"
+    comparison: "UI supports date range comparison (period over period)"
+    fresh_data: "dataState=all includes last 1-2 days (partial)"
+    hourly_data: "dataState=hourly_all for last 3 days with hour dimension"
+
+  row_limits:
+    ui_display: 1000
+    ui_export: 1000
+    api_per_request: 25000
+    api_total_paginated: 50000
+    bigquery_export: "unlimited"
+
+  aggregation_types:
+    auto: "Google decides per-query vs per-page based on dimensions"
+    byPage: "Metrics aggregated per page (a URL can appear multiple times for different queries)"
+    byProperty: "Metrics aggregated at site level"
+    byNewsShowcasePanel: "For News Showcase publishers"
+
+# ============================================================================
+# SECTION 4: PAGE INDEXING (INDEX COVERAGE) REPORT
+# ============================================================================
+
+page_indexing_report:
+
+  description: >
+    Shows the indexing status of all URLs Google knows about on your site.
+    Split into "Indexed" and "Not indexed" with specific reasons.
+
+  top_level_categories:
+    - status: "Indexed"
+      description: "Pages successfully added to Google's index"
+    - status: "Not indexed"
+      description: "Pages Google knows about but has not indexed"
+
+  indexed_statuses:
+    - reason: "Submitted and indexed"
+      description: "URL was submitted via sitemap and is indexed"
+      action: "none"
+    - reason: "Indexed, not submitted in sitemap"
+      description: "URL was found by crawling (not via sitemap) and is indexed"
+      action: "Consider adding to sitemap for better monitoring"
+    - reason: "Indexed, though blocked by robots.txt"
+      description: "URL is indexed despite robots.txt disallow (Google found it via links)"
+      action: "If you want it indexed, remove robots.txt block. If not, use noindex instead."
+
+  not_indexed_reasons:
+    # -- Exclusion by site owner (intentional) --
+    - reason: "Excluded by 'noindex' tag"
+      description: "Page has a noindex meta tag or X-Robots-Tag header"
+      severity: "info"
+      action: "Verify this is intentional"
+    - reason: "Blocked by page removal tool"
+      description: "URL was blocked via the Removals tool in GSC"
+      severity: "info"
+      action: "Check if temporary block is still needed"
+    - reason: "Blocked by robots.txt"
+      description: "Robots.txt prevents crawling"
+      severity: "warning"
+      action: "If page should be indexed, update robots.txt"
+    - reason: "Blocked due to unauthorized request (401)"
+      description: "Server returned 401 Unauthorized"
+      severity: "error"
+      action: "Fix authentication or allow Googlebot access"
+    - reason: "Blocked due to access forbidden (403)"
+      description: "Server returned 403 Forbidden"
+      severity: "error"
+      action: "Check server permissions for Googlebot"
+
+    # -- Crawl errors --
+    - reason: "Not found (404)"
+      description: "Server returned 404"
+      severity: "error"
+      action: "Remove internal links pointing to this URL or restore the page"
+    - reason: "Soft 404"
+      description: "Page returns 200 but Google detects it as effectively a 404 (empty/thin content)"
+      severity: "warning"
+      action: "Return proper 404/410 status code, or add meaningful content"
+    - reason: "Server error (5xx)"
+      description: "Server returned 5xx error during crawl"
+      severity: "error"
+      action: "Fix server issues; check hosting reliability"
+    - reason: "Redirect error"
+      description: "Redirect chain issue (too many redirects, redirect loop, bad target)"
+      severity: "error"
+      action: "Fix redirect chains; ensure clean redirect paths"
+
+    # -- Duplicate content --
+    - reason: "Duplicate without user-selected canonical"
+      description: "Google found duplicate content; no canonical tag was specified"
+      severity: "warning"
+      action: "Add rel=canonical pointing to the preferred version"
+    - reason: "Duplicate, Google chose different canonical than user"
+      description: "You specified a canonical but Google disagreed and chose a different URL"
+      severity: "warning"
+      action: "Review canonical signals; ensure the canonical page is clearly superior"
+    - reason: "Alternate page with proper canonical tag"
+      description: "Page has canonical pointing elsewhere; Google respects it"
+      severity: "info"
+      action: "Typically fine; verify canonical target is correct"
+    - reason: "Page with redirect"
+      description: "URL redirects to another page; the target is what gets indexed"
+      severity: "info"
+      action: "Ensure redirects point to correct destination"
+
+    # -- Crawl budget / quality decisions --
+    - reason: "Crawled - currently not indexed"
+      description: "Google crawled the page but decided not to index it (quality/value judgment)"
+      severity: "warning"
+      action: >
+        Improve content quality, internal linking, and uniqueness.
+        This often signals thin content or low perceived value.
+    - reason: "Discovered - currently not indexed"
+      description: "Google knows the URL exists but hasn't crawled it yet"
+      severity: "warning"
+      action: >
+        Improve crawl budget allocation: add internal links, submit in sitemap,
+        reduce total crawlable URLs. May indicate crawl budget exhaustion.
+
+  audit_checks:
+    - id: "idx_001"
+      name: "High ratio of not-indexed pages"
+      description: "If >50% of submitted URLs are not indexed, there's likely a systemic issue"
+      detection: "Compare indexed count vs total URLs in sitemap"
+      severity: "critical"
+    - id: "idx_002"
+      name: "Crawled but not indexed spike"
+      description: "Sudden increase in 'Crawled - currently not indexed' suggests quality issues"
+      detection: "Monitor trend over time in page indexing report"
+      severity: "high"
+    - id: "idx_003"
+      name: "Canonical mismatch"
+      description: "Google chose different canonical than user-specified"
+      detection: "URL Inspection API: compare googleCanonical vs userCanonical"
+      severity: "medium"
+    - id: "idx_004"
+      name: "Server errors blocking indexing"
+      description: "5xx errors preventing pages from being crawled"
+      detection: "Page indexing report; URL Inspection pageFetchState=SERVER_ERROR"
+      severity: "critical"
+    - id: "idx_005"
+      name: "Redirect chains/loops"
+      description: "Pages stuck in redirect errors"
+      detection: "URL Inspection pageFetchState=REDIRECT_ERROR"
+      severity: "high"
+
+# ============================================================================
+# SECTION 5: CORE WEB VITALS REPORT
+# ============================================================================
+
+core_web_vitals:
+
+  description: >
+    Shows real-user experience data from the Chrome User Experience Report (CrUX).
+    Evaluates pages based on LCP, INP, and CLS at the 75th percentile (p75).
+    Separate reports for Mobile and Desktop.
+
+  metrics:
+    lcp:
+      name: "Largest Contentful Paint"
+      description: "Time until the largest content element is rendered"
+      thresholds:
+        good: "<=2.5s"
+        needs_improvement: "2.5s - 4.0s"
+        poor: ">4.0s"
+    inp:
+      name: "Interaction to Next Paint"
+      description: "Responsiveness metric; time from user interaction to next visual update"
+      thresholds:
+        good: "<=200ms"
+        needs_improvement: "200ms - 500ms"
+        poor: ">500ms"
+      notes: "Replaced FID (First Input Delay) in March 2024"
+    cls:
+      name: "Cumulative Layout Shift"
+      description: "Visual stability; sum of all unexpected layout shift scores"
+      thresholds:
+        good: "<=0.1"
+        needs_improvement: "0.1 - 0.25"
+        poor: ">0.25"
+
+  evaluation:
+    percentile: "p75"
+    description: "75% of page visits must have a 'good' experience for the page to pass"
+    url_grouping: >
+      URLs are grouped into clusters of similar pages (e.g., all product pages,
+      all blog posts). Google determines groups automatically based on page
+      structure similarity. The group's status is determined by the worst-performing
+      metric across LCP, INP, and CLS.
+    minimum_data: "URL groups need minimum CrUX data for both LCP and CLS to appear"
+
+  report_structure:
+    views: ["Mobile", "Desktop"]
+    statuses:
+      - "Good URLs"
+      - "URLs need improvement"
+      - "Poor URLs"
+    drill_down: >
+      Click a status to see URL groups, the specific failing metric,
+      example URLs, and trend over time.
+
+  audit_checks:
+    - id: "cwv_001"
+      name: "Poor CWV URLs exist"
+      description: "Any URLs in 'Poor' status need immediate attention"
+      severity: "high"
+      action: "Identify URL groups, diagnose LCP/INP/CLS issues, optimize"
+    - id: "cwv_002"
+      name: "Mobile vs Desktop disparity"
+      description: "Mobile CWV significantly worse than desktop"
+      severity: "medium"
+      action: "Focus on mobile performance optimization"
+    - id: "cwv_003"
+      name: "Declining CWV trend"
+      description: "CWV scores trending downward over weeks"
+      severity: "high"
+      action: "Identify recent deployments or third-party scripts causing regression"
+    - id: "cwv_004"
+      name: "No CWV data available"
+      description: "Site has insufficient traffic for CrUX data"
+      severity: "info"
+      action: "Use Lighthouse/PageSpeed Insights for lab data instead"
+
+  related_apis:
+    crux_api:
+      endpoint: "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
+      description: "Chrome UX Report API for programmatic CWV data"
+    pagespeed_insights_api:
+      endpoint: "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
+      description: "Combines lab (Lighthouse) and field (CrUX) data"
+
+# ============================================================================
+# SECTION 6: SITEMAPS REPORT
+# ============================================================================
+
+sitemaps_report:
+
+  description: >
+    Shows all sitemaps submitted to Google, their processing status,
+    discovered vs indexed URL counts, and any errors.
+
+  supported_sitemap_types:
+    - type: "XML Sitemap"
+      format: "application/xml"
+      api_type: "sitemap"
+    - type: "Sitemap Index"
+      format: "application/xml"
+      api_type: "sitemap"
+      description: "A sitemap of sitemaps"
+    - type: "RSS Feed"
+      format: "application/rss+xml"
+      api_type: "rssFeed"
+    - type: "Atom Feed"
+      format: "application/atom+xml"
+      api_type: "atomFeed"
+    - type: "Text File"
+      format: "text/plain"
+      api_type: "urlList"
+      description: "Plain text file with one URL per line"
+
+  report_fields:
+    - "Sitemap URL"
+    - "Type (sitemap, sitemap index, RSS, Atom, text)"
+    - "Submitted date"
+    - "Last read date (last time Google fetched it)"
+    - "Status (Success, Has errors, Couldn't fetch)"
+    - "Discovered URLs (number of URLs found in sitemap)"
+    - "Indexed URLs (number of URLs from sitemap that are indexed)"
+    # Note: The indexed count is now removed from the UI for some properties
+
+  common_errors:
+    - error: "Couldn't fetch"
+      causes: ["Server error", "robots.txt blocks sitemap", "URL not reachable", "Timeout"]
+    - error: "Sitemap has errors"
+      causes: ["Invalid XML", "URLs not allowed by robots.txt", "Exceeds 50MB/50K URL limits"]
+    - error: "Unknown type"
+      causes: ["File format not recognized as a known sitemap type"]
+
+  audit_checks:
+    - id: "sm_001"
+      name: "No sitemap submitted"
+      description: "No sitemaps found in GSC"
+      severity: "high"
+      action: "Create and submit XML sitemap"
+    - id: "sm_002"
+      name: "Sitemap fetch errors"
+      description: "Google can't fetch one or more sitemaps"
+      severity: "critical"
+      action: "Verify sitemap URL is accessible and returns valid content"
+    - id: "sm_003"
+      name: "Large gap between submitted and indexed"
+      description: "Significantly fewer URLs indexed than submitted"
+      severity: "high"
+      action: "Check indexing issues for non-indexed sitemap URLs"
+    - id: "sm_004"
+      name: "Stale sitemap"
+      description: "Sitemap hasn't been updated in >30 days despite site changes"
+      severity: "medium"
+      action: "Automate sitemap generation and ping Google on updates"
+    - id: "sm_005"
+      name: "Sitemap exceeds limits"
+      description: "Sitemap >50MB uncompressed or >50,000 URLs"
+      severity: "high"
+      action: "Split into multiple sitemaps with a sitemap index"
+    - id: "sm_006"
+      name: "Non-canonical URLs in sitemap"
+      description: "Sitemap contains URLs that redirect or have different canonicals"
+      severity: "medium"
+      action: "Only include canonical, indexable URLs in sitemap"
+
+# ============================================================================
+# SECTION 7: URL INSPECTION TOOL
+# ============================================================================
+
+url_inspection_tool:
+
+  description: >
+    Per-URL diagnostic tool showing Google's view of any URL on your property.
+    Available in UI (manual) and via API (programmatic). Two modes:
+    cached version (last indexed data) and live test (real-time fetch).
+
+  modes:
+    cached:
+      description: "Shows data from Google's last crawl/index of the URL"
+      data_shown:
+        - "Index status (on Google / not on Google)"
+        - "Coverage state (specific reason if not indexed)"
+        - "Last crawl date and crawl status"
+        - "Google-selected canonical"
+        - "User-declared canonical"
+        - "Robots.txt status"
+        - "Noindex status"
+        - "Page fetch status"
+        - "Crawled as (Mobile / Desktop)"
+        - "Referring pages (sample of internal links)"
+        - "Sitemaps containing this URL"
+        - "Mobile usability verdict + issues"
+        - "Rich results verdict + detected types + issues"
+        - "AMP status (if applicable)"
+    live_test:
+      description: "Fetches and renders the page in real-time"
+      data_shown:
+        - "Indexability (can Google index this URL right now?)"
+        - "Page resource loading (blocked resources, errors)"
+        - "Rendered HTML screenshot"
+        - "JavaScript console errors"
+        - "Mobile usability check"
+        - "Rich results validation"
+        - "AMP validation"
+      notes: "Live test does NOT show Google-selected canonical (only available from index)"
+
+  audit_checks:
+    - id: "ui_001"
+      name: "Canonical mismatch"
+      description: "googleCanonical differs from userCanonical"
+      api_field: "indexStatusResult.googleCanonical vs indexStatusResult.userCanonical"
+      severity: "medium"
+    - id: "ui_002"
+      name: "Crawl freshness"
+      description: "lastCrawlTime is very old (>30 days for important pages)"
+      api_field: "indexStatusResult.lastCrawlTime"
+      severity: "medium"
+    - id: "ui_003"
+      name: "Robots.txt blocking indexed page"
+      description: "robotsTxtState=DISALLOWED but page is somehow indexed"
+      severity: "high"
+    - id: "ui_004"
+      name: "Soft 404 detection"
+      description: "pageFetchState=SOFT_404"
+      severity: "high"
+      action: "Return proper 404/410 or add substantial content"
+    - id: "ui_005"
+      name: "Rich results errors"
+      description: "richResultsResult.verdict=FAIL"
+      severity: "medium"
+      action: "Fix structured data errors to enable rich results"
+
+# ============================================================================
+# SECTION 8: MOBILE USABILITY REPORT
+# ============================================================================
+
+mobile_usability_report:
+
+  description: >
+    Identifies pages with mobile usability problems based on Googlebot's
+    rendering of pages on a mobile viewport.
+    Note: This report has been deprecated from URL Inspection API but
+    remains available in the GSC UI.
+
+  issue_types:
+    - id: "USES_INCOMPATIBLE_PLUGINS"
+      name: "Uses incompatible plugins"
+      description: "Page uses plugins not supported on most mobile browsers (e.g., Flash)"
+    - id: "CONFIGURE_VIEWPORT"
+      name: "Viewport not set"
+      description: "Page does not have a <meta name='viewport'> tag"
+    - id: "FIXED_WIDTH_VIEWPORT"
+      name: "Viewport not set to device-width"
+      description: "Viewport meta tag uses a fixed width instead of device-width"
+    - id: "SIZE_CONTENT_TO_VIEWPORT"
+      name: "Content wider than screen"
+      description: "Content requires horizontal scrolling on mobile"
+    - id: "USE_LEGIBLE_FONT_SIZES"
+      name: "Text too small to read"
+      description: "Font sizes are too small for comfortable mobile reading"
+    - id: "TAP_TARGETS_TOO_CLOSE"
+      name: "Clickable elements too close together"
+      description: "Touch targets (buttons, links) are spaced too closely"
+
+  audit_checks:
+    - id: "mu_001"
+      name: "Mobile usability errors present"
+      description: "Any pages with mobile usability errors"
+      severity: "high"
+      action: "Fix viewport, font sizes, and tap targets"
+    - id: "mu_002"
+      name: "Flash or incompatible plugins"
+      description: "Pages using Flash or other unsupported plugins"
+      severity: "critical"
+      action: "Replace with modern HTML5/CSS3/JS alternatives"
+    - id: "mu_003"
+      name: "No viewport meta tag"
+      description: "Missing viewport configuration"
+      severity: "high"
+      action: "Add <meta name='viewport' content='width=device-width, initial-scale=1'>"
+
+# ============================================================================
+# SECTION 9: MANUAL ACTIONS & SECURITY ISSUES
+# ============================================================================
+
+manual_actions:
+
+  description: >
+    Penalties applied manually by Google's webspam team when a site violates
+    Google's guidelines. Not available via API; must check UI.
+    Located under Security & Manual Actions in GSC sidebar.
+
+  action_types:
+    spam:
+      - type: "Pure spam"
+        description: "Aggressive spam techniques: auto-generated content, cloaking, scraping"
+        severity: "critical"
+        scope: "site-wide"
+      - type: "User-generated spam"
+        description: "Spammy content in user-contributed areas (forums, comments, profiles)"
+        severity: "high"
+      - type: "Spammy free host"
+        description: "Significant portion of a free hosting service is spammy"
+        severity: "high"
+
+    links:
+      - type: "Unnatural links to your site"
+        description: "Inbound link patterns that appear to be manipulative/paid/schemed"
+        severity: "critical"
+      - type: "Unnatural links from your site"
+        description: "Outbound links that appear to be selling PageRank or link schemes"
+        severity: "critical"
+
+    content:
+      - type: "Thin content with little or no added value"
+        description: "Shallow, auto-generated, scraped, or doorway pages"
+        severity: "high"
+      - type: "Cloaking and/or sneaky redirects"
+        description: "Showing different content to users vs Googlebot"
+        severity: "critical"
+      - type: "Hidden text and/or keyword stuffing"
+        description: "Text hidden via CSS/color or excessive keyword repetition"
+        severity: "high"
+
+    structured_data:
+      - type: "Structured data penalty"
+        description: "Structured data markup that violates guidelines (fake reviews, wrong data)"
+        severity: "high"
+      - type: "AMP content mismatch"
+        description: "AMP page content differs from canonical page"
+        severity: "medium"
+
+    other:
+      - type: "Hacked site"
+        description: "Site appears to be compromised"
+        severity: "critical"
+
+  resolution:
+    steps:
+      - "Identify the manual action type and affected pages"
+      - "Fix the underlying issue on all affected pages"
+      - "Submit a reconsideration request in GSC"
+      - "Wait for Google review (days to weeks)"
+    notes: "Some manual actions are page-level, others are site-wide"
+
+security_issues:
+
+  description: >
+    Issues detected by Google Safe Browsing indicating the site may
+    harm visitors. Not available via API; check UI.
+
+  issue_types:
+    - type: "Hacked: Malware"
+      description: "Site distributes malware"
+    - type: "Hacked: Code injection"
+      description: "Attacker injected malicious code"
+    - type: "Hacked: Content injection"
+      description: "Attacker added spammy content"
+    - type: "Hacked: URL injection"
+      description: "Attacker created new URLs with spammy content"
+    - type: "Social engineering (Phishing)"
+      description: "Site tricks users into revealing sensitive info"
+    - type: "Deceptive embedded resources"
+      description: "Page includes deceptive ads or embedded resources"
+    - type: "Harmful downloads"
+      description: "Site offers downloads flagged as malware or unwanted software"
+    - type: "Unclear mobile billing"
+      description: "Site insufficiently discloses mobile charges"
+
+  audit_checks:
+    - id: "sec_001"
+      name: "Manual actions present"
+      description: "Any active manual action on the site"
+      severity: "critical"
+      detection: "Manual check in GSC UI under Security & Manual Actions"
+      action: "Resolve immediately; submit reconsideration request"
+    - id: "sec_002"
+      name: "Security issues present"
+      description: "Any active security issues flagged by Safe Browsing"
+      severity: "critical"
+      detection: "Manual check in GSC UI"
+      action: "Clean compromised content; submit for review"
+
+# ============================================================================
+# SECTION 10: RICH RESULTS / STRUCTURED DATA
+# ============================================================================
+
+rich_results:
+
+  description: >
+    GSC provides individual Enhancement reports for each structured data type
+    detected on your site. Each report shows valid items, invalid items, and
+    specific errors/warnings per schema type.
+
+  supported_schema_types_in_gsc:
+    - type: "Article"
+      schema: "Article, NewsArticle, BlogPosting"
+    - type: "Breadcrumb"
+      schema: "BreadcrumbList"
+    - type: "Course"
+      schema: "Course"
+      deprecated_from: "January 2026"
+    - type: "Dataset"
+      schema: "Dataset"
+    - type: "Event"
+      schema: "Event"
+    - type: "FAQ"
+      schema: "FAQPage"
+    - type: "How-to"
+      schema: "HowTo"
+    - type: "Image License"
+      schema: "ImageObject"
+    - type: "Job posting"
+      schema: "JobPosting"
+    - type: "Local business"
+      schema: "LocalBusiness"
+    - type: "Logo"
+      schema: "Organization"
+    - type: "Merchant listing / Product"
+      schema: "Product, Offer"
+    - type: "Practice problem"
+      schema: "Quiz"
+      deprecated_from: "January 2026"
+    - type: "Recipe"
+      schema: "Recipe"
+    - type: "Review snippet"
+      schema: "Review, AggregateRating"
+    - type: "Sitelinks searchbox"
+      schema: "WebSite (potentialAction)"
+    - type: "Software app"
+      schema: "SoftwareApplication"
+    - type: "Special announcement"
+      schema: "SpecialAnnouncement"
+      deprecated_from: "January 2026"
+    - type: "Video"
+      schema: "VideoObject"
+    - type: "Vehicle listing"
+      schema: "Vehicle"
+      deprecated_from: "January 2026"
+    - type: "Learning video"
+      schema: "LearningResource"
+      deprecated_from: "January 2026"
+    - type: "Estimated salary"
+      schema: "OccupationalExperienceRequirements"
+      deprecated_from: "January 2026"
+
+  report_structure:
+    statuses:
+      valid: "Items with no errors; eligible for rich results"
+      invalid: "Items with critical errors; cannot appear as rich results"
+      valid_with_warnings: "Items that work but could be improved"
+    issue_severity:
+      error: "Prevents rich result from appearing"
+      warning: "Doesn't prevent appearance but recommended to fix"
+
+  unparsable_structured_data_report:
+    description: >
+      Separate report for structured data that couldn't be parsed at all
+      (syntax errors in JSON-LD, Microdata, or RDFa).
+    common_errors:
+      - "Invalid JSON"
+      - "Incorrect value type"
+      - "Missing required property"
+      - "Empty value"
+
+  validation:
+    tools:
+      - name: "Rich Results Test"
+        url: "https://search.google.com/test/rich-results"
+        description: "Test live or code snippet for rich result eligibility"
+      - name: "Schema Markup Validator"
+        url: "https://validator.schema.org/"
+        description: "General schema.org validation"
+    in_gsc:
+      description: >
+        After fixing issues, click 'Validate Fix' in the Enhancement report.
+        Google will recrawl affected pages over ~2 weeks.
+
+  audit_checks:
+    - id: "rd_001"
+      name: "Invalid structured data items"
+      description: "Schema markup with critical errors preventing rich results"
+      severity: "high"
+      action: "Fix errors shown in Enhancement reports"
+    - id: "rd_002"
+      name: "Unparsable structured data"
+      description: "JSON-LD/Microdata syntax errors"
+      severity: "high"
+      action: "Fix JSON syntax; validate with Rich Results Test"
+    - id: "rd_003"
+      name: "Missing structured data on key pages"
+      description: "Important pages (products, articles, recipes) lack schema markup"
+      severity: "medium"
+      action: "Implement appropriate schema types"
+    - id: "rd_004"
+      name: "Deprecated schema types still in use"
+      description: "Using schema types deprecated from GSC (Course, Practice problem, etc.)"
+      severity: "low"
+      action: "Note that these will no longer be reported in GSC from Jan 2026"
+
+# ============================================================================
+# SECTION 11: LINKS REPORT
+# ============================================================================
+
+links_report:
+
+  description: >
+    Shows how your site links internally and how other sites link to you.
+    No API access; available only in GSC UI. Each table capped at 1000 rows.
+
+  sections:
+    external_links:
+      top_linked_pages:
+        description: "Your pages that receive the most external links"
+        data: ["Target page URL", "Number of linking sites"]
+        row_limit: 1000
+      top_linking_sites:
+        description: "Domains that link to you most frequently"
+        data: ["Linking site domain", "Number of links"]
+        row_limit: 1000
+      top_linking_text:
+        description: "Most common anchor text used in external links"
+        data: ["Anchor text", "Number of linking sites"]
+        row_limit: 1000
+
+    internal_links:
+      top_linked_pages:
+        description: "Your pages that receive the most internal links"
+        data: ["Target page URL", "Number of internal links"]
+        row_limit: 1000
+
+  export:
+    format: "CSV or Google Sheets"
+    limit: "1000 rows per table"
+    notes: "Data is sampled, not comprehensive. For full backlink analysis, supplement with third-party tools."
+
+  audit_checks:
+    - id: "lnk_001"
+      name: "Orphan pages (low internal links)"
+      description: "Important pages with very few internal links"
+      severity: "medium"
+      detection: "Cross-reference sitemap URLs with internal links report"
+      action: "Add internal links from relevant pages"
+    - id: "lnk_002"
+      name: "Suspicious anchor text patterns"
+      description: "Unnatural or spammy anchor text in top linking text"
+      severity: "high"
+      action: "Investigate potentially toxic backlinks; disavow if needed"
+    - id: "lnk_003"
+      name: "Link concentration"
+      description: "Too many external links from a single domain"
+      severity: "low"
+      action: "Diversify backlink profile"
+    - id: "lnk_004"
+      name: "Key pages not receiving internal links"
+      description: "Product/service pages missing from top internally linked pages"
+      severity: "medium"
+      action: "Improve internal linking structure"
+
+# ============================================================================
+# SECTION 12: REMOVALS TOOL
+# ============================================================================
+
+removals_tool:
+
+  description: >
+    Allows site owners to temporarily hide URLs from Google Search results.
+    Also shows URLs removed by others (outdated content removal) and
+    SafeSearch filtering status.
+
+  tabs:
+    temporary_removals:
+      description: "URLs you've requested to temporarily block from search"
+      options:
+        - action: "Temporarily remove URL"
+          duration: "~6 months"
+          effect: "URL hidden from search results"
+        - action: "Clear cached copy"
+          effect: "Clears snippet/cached page; URL still appears in results"
+      scope: "Exact URL or all URLs with this prefix"
+    outdated_content:
+      description: "Removal requests from external users via Remove Outdated Content tool"
+    safesearch_filtering:
+      description: "URLs reported as adult content via SafeSearch"
+
+  important_notes:
+    - "Temporary removal is NOT permanent deletion from index"
+    - "To permanently remove, also add noindex or return 404/410"
+    - "No API access for Removals tool"
+
+  audit_checks:
+    - id: "rem_001"
+      name: "Active temporary removals"
+      description: "URLs currently blocked that may need permanent solution"
+      severity: "medium"
+      action: "Ensure blocked URLs also have noindex or 404 for permanent removal"
+    - id: "rem_002"
+      name: "Outdated content requests"
+      description: "External users requesting removal of outdated content"
+      severity: "low"
+      action: "Review if content is actually outdated and needs updating"
+
+# ============================================================================
+# SECTION 13: CROSS-REFERENCING WITH GA4, GOOGLE ADS, GTM
+# ============================================================================
+
+cross_referencing:
+
+  description: >
+    GSC data becomes exponentially more valuable when cross-referenced
+    with GA4, Google Ads, and GTM data. The following audit checks
+    combine data sources for deeper insights.
+
+  gsc_ga4_integration:
+    setup: "GA4 Admin > Product Links > Search Console Links"
+    ga4_reports_available:
+      - "Acquisition > Search Console > Queries"
+      - "Acquisition > Search Console > Google organic search traffic"
+    shared_dimensions:
+      - dimension: "Landing page"
+        gsc_field: "page"
+        ga4_field: "landingPage"
+      - dimension: "Country"
+        gsc_field: "country"
+        ga4_field: "country"
+      - dimension: "Device"
+        gsc_field: "device"
+        ga4_field: "deviceCategory"
+
+  cross_reference_checks:
+    - id: "xref_001"
+      name: "Query performance vs landing page engagement"
+      description: >
+        Cross GSC query data (impressions, clicks, CTR, position) with
+        GA4 landing page engagement (bounce rate, session duration, conversions).
+        High-impression queries landing on low-engagement pages need optimization.
+      data_sources:
+        gsc: "searchAnalytics.query (dimensions: query, page)"
+        ga4: "Landing page report (engagement rate, conversions)"
+      action: "Optimize landing page content for top queries with poor engagement"
+
+    - id: "xref_002"
+      name: "Index coverage vs organic traffic"
+      description: >
+        Compare indexed page count with pages receiving organic traffic.
+        Large gap = index bloat (many indexed pages driving zero traffic).
+      data_sources:
+        gsc: "Page indexing report (indexed count); Performance (pages with clicks >0)"
+        ga4: "Organic search landing pages with sessions"
+      action: "Deindex or consolidate zero-traffic indexed pages"
+
+    - id: "xref_003"
+      name: "Core Web Vitals vs bounce rate"
+      description: >
+        Pages with poor CWV metrics often correlate with high bounce rates.
+        Cross-reference CWV URL groups with GA4 bounce/engagement rate.
+      data_sources:
+        gsc: "Core Web Vitals report (poor URL groups)"
+        ga4: "Landing page engagement rate for same URLs"
+        crux: "CrUX API for precise p75 values"
+      action: "Prioritize CWV fixes on high-traffic, high-bounce pages"
+
+    - id: "xref_004"
+      name: "GSC queries vs Google Ads keywords"
+      description: >
+        Identify organic queries that overlap with paid keywords.
+        High-ranking organic queries may not need paid spend.
+        Low-ranking organic queries might benefit from paid coverage.
+      data_sources:
+        gsc: "searchAnalytics.query (dimensions: query; metrics: position, clicks)"
+        google_ads: "Search terms report (keywords, CPC, conversions)"
+      action: "Optimize paid/organic budget allocation; reduce spend on queries with strong organic presence"
+
+    - id: "xref_005"
+      name: "GTM tag health vs GSC performance"
+      description: >
+        Verify that GTM is not degrading page performance (CWV impact).
+        Heavy tags (third-party scripts, multiple pixels) can worsen LCP/INP.
+      data_sources:
+        gtm: "Container tag audit (number of tags, third-party domains)"
+        gsc: "Core Web Vitals report trends"
+        pagespeed: "PageSpeed Insights third-party impact"
+      action: "Defer non-critical tags; use server-side GTM for heavy pixels"
+
+    - id: "xref_006"
+      name: "Cannibalization detection via GSC + GA4"
+      description: >
+        Identify queries where multiple pages rank (potential cannibalization).
+        Cross with GA4 to see which page actually converts better.
+      data_sources:
+        gsc: "searchAnalytics.query (dimensions: query, page) — look for same query, multiple pages"
+        ga4: "Landing page conversions for those specific pages"
+      action: "Consolidate content or use canonical to signal preferred page"
+
+    - id: "xref_007"
+      name: "Discover performance vs content strategy"
+      description: >
+        GSC Discover data (type=discover) shows which content appears in
+        Google Discover feed. Cross with GA4 for user engagement.
+      data_sources:
+        gsc: "searchAnalytics.query (type=discover, dimensions: page)"
+        ga4: "Sessions from google/discover referral"
+      action: "Create more content similar to high-performing Discover articles"
+
+# ============================================================================
+# SECTION 14: COMMON SEO ISSUES DETECTABLE VIA GSC
+# ============================================================================
+
+seo_issues:
+
+  keyword_cannibalization:
+    description: >
+      Multiple pages ranking for the same query, splitting clicks and
+      confusing Google about which page to rank.
+    detection_method:
+      api_approach: >
+        Query searchAnalytics with dimensions=[query, page].
+        Group by query, count distinct pages per query.
+        Queries with >=2 pages AND fluctuating positions indicate cannibalization.
+      ui_approach: >
+        Performance > filter by query > Pages tab.
+        If multiple pages appear for same query, investigate.
+    indicators:
+      - "Same query mapped to 2+ pages with >100 impressions each"
+      - "Position fluctuation >5 positions week-over-week for a query"
+      - "Pages alternating in rankings for the same keyword"
+    severity: "high"
+    action: >
+      Consolidate content, implement canonical tags, or use internal linking
+      to signal the preferred page. Check GA4 for which page converts better.
+
+  thin_content:
+    description: "Pages with high impressions but very low CTR may signal irrelevant or thin content"
+    detection_method:
+      api_approach: >
+        Query searchAnalytics with dimensions=[page].
+        Filter for pages with impressions >1000 AND ctr <0.01 (1%).
+        Also check pages in 'Crawled - currently not indexed' status.
+      ui_approach: >
+        Performance > Pages > sort by impressions descending.
+        Look for high-impression pages with near-zero clicks.
+    indicators:
+      - "CTR <1% despite >1000 impressions"
+      - "'Crawled - currently not indexed' status in page indexing"
+      - "Soft 404 detection in URL Inspection"
+    severity: "medium"
+    action: "Improve content quality, meta titles/descriptions, or noindex truly thin pages"
+
+  index_bloat:
+    description: >
+      Too many low-value pages indexed, wasting crawl budget and diluting
+      site authority. Common on ecommerce sites with faceted navigation.
+    detection_method:
+      api_approach: >
+        Compare total indexed pages (page indexing report) vs pages with
+        at least 1 click in last 90 days (searchAnalytics with dimension=page).
+        Bloat ratio = indexed_pages / pages_with_clicks.
+      ui_approach: >
+        Page indexing report total indexed count vs Performance > Pages count.
+    indicators:
+      - "Bloat ratio >10:1 (10 indexed pages per 1 page receiving clicks)"
+      - "Large number of parameter URLs or filter pages indexed"
+      - "Tag/category/archive pages indexed without unique content"
+    severity: "high"
+    action: "Noindex thin pages, consolidate duplicate content, fix faceted navigation crawling"
+
+  orphan_pages:
+    description: "Pages in sitemap or index with no internal links pointing to them"
+    detection_method:
+      approach: >
+        Cross-reference sitemap URLs with GSC internal links report.
+        Pages in sitemap but not in top internally linked pages are candidates.
+        Also compare with pages in 'Discovered - currently not indexed' status.
+    indicators:
+      - "Pages in sitemap not appearing in internal links report"
+      - "Pages stuck in 'Discovered - currently not indexed'"
+      - "Pages receiving organic impressions but zero internal links"
+    severity: "medium"
+    action: "Add internal links from relevant pages; improve site architecture"
+
+  mobile_issues_affecting_rankings:
+    description: "Mobile usability problems impacting mobile-first indexing"
+    detection_method:
+      gsc_reports:
+        - "Mobile Usability report (errors/warnings)"
+        - "Core Web Vitals Mobile report (poor URLs)"
+        - "Performance > filter device=MOBILE > compare to DESKTOP"
+    indicators:
+      - "Mobile CTR significantly lower than desktop for same queries"
+      - "Mobile position consistently lower than desktop"
+      - "Mobile usability errors present"
+      - "Mobile CWV scores 'Poor' while desktop is 'Good'"
+    severity: "high"
+    action: "Fix mobile usability issues, optimize mobile CWV, ensure responsive design"
+
+  declining_performance:
+    description: "Detecting traffic drops and ranking losses"
+    detection_method:
+      api_approach: >
+        Query searchAnalytics with dimension=date for 90+ days.
+        Compare last 28 days vs previous 28 days.
+        Look for >20% drops in clicks or impressions.
+      correlate_with:
+        - "Google algorithm updates (core updates, spam updates)"
+        - "Page indexing changes (drop in indexed count)"
+        - "Manual actions"
+        - "CWV regressions"
+    severity: "high"
+
+  hreflang_issues:
+    description: "International targeting errors detectable via GSC"
+    detection_method:
+      approach: >
+        URL Inspection API on hreflang-tagged pages.
+        Check if Google indexes the correct language version.
+        Performance report filtered by country to verify traffic distribution.
+    indicators:
+      - "Wrong language version ranking in specific countries"
+      - "Canonical points to different language version"
+      - "Low traffic from target countries despite hreflang implementation"
+    severity: "medium"
+
+# ============================================================================
+# SECTION 15: ECOMMERCE-SPECIFIC GSC AUDIT CHECKS
+# ============================================================================
+
+ecommerce_specific:
+
+  product_pages:
+    indexing_checks:
+      - id: "ecom_001"
+        name: "Product page index coverage"
+        description: "Verify all active product pages are indexed"
+        detection: >
+          Compare product sitemap URL count vs indexed count.
+          Use URL Inspection API to sample-check product URLs.
+        severity: "critical"
+      - id: "ecom_002"
+        name: "Out-of-stock product handling"
+        description: "How are discontinued/out-of-stock products handled?"
+        check: >
+          Are they returning 404/410, redirecting, or showing as 'Crawled - currently not indexed'?
+          Soft 404 on product pages is a common ecommerce issue.
+        severity: "medium"
+      - id: "ecom_003"
+        name: "Product structured data"
+        description: "Product schema (Product, Offer) with price, availability, reviews"
+        check: "GSC Enhancement report for Merchant listing / Product"
+        severity: "high"
+      - id: "ecom_004"
+        name: "Product variant URLs"
+        description: "Color/size variants creating duplicate product pages"
+        detection: >
+          Check for 'Duplicate without user-selected canonical' or
+          'Duplicate, Google chose different canonical' on variant URLs.
+        severity: "medium"
+
+  category_pages:
+    - id: "ecom_005"
+      name: "Category page indexing"
+      description: "Main category pages should be indexed; deep subcategories may not need to be"
+      severity: "medium"
+    - id: "ecom_006"
+      name: "Category page cannibalization"
+      description: "Category and subcategory pages competing for same keywords"
+      detection: "searchAnalytics: same query, multiple category URLs"
+      severity: "medium"
+
+  faceted_navigation:
+    - id: "ecom_007"
+      name: "Faceted URL index bloat"
+      description: >
+        Filter/facet combination URLs (e.g., /shoes?color=red&size=10)
+        creating thousands of indexable pages.
+      detection: >
+        Page indexing report: look for large numbers of parameter URLs.
+        Performance report: filter by page containing '?' to see faceted URL traffic.
+      severity: "critical"
+      action: >
+        Implement robots.txt Disallow for faceted URLs, or use noindex,
+        or canonical to the base category page. Ensure only valuable
+        facet combinations are indexable.
+    - id: "ecom_008"
+      name: "Faceted pages in sitemap"
+      description: "Faceted/filtered URLs should NOT be in the sitemap"
+      severity: "high"
+
+  pagination:
+    - id: "ecom_009"
+      name: "Paginated category handling"
+      description: >
+        Check how paginated pages (/category?page=2, /category?page=3) are handled.
+        Should use self-referencing canonicals or noindex,follow after page 1.
+      detection: >
+        URL Inspection on paginated URLs: check canonical and index status.
+        Page indexing report for large numbers of paginated URLs.
+      severity: "medium"
+
+  hreflang:
+    - id: "ecom_010"
+      name: "Hreflang implementation for multi-language stores"
+      description: >
+        Verify hreflang tags are correctly implemented across language/region versions.
+        Common issues: missing return tags, wrong language codes, canonical conflicts.
+      detection: >
+        URL Inspection API: check googleCanonical on each language version.
+        Performance by country: verify correct version ranks in target country.
+      severity: "high"
+    - id: "ecom_011"
+      name: "International currency/price pages"
+      description: "Region-specific pricing pages may create duplicate content issues"
+      severity: "medium"
+
+  merchant_center_integration:
+    - id: "ecom_012"
+      name: "Merchant listing appearance"
+      description: >
+        Check searchAppearance dimension for MERCHANT_LISTINGS and
+        ORGANIC_SHOPPING appearances. Verify product feed data quality.
+      detection: "searchAnalytics with dimension=searchAppearance, filter=MERCHANT_LISTINGS"
+      severity: "medium"
+
+# ============================================================================
+# SECTION 16: 2025-2026 UPDATES AND CHANGES
+# ============================================================================
+
+recent_updates:
+
+  year_2025:
+    - date: "2025-06"
+      change: "Unified Insights tab"
+      description: >
+        GSC Insights fully integrated into main Search Console dashboard,
+        blending GSC + GA4 data in a single unified view.
+    - date: "2025-11"
+      change: "Search result simplification update"
+      description: >
+        Google announced ongoing simplification of search results,
+        affecting how certain rich results appear. FAQ and HowTo
+        rich results had already been restricted to authoritative sites.
+    - date: "2025-11 to 2025-12"
+      change: "Page indexing report delay"
+      description: >
+        Page indexing report stopped updating Nov 17-21, 2025.
+        Data was frozen until Dec 18, 2025. Google confirmed this
+        was a reporting-only issue; actual crawling/indexing was unaffected.
+    - date: "2025-12"
+      change: "AI-powered configuration in Performance report"
+      description: >
+        Natural-language prompts to filter and configure Performance report views.
+        Example prompts: 'show queries where clicks are flat but impressions are rising',
+        'compare mobile vs desktop for branded queries over 28 days'.
+
+  year_2026:
+    - date: "2026-01"
+      change: "Deprecated structured data types"
+      description: >
+        Starting January 2026, Google removes support for the following
+        structured data types from GSC reports, Rich Results Test,
+        and Search appearance filters:
+      deprecated_types:
+        - "Course"
+        - "Estimated salary"
+        - "Learning video"
+        - "Practice problem"
+        - "Special announcement"
+        - "Vehicle listing"
+    - date: "2026-ongoing"
+      change: "Enhanced Core Web Vitals reporting"
+      description: >
+        More historical trend data, mobile/desktop comparisons,
+        and downward-trend warnings in CWV report.
+    - date: "2026-ongoing"
+      change: "New crawlers added"
+      description: >
+        Google-Pinpoint and Google-CWS user-triggered crawlers added
+        for specialized research tools.
+
+  important_deprecations:
+    - feature: "FID (First Input Delay)"
+      replaced_by: "INP (Interaction to Next Paint)"
+      date: "March 2024"
+    - feature: "searchType parameter"
+      replaced_by: "type parameter"
+      date: "Ongoing (searchType still works but deprecated)"
+    - feature: "Mobile Usability in URL Inspection API"
+      status: "Deprecated (still returned but marked deprecated)"
+    - feature: "FAQ rich results for non-authoritative sites"
+      date: "2023 (restricted to government and health sites)"
+    - feature: "HowTo rich results"
+      date: "2023 (significantly reduced in search results)"
+
+# ============================================================================
+# SECTION 17: CRAWL STATS (UI ONLY)
+# ============================================================================
+
+crawl_stats:
+
+  description: >
+    Available under Settings > Crawl Stats in GSC. No API access.
+    Shows Googlebot crawling activity on your site over 90 days.
+
+  data_shown:
+    - "Total crawl requests per day"
+    - "Total download size per day (KB)"
+    - "Average response time (ms)"
+    - "Crawl request breakdown by response code (200, 301, 404, 500, etc.)"
+    - "Crawl request breakdown by file type (HTML, Image, CSS, JS, etc.)"
+    - "Crawl request breakdown by Googlebot type (Smartphone, Desktop, etc.)"
+    - "Crawl request breakdown by purpose (Discovery, Refresh)"
+    - "Host status (availability issues)"
+
+  audit_checks:
+    - id: "cs_001"
+      name: "High server error rate in crawls"
+      description: ">5% of crawl requests returning 5xx"
+      severity: "critical"
+    - id: "cs_002"
+      name: "Average response time too high"
+      description: ">500ms average response time for Googlebot"
+      severity: "high"
+      action: "Optimize server response time"
+    - id: "cs_003"
+      name: "Crawl budget waste"
+      description: "High proportion of crawls on non-indexable URLs"
+      severity: "medium"
+    - id: "cs_004"
+      name: "Host availability issues"
+      description: "GSC reports host downtime affecting crawling"
+      severity: "critical"
+
+# ============================================================================
+# SECTION 18: COMPREHENSIVE AUDIT WORKFLOW
+# ============================================================================
+
+audit_workflow:
+
+  description: >
+    Recommended order for conducting a full GSC audit, combining
+    automated (API) and manual (UI) checks.
+
+  phases:
+    - phase: 1
+      name: "Property & Access Setup"
+      checks:
+        - "Verify property is correctly set up (domain or URL prefix)"
+        - "Verify all team members have appropriate access levels"
+        - "Check sitemap is submitted and processing correctly"
+        - "Verify Bulk Data Export to BigQuery is configured (if needed)"
+
+    - phase: 2
+      name: "Indexing Health"
+      checks:
+        - "Review Page Indexing report totals (indexed vs not indexed)"
+        - "Analyze each 'Not indexed' reason category"
+        - "Sample URL Inspection on key pages (API: batch inspect top pages)"
+        - "Check for canonical mismatches (googleCanonical vs userCanonical)"
+        - "Identify server errors, redirect errors, soft 404s"
+        - "Check crawl stats for server response issues"
+
+    - phase: 3
+      name: "Performance Analysis"
+      checks:
+        - "Pull full performance data via API (all dimensions, 16 months)"
+        - "Identify top queries and pages by clicks and impressions"
+        - "Detect cannibalization (same query, multiple pages)"
+        - "Identify thin content (high impressions, low CTR)"
+        - "Detect declining queries/pages (compare periods)"
+        - "Analyze device performance gap (mobile vs desktop)"
+        - "Check Discover and Google News performance (type=discover, type=googleNews)"
+
+    - phase: 4
+      name: "Technical Health"
+      checks:
+        - "Review Core Web Vitals (mobile + desktop)"
+        - "Check Mobile Usability report"
+        - "Review structured data / rich results Enhancement reports"
+        - "Verify sitemap health (errors, submitted vs indexed)"
+        - "Check for manual actions and security issues"
+
+    - phase: 5
+      name: "Link Profile"
+      checks:
+        - "Review external links (top linking sites, anchor text)"
+        - "Analyze internal linking structure (top linked pages)"
+        - "Identify orphan pages (no internal links)"
+        - "Check for suspicious backlink patterns"
+
+    - phase: 6
+      name: "Cross-Platform Insights"
+      checks:
+        - "Cross-reference GSC queries with GA4 landing page engagement"
+        - "Cross-reference index coverage with organic traffic in GA4"
+        - "Cross-reference CWV with bounce rate in GA4"
+        - "Compare GSC queries with Google Ads keywords for budget optimization"
+        - "Check GTM tag impact on CWV scores"
+
+    - phase: 7
+      name: "Ecommerce Specific (if applicable)"
+      checks:
+        - "Product page index coverage audit"
+        - "Faceted navigation crawling assessment"
+        - "Pagination handling review"
+        - "Hreflang implementation verification"
+        - "Merchant listing / Product structured data validation"
+
+# ============================================================================
+# SECTION 19: QUERY ANALYSIS FORMULAS & BENCHMARKS
+# ============================================================================
+
+query_analysis:
+
+  ctr_benchmarks_2025:
+    description: "CTR medio atteso per posizione organica (desktop, tutti i settori)"
+    positions:
+      1: { expected_ctr: "25-35%", note: "Più alto per brand queries" }
+      2: { expected_ctr: "12-18%" }
+      3: { expected_ctr: "8-12%" }
+      4: { expected_ctr: "5-8%" }
+      5: { expected_ctr: "4-6%" }
+      6: { expected_ctr: "3-4.5%" }
+      7: { expected_ctr: "2.5-3.5%" }
+      8: { expected_ctr: "2-3%" }
+      9: { expected_ctr: "1.5-2.5%" }
+      10: { expected_ctr: "1-2%" }
+    serp_feature_impact: >
+      AI Overviews (SGE) sopprimono CTR del 20-40% per query informazionali.
+      Featured snippets a posizione 0 ottengono 8-12% CTR ma sopprimono
+      posizione 1 a circa 15-20%. CTR mobile è 3-5% inferiore al desktop.
+
+  striking_distance_keywords:
+    description: "Query vicine alla prima pagina con alto potenziale"
+    filter_criteria:
+      position: "5-20"
+      impressions: ">100/mese (o superiore alla mediana del sito)"
+      ctr: "< CTR atteso per quella posizione"
+    priority_formula: >
+      Opportunity Score = Impressions × (Target CTR posizione 1 - Current CTR)
+      × (1 / Current Position)
+    action_decision:
+      position_5_10_low_ctr: "Ottimizzazione title tag e meta description (quick win)"
+      position_5_10_normal_ctr: "Approfondimento contenuto, FAQ schema, internal linking"
+      position_11_20_high_impressions: "Content refresh sostanziale, backlink building"
+      position_11_20_low_impressions: "Bassa priorità — salvo keyword ad alto valore commerciale"
+
+  cannibalization_detection:
+    description: "Rilevamento di cannibalizzazione keyword da dati GSC"
+    method: >
+      Export searchAnalytics con dimensions=[query, page] per 6 mesi.
+      Raggruppare per query, contare URL distinti.
+    formula: >
+      Cannibalization Score = (N. URL per query) × (1 - CTR top URL / CTR atteso per posizione)
+    thresholds:
+      severe: "Entrambe le URL oscillano in posizione 1-10 (nessuna stabile)"
+      moderate: "Una URL posizione 1-10, un'altra 11-30"
+      low_risk: "Una URL domina >90% delle impressioni"
+    action: "Consolidare contenuti, canonical, o internal linking verso la pagina forte"
+
+  brand_vs_nonbrand:
+    description: "Segmentazione query brand vs non-brand"
+    method: "Regex filter sulle query esportate"
+    regex_pattern: "(nomebrand|nome brand|varianti|prodotto1|prodotto2)"
+    healthy_ratios:
+      brand_heavy: ">60% brand = sito molto dipendente dal brand (es. Nike)"
+      balanced: "20-40% brand = equilibrio sano"
+      seo_strong: "<10% brand = sito content/affiliate, SEO forte"
+      warning: ">50% brand per siti non-brand = strategia SEO non-brand debole"
+
+  ctr_performance_ratio:
+    description: "Valutazione CTR rispetto all'atteso per posizione"
+    formula: "CTR Performance Ratio = Actual CTR / Expected CTR per posizione"
+    interpretation:
+      critical: "< 0.5 — Title/description da riscrivere urgentemente"
+      below_average: "0.5-0.8 — Test miglioramenti"
+      normal: "0.8-1.2 — Nella norma"
+      outperforming: "> 1.2 — Usare come template per altre pagine"
+
+  zero_click_detection:
+    description: "Pagine con impressioni ma zero click"
+    decision_tree:
+      position_gt_20: "Ranking troppo basso — problema di contenuto/autorità"
+      position_5_20: "Probabile problema di title/meta — riscrivere per maggiore appeal"
+      position_1_5_zero_clicks: "SERP feature cattura tutti i click (featured snippet, AI overview, knowledge panel) — o query zero-click informazionale"
+
+  content_thinness_score:
+    formula: >
+      Content Thinness Score = (1 / Unique Queries) × (1 / Total Impressions) × Avg Position
+    interpretation: "Score più alto = contenuto più thin. Top 20% da espandere, unire o noindexare"
+    indicators:
+      - "< 5 query uniche per pagina"
+      - "< 50 impressioni totali in 3 mesi"
+      - "Posizione media > 50 per tutte le query"
+
+  zombie_pages:
+    description: "Pagine indicizzate con 0 click organici per 6+ mesi consecutivi"
+    detection: >
+      Confronto URL Inspection (indicizzata) vs Performance (0 click).
+      Se indicizzata ma 0 click per 6 mesi = zombie page.
+    action_decision:
+      historical_value: "Refresh e ripubblicazione con data corrente"
+      no_strategic_value: "Noindex o 301 redirect a pagina rilevante"
+      duplicate: "Canonical verso la versione forte"
+      threshold: ">30% pagine zombie = problema crawl budget, prioritizzare cleanup"
+
+# ============================================================================
+# SECTION 20: PRE-AUDIT QUESTIONS
+# ============================================================================
+
+pre_audit_questions:
+
+  - id: "Q-GSC01"
+    question: "Hai accesso come proprietario o utente a Google Search Console?"
+    options: ["Proprietario verificato", "Utente con accesso completo", "Utente con accesso limitato", "Nessun accesso"]
+    purpose: "Determina il livello di audit possibile (L0/L1/L2)"
+    critical: true
+
+  - id: "Q-GSC02"
+    question: "Tipo di proprietà GSC configurata?"
+    options: ["Domain property (sc-domain:)", "URL prefix (https://)", "Non so", "Non configurato"]
+    purpose: "Domain property è più completa — include tutti i protocolli e sottodomini"
+
+  - id: "Q-GSC03"
+    question: "Il sito è multilingue o multi-paese?"
+    options: ["Solo italiano", "Multilingue (IT + altre lingue)", "Multi-paese con domini separati", "No"]
+    purpose: "Determina se servono check hreflang e analisi per paese"
+
+  - id: "Q-GSC04"
+    question: "Quante pagine ha il sito approssimativamente?"
+    options: ["<100", "100-1.000", "1.000-10.000", ">10.000"]
+    purpose: "Siti >10K hanno problemi di crawl budget. Determina la scala dell'audit."
+
+  - id: "Q-GSC05"
+    question: "Hai notato cali di traffico organico recenti?"
+    options: ["Sì, significativi (>30%)", "Sì, moderati (10-30%)", "Stabile", "In crescita", "Non monitoro"]
+    purpose: "Orientare l'audit verso diagnosi calo o ottimizzazione crescita"
+
+  - id: "Q-GSC06"
+    question: "GSC è collegato a GA4?"
+    options: ["Sì", "No", "Non so"]
+    purpose: "Se collegato, possiamo fare cross-analysis GSC+GA4"
+
+  - id: "Q-GSC07"
+    question: "Hai una sitemap XML inviata a GSC?"
+    options: ["Sì, generata automaticamente", "Sì, manuale", "No", "Non so"]
+    purpose: "Sitemap è fondamentale per l'audit dell'indicizzazione"
+
+  - id: "Q-GSC08"
+    question: "Il sito usa navigazione a faccette (filtri prodotto)?"
+    options: ["Sì", "No", "Non applicabile"]
+    purpose: "Faccette sono la causa principale di index bloat su ecommerce"
+    conditional: "Solo per ecommerce"
+
+# ============================================================================
+# SECTION 21: RED FLAGS — Violazioni critiche
+# ============================================================================
+
+red_flags:
+
+  - id: "RF-GSC01"
+    name: "Manual action attiva"
+    severity: "critical"
+    detection: "Controllare GSC > Sicurezza e azioni manuali"
+    seo_risk: "Penalizzazione diretta — pagine o intero sito rimosso dai risultati"
+
+  - id: "RF-GSC02"
+    name: "Problemi di sicurezza attivi"
+    severity: "critical"
+    detection: "GSC > Sicurezza e azioni manuali > Problemi di sicurezza"
+    seo_risk: "Browser mostra warning, utenti non possono accedere al sito"
+
+  - id: "RF-GSC03"
+    name: "Index rate < 50%"
+    severity: "critical"
+    detection: "Pagine indicizzate / pagine in sitemap < 50%"
+    seo_risk: "Più della metà del contenuto è invisibile a Google"
+
+  - id: "RF-GSC04"
+    name: "Errori server (5xx) crescenti"
+    severity: "critical"
+    detection: "Page indexing report > errori server in aumento"
+    seo_risk: "Google riduce il crawl rate, pagine perdono ranking"
+
+  - id: "RF-GSC05"
+    name: "CWV tutti Poor su mobile"
+    severity: "high"
+    detection: "Core Web Vitals report > Mobile > maggioranza URL Poor"
+    seo_risk: "Penalizzazione page experience, CTR inferiore"
+
+  - id: "RF-GSC06"
+    name: "Cannibalization su keyword principali"
+    severity: "high"
+    detection: "Stessa query, 2+ URL con impressioni >20% ciascuna, posizione oscillante"
+    seo_risk: "Ranking instabile, CTR diviso, Google confuso su quale pagina mostrare"
+
+  - id: "RF-GSC07"
+    name: "Calo traffico organico >30%"
+    severity: "critical"
+    detection: "Performance report: confronto ultimi 28 giorni vs 28 giorni precedenti"
+    seo_risk: "Possibile penalizzazione algoritmica, problema tecnico o manual action"
+
+  - id: "RF-GSC08"
+    name: "Nessuna sitemap inviata"
+    severity: "high"
+    detection: "GSC > Sitemap > nessuna sitemap presente"
+    seo_risk: "Google non ha mappa completa del sito, scoperta pagine inefficiente"
+
+  - id: "RF-GSC09"
+    name: "Index bloat ratio > 10:1"
+    severity: "high"
+    detection: "Pagine indicizzate / pagine con almeno 1 click in 90 giorni > 10"
+    seo_risk: "Crawl budget sprecato su pagine senza valore, autorità diluita"
+
+  - id: "RF-GSC10"
+    name: "Canonical mismatch su pagine chiave"
+    severity: "high"
+    detection: "URL Inspection: googleCanonical ≠ userCanonical su pagine importanti"
+    seo_risk: "Google indicizza la versione sbagliata della pagina"
+
+  - id: "RF-GSC11"
+    name: ">30% pagine zombie"
+    severity: "high"
+    detection: "Pagine indicizzate con 0 click per 6+ mesi > 30% del totale indicizzato"
+    seo_risk: "Segnale di bassa qualità complessiva del sito"
+
+  - id: "RF-GSC12"
+    name: "Faceted navigation indicizzata"
+    severity: "high"
+    detection: "URL con parametri filtro (?, &) nel page indexing report in grandi numeri"
+    seo_risk: "Esplosione combinatoriale di URL, contenuto duplicato massivo"
+    ecommerce_specific: true
+
+# ============================================================================
+# SECTION 22: SCORING SYSTEM
+# ============================================================================
+
+scoring:
+
+  categories:
+    - name: "Indexing Health"
+      weight: 0.25
+      checks:
+        - "Index rate (pagine indicizzate/totali)"
+        - "Errori server e redirect"
+        - "Soft 404"
+        - "Canonical consistency"
+        - "Sitemap health"
+      description: "Il sito è correttamente indicizzato da Google?"
+
+    - name: "Performance & Visibility"
+      weight: 0.25
+      checks:
+        - "Trend impressioni e click (crescita/calo)"
+        - "CTR vs benchmark per posizione"
+        - "Cannibalization"
+        - "Brand vs non-brand ratio"
+        - "Striking distance keywords"
+      description: "Il sito sta performando bene nei risultati di ricerca?"
+
+    - name: "Technical Health"
+      weight: 0.25
+      checks:
+        - "Core Web Vitals (LCP, INP, CLS)"
+        - "Mobile usability"
+        - "Structured data / rich results"
+        - "Crawl stats (response time, errori)"
+        - "Manual actions / security issues"
+      description: "Il sito è tecnicamente sano per i motori di ricerca?"
+
+    - name: "Content Quality Signals"
+      weight: 0.25
+      checks:
+        - "Zombie pages ratio"
+        - "Index bloat ratio"
+        - "Thin content pages"
+        - "Orphan pages"
+        - "Internal linking structure"
+      description: "La qualità del contenuto è adeguata secondo i segnali GSC?"
+
+  severity_weights:
+    critical: 5.0
+    high: 3.0
+    medium: 1.5
+    low: 0.5
+
+  grade_scale:
+    A: { min: 90, label: "Eccellente", description: "SEO health ottimale — monitoraggio continuo" }
+    B: { min: 75, label: "Buono", description: "Buona salute SEO con margini di miglioramento" }
+    C: { min: 60, label: "Sufficiente", description: "Problemi da risolvere — interventi consigliati" }
+    D: { min: 40, label: "Insufficiente", description: "Problemi significativi — intervento urgente" }
+    F: { min: 0, label: "Critico", description: "Problemi critici — visibilità organica compromessa" }
+
+  automatic_fail_conditions:
+    - condition: "Manual action attiva"
+      result: "F automatico"
+    - condition: "Problemi di sicurezza attivi"
+      result: "F automatico"
+    - condition: "Index rate < 30%"
+      result: "Max grade D"
+    - condition: "Calo traffico > 50% mese su mese"
+      result: "Max grade D"
+    - condition: "Tutti CWV Poor su mobile"
+      result: "Max grade C"
+        - "Out-of-stock product handling"

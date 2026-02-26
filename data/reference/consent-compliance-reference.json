@@ -1,0 +1,830 @@
+{
+  "metadata": {
+    "title": "Consent & Compliance Audit Technical Reference",
+    "version": "2.0",
+    "last_updated": "2026-02-26",
+    "coverage_period": "2025-2026",
+    "author": "MarTech Audit Tool"
+  },
+
+  "1_dma_impact_on_consent": {
+    "overview": "The EU Digital Markets Act (Regulation 2022/1925) became fully enforceable March 6, 2024. It designates 'gatekeepers' and imposes strict consent and data-combining rules that directly affect how advertisers operate.",
+    "designated_gatekeepers": [
+      "Alphabet (Google)", "Apple", "Meta", "Amazon", "Microsoft", "Booking.com", "ByteDance (TikTok)"
+    ],
+    "key_requirements_for_gatekeepers": {
+      "article_5_2": "Gatekeepers must NOT combine personal data from their core platform service with data from other services or third-party sources WITHOUT explicit user consent under GDPR.",
+      "article_5_2_consent_withdrawal": "Consent withdrawal must be as easy as granting consent, with immediate effect across all gatekeeper services.",
+      "article_6_10": "Gatekeepers must not use personal data of business users' end users for their own advertising unless consented."
+    },
+    "impact_on_advertisers": {
+      "google": {
+        "consent_signals_required": "Since March 2024, Google requires advertisers to pass consent signals for EEA/UK/Switzerland users via Consent Mode v2. Users who opt out are non-attributable.",
+        "google_ads_impact": "Without valid consent signals, conversions from EEA users are not attributed, remarketing audiences are not built, and Enhanced Conversions cannot process user data.",
+        "consent_mode_v2_mandatory": "Google Consent Mode v2 with ad_user_data and ad_personalization parameters is mandatory for EEA traffic."
+      },
+      "meta": {
+        "pay_or_consent_model": "Meta's 'pay or consent' model was found in breach of DMA by EC preliminary findings (July 2024). Meta fined €200M (April 2025) for not giving users a less-personalized-data option.",
+        "consent_requirement": "Advertisers must pass explicit consent signals through Meta Pixel and Conversions API for EU users."
+      },
+      "apple": {
+        "att_framework": "App Tracking Transparency (ATT) requires apps to request permission before tracking across apps/websites owned by other companies.",
+        "fine": "Apple fined €500M (April 2025) for DMA non-compliance regarding App Store steering rules."
+      }
+    },
+    "advertiser_obligations": [
+      "Implement a compliant CMP that captures granular consent",
+      "Pass consent signals to all gatekeeper platforms (Google Consent Mode, Meta consent parameters)",
+      "Maintain audit trail/proof of consent collection",
+      "Ensure consent withdrawal is operationally as easy as granting",
+      "Do not combine cross-platform user data without explicit consent"
+    ]
+  },
+
+  "2_google_consent_mode_v2": {
+    "overview": "Google Consent Mode v2 is a framework that adjusts Google tag behavior based on user consent status. It communicates consent state to Google services via URL parameters.",
+    "all_parameters": {
+      "ad_storage": {
+        "description": "Controls storage (cookies) related to advertising (e.g., Google Ads _gcl_* cookies)",
+        "type": "upstream_qualifier",
+        "default_recommended": "denied",
+        "when_denied": "No advertising cookies are set. Cookieless pings still sent (Advanced mode). Ads conversion linker cookie (_gcl_aw) not written."
+      },
+      "analytics_storage": {
+        "description": "Controls storage (cookies) related to analytics (e.g., GA4 _ga, _ga_* cookies)",
+        "type": "upstream_qualifier",
+        "default_recommended": "denied",
+        "when_denied": "No analytics cookies set. Cookieless pings sent with consent state info. No client_id or session_id persisted."
+      },
+      "ad_user_data": {
+        "description": "Controls whether user data can be SENT to Google for advertising measurement (conversion tracking, Enhanced Conversions)",
+        "type": "downstream_instruction",
+        "default_recommended": "denied",
+        "when_denied": "User data (email, phone, address) not sent to Google for ads measurement. Conversion data sent but without user identifiers.",
+        "new_in_v2": true
+      },
+      "ad_personalization": {
+        "description": "Controls whether user data can be used for personalized advertising (remarketing, similar audiences)",
+        "type": "downstream_instruction",
+        "default_recommended": "denied",
+        "when_denied": "No remarketing audiences built, no personalized ads served to this user. Sets NPA (Non-Personalized Ads) flag.",
+        "new_in_v2": true
+      },
+      "functionality_storage": {
+        "description": "Controls storage for website functionality (e.g., language preferences, UI settings)",
+        "type": "optional",
+        "default_recommended": "granted",
+        "note": "Google tags do not use this; it is for CMP/custom tag integration."
+      },
+      "personalization_storage": {
+        "description": "Controls storage related to personalization (e.g., content recommendations)",
+        "type": "optional",
+        "default_recommended": "denied",
+        "note": "Google tags do not use this; it is for CMP/custom tag integration."
+      },
+      "security_storage": {
+        "description": "Controls storage related to security (e.g., authentication, fraud prevention)",
+        "type": "optional",
+        "default_recommended": "granted",
+        "note": "Always granted as it is essential for security functions."
+      }
+    },
+    "implementation_modes": {
+      "basic": {
+        "description": "Tags are completely blocked until consent is granted. No data sent to Google before consent.",
+        "modeling": "Conversion modeling available in Google Ads. NO behavioral modeling in GA4.",
+        "data_loss": "Higher data loss since no cookieless pings are sent."
+      },
+      "advanced": {
+        "description": "Tags load with default 'denied' state. Cookieless pings are sent. Tags adjust behavior when consent is granted/denied.",
+        "modeling": "Conversion modeling in Google Ads AND behavioral modeling in GA4.",
+        "data_loss": "Lower data loss due to cookieless pings feeding machine learning models."
+      }
+    },
+    "cookieless_pings": {
+      "description": "In Advanced mode, when consent is denied, Google tags send minimal, cookieless pings to Google servers.",
+      "types": {
+        "consent_state_ping": "Sent on every page where Consent Mode is active. Communicates granted/denied status for each consent type.",
+        "conversion_ping": "Sent when a conversion event occurs but ad_storage is denied. Contains no user identifiers, no cookies. Used for aggregate conversion modeling.",
+        "analytics_ping": "Sent for GA4 events when analytics_storage is denied. Contains page URL, timestamp, user agent, but no _ga cookie. No client_id persisted."
+      },
+      "what_is_NOT_in_cookieless_pings": [
+        "No cookie identifiers (_ga, _gcl, _gid)",
+        "No cross-site tracking",
+        "No remarketing list building",
+        "No individual user profiling"
+      ]
+    },
+    "conversion_modeling": {
+      "how_it_works": "Google AI analyzes observable data from consented users and uses historical trends to model conversions for unconsented users.",
+      "requirements": [
+        "Consent Mode must be active for at least 7 days",
+        "Minimum daily traffic thresholds (varies by platform)",
+        "Google Ads: at least 1,000 ad-click events per day with consent denied for 7+ days",
+        "GA4: behavioral modeling requires Advanced mode and sufficient daily events"
+      ],
+      "privacy_safeguards": [
+        "Never used to track individual users across sites",
+        "Never used to build remarketing lists",
+        "Never used to generate individual user profiles",
+        "Based on aggregate statistical models only"
+      ]
+    },
+    "url_parameters": {
+      "gcs": {
+        "description": "Google Consent State. Encodes ad_storage and analytics_storage.",
+        "format": "G1xy where x=ad_storage, y=analytics_storage. 0=denied, 1=granted.",
+        "values": {
+          "G100": "Both ad_storage and analytics_storage denied (Advanced mode only)",
+          "G110": "ad_storage granted, analytics_storage denied",
+          "G101": "ad_storage denied, analytics_storage granted",
+          "G111": "Both ad_storage and analytics_storage granted"
+        }
+      },
+      "gcd": {
+        "description": "Google Consent Default. Encodes all four consent signals (ad_storage, analytics_storage, ad_user_data, ad_personalization) with information about default state and updates.",
+        "note": "Present in every Google tag request regardless of Consent Mode enablement. More complex encoding than gcs."
+      }
+    },
+    "gtag_implementation_code": {
+      "default_denied": "gtag('consent', 'default', { ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500 });",
+      "consent_update_on_accept": "gtag('consent', 'update', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });",
+      "region_specific_defaults": "gtag('consent', 'default', { ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', region: ['IT', 'FR', 'DE', 'ES'] });",
+      "wait_for_update_note": "wait_for_update (in ms) tells Google tags to wait for a consent update before firing. Recommended 500ms to allow CMP to initialize."
+    }
+  },
+
+  "3_gdpr_enforcement_trends_2025": {
+    "overview": "2025 saw record enforcement activity, particularly around consent banners, dark patterns, and cookie compliance.",
+    "major_fines": [
+      {
+        "entity": "Google (by CNIL, France)",
+        "amount": "€325 million",
+        "date": "September 2025",
+        "reason": "Promotional ads in Gmail without prior consent. Consent UI designs that steered users toward personalized ads (accept = 1 click, reject = navigate to settings)."
+      },
+      {
+        "entity": "SHEIN (by CNIL, France)",
+        "amount": "€150 million",
+        "date": "September 2025",
+        "reason": "Cookies installed before user consent. Banners lacked adequate transparency. 'Reject all' did not function correctly. Dark patterns: reject buried behind multiple clicks."
+      },
+      {
+        "entity": "Meta (by EC under DMA)",
+        "amount": "€200 million",
+        "date": "April 2025",
+        "reason": "Pay-or-consent model not giving users a less-data-intensive option."
+      },
+      {
+        "entity": "Clearview AI (by Dutch DPA)",
+        "amount": "€30.5 million",
+        "date": "2024",
+        "reason": "Illegal collection of biometric data without consent."
+      }
+    ],
+    "cumulative_stats": {
+      "total_fines_to_date": "€5.88 billion across 2,245+ recorded penalties by end of 2025",
+      "consent_related_share": "3 of 5 largest 2025 fines (totaling €475M) involved cookie consent violations"
+    },
+    "regulator_focus_areas": {
+      "dark_patterns": {
+        "description": "Design tricks that nudge users toward consenting",
+        "examples": [
+          "Accept all = prominent single button; Reject = hidden behind settings",
+          "Pre-ticked consent boxes",
+          "Color contrast making 'Accept' visually dominant",
+          "Asymmetric click paths (1 click to accept, 3+ to reject)",
+          "Confusing language that obscures the reject option"
+        ],
+        "regulatory_position": "CNIL, EDPB, and national DPAs unanimously consider these non-compliant. Reject must be as easy as Accept."
+      },
+      "cookie_walls": {
+        "description": "Blocking content access unless cookies are accepted",
+        "regulatory_position": "Generally prohibited unless a genuine equivalent alternative (without tracking) is offered. EDPB Opinion 5/2020."
+      },
+      "legitimate_interest_abuse": {
+        "description": "Claiming legitimate interest for advertising/tracking instead of seeking consent",
+        "regulatory_position": "Advertising and profiling almost never qualify for legitimate interest. EDPB guidelines emphasize consent as the only valid legal basis for non-essential cookies/tracking under ePrivacy Directive."
+      },
+      "prior_consent_enforcement": {
+        "description": "Cookies/trackers firing before user gives consent",
+        "regulatory_position": "Strictly prohibited. Any non-essential cookie or tracker must not be placed before valid consent is obtained."
+      }
+    }
+  },
+
+  "4_eprivacy_by_country": {
+    "overview": "The ePrivacy Directive (2002/58/EC) is implemented differently by each EU member state. Key differences affect cookie consent, analytics exemptions, and consent duration.",
+    "italy_garante": {
+      "authority": "Garante per la protezione dei dati personali",
+      "key_guidelines": "Linee guida cookie e altri strumenti di tracciamento (June 10, 2021, effective January 9, 2022)",
+      "consent_renewal": "6 months recommended",
+      "scroll_as_consent": "EXPLICITLY PROHIBITED. Scrolling alone cannot constitute valid consent. Only exception: scrolling as part of a broader series of unambiguous actions.",
+      "analytics_exemption": {
+        "first_party_analytics": "May be placed WITHOUT consent if used for aggregate statistics on a single site/app.",
+        "third_party_analytics_conditions": [
+          "IP address masked (at least 1/4 of IPv4, equivalent for IPv6)",
+          "Data cannot identify individual users",
+          "Data not combined with other user information",
+          "Data not shared with third parties",
+          "Used only for aggregate statistics for a single site/app"
+        ],
+        "google_analytics_note": "GA4 with IP anonymization and restricted data sharing CAN qualify as exempt if all conditions met. However, cross-site measurement disqualifies it."
+      },
+      "cookie_banner_requirements": [
+        "First layer: must contain brief description of purposes + Accept/Reject buttons of equal prominence",
+        "Second layer: detailed information about each cookie category with granular choices",
+        "Technical cookies need not require consent but must be described",
+        "'X' close button on banner = deny consent (does NOT equal acceptance)",
+        "Re-presentation of banner: no sooner than 6 months after user makes a choice"
+      ]
+    },
+    "france_cnil": {
+      "authority": "Commission nationale de l'informatique et des libertés (CNIL)",
+      "key_guidelines": "Délibération n° 2020-091 (September 17, 2020), updated recommendations",
+      "consent_renewal": "6 months recommended",
+      "analytics_exemption": {
+        "conditions": [
+          "Limited to measuring audience of the site only (not cross-site)",
+          "Only produces anonymous statistical data",
+          "Does not allow tracking persons across different sites",
+          "Not combined with other processing or data",
+          "Cookie lifetime limited to 13 months, data retention limited to 25 months"
+        ],
+        "exempt_tools": "Matomo (with specific configuration), AT Internet, and similar first-party tools. Google Analytics does NOT qualify for exemption per CNIL."
+      },
+      "specific_rules": [
+        "Reject must be available at the same level/click depth as Accept",
+        "Continue browsing does NOT constitute consent",
+        "Cookie walls generally prohibited unless genuine free alternative offered",
+        "Consent proof must be maintained (audit trail)"
+      ]
+    },
+    "germany_dsk": {
+      "authority": "Datenschutzkonferenz (DSK, Conference of German Data Protection Authorities)",
+      "key_guidelines": "TTDSG (Telekommunikation-Telemedien-Datenschutz-Gesetz) effective December 1, 2021",
+      "legal_framework": "TTDSG §25 implements ePrivacy cookie rules into German law. Consent required for any storage/access to terminal equipment unless strictly necessary.",
+      "analytics_exemption": {
+        "conditions": "Analytics cookies exempt only if NO personal data is processed at all. Stricter than France/Italy.",
+        "note": "In practice, most analytics tools require consent under German law since IP addresses are personal data per German interpretation."
+      },
+      "specific_rules": [
+        "PIMS (Personal Information Management Services) recognized as valid consent intermediaries under TTDSG §26",
+        "Consent banners must be accessible and non-manipulative",
+        "State-level DPAs can and do conduct systematic website audits",
+        "Several Länder DPAs have sent mass non-compliance letters to websites"
+      ]
+    },
+    "spain_aepd": {
+      "authority": "Agencia Española de Protección de Datos (AEPD)",
+      "key_guidelines": "Guía sobre el uso de las cookies (November 2019, updated 2023)",
+      "consent_renewal": "24 months (longest in EU)",
+      "analytics_exemption": {
+        "conditions": "First-party, aggregated, internal-use-only measurement can operate without consent under similar conditions to France."
+      },
+      "specific_rules": [
+        "Cookie policy must be accessible from every page of the website",
+        "Second-layer information must include identity of data controller, purposes, retention periods, and recipients",
+        "Implied consent from continued browsing is NOT valid",
+        "AEPD has been less aggressive in enforcement compared to CNIL/Garante but increasing scrutiny"
+      ]
+    }
+  },
+
+  "5_italian_garante_cookie_guidelines_detail": {
+    "official_reference": "Provvedimento del 10 giugno 2021 [9677876], published in Gazzetta Ufficiale July 9, 2021",
+    "effective_date": "January 9, 2022",
+    "scope": "All websites and apps targeting Italian users or operated from Italy",
+    "banner_technical_requirements": {
+      "first_layer": {
+        "must_contain": [
+          "Brief description that site uses technical cookies and (if applicable) profiling cookies",
+          "Link to full cookie policy (second layer)",
+          "Accept button",
+          "Reject button (equal visual prominence to Accept)",
+          "Link to granular cookie preference settings"
+        ],
+        "must_not": [
+          "Use scroll-as-consent",
+          "Use pre-ticked boxes",
+          "Make Accept visually dominant over Reject",
+          "Auto-dismiss without explicit action"
+        ],
+        "x_close_behavior": "Closing the banner with X = deny non-essential cookies. Technical cookies only remain active."
+      },
+      "second_layer": {
+        "must_contain": [
+          "Full list of cookies by category (technical, analytics, profiling)",
+          "For each cookie: name, purpose, duration, first/third party",
+          "Granular toggles for each category",
+          "Save preferences button",
+          "Identity of data controller"
+        ]
+      }
+    },
+    "scroll_prohibition": {
+      "rule": "Scrolling the page does NOT constitute valid consent.",
+      "rationale": "Scroll generates too many false positives. Random user actions must not be misinterpreted as affirmative consent.",
+      "exception": "Only if scrolling is embedded in a broader sequence of clearly affirmative actions (extremely narrow exception, practically never applicable)."
+    },
+    "analytics_cookie_rules": {
+      "first_party_technical_analytics": {
+        "consent_required": false,
+        "conditions": "Must be used only for aggregate statistics of a single site/app. No user identification possible."
+      },
+      "third_party_analytics_as_technical": {
+        "consent_required": "Not required IF all conditions met",
+        "conditions": [
+          "IP address truncation (mask at least 1/4 of IPv4)",
+          "No cross-site tracking capability",
+          "No combination with other data",
+          "No sharing with third parties for their own purposes",
+          "Only aggregate statistical output"
+        ]
+      },
+      "profiling_analytics": {
+        "consent_required": true,
+        "note": "Any analytics that enables user-level tracking, cross-site measurement, or feeds advertising systems requires full consent."
+      }
+    },
+    "consent_storage_and_renewal": {
+      "consent_proof": "Controller must be able to demonstrate that valid consent was obtained (audit trail requirement under GDPR Art. 7.1)",
+      "renewal_period": "6 months. Do not re-present banner before 6 months unless cookie policy changes.",
+      "consent_record": "Must store: timestamp, version of cookie policy consented to, granular choices made, method of consent."
+    },
+    "penalties_for_non_compliance": {
+      "administrative_fines": "Up to €20 million or 4% of annual worldwide turnover (GDPR Art. 83)",
+      "garante_enforcement": "Garante conducts both complaint-driven and proactive investigations. Has issued corrective orders and fines to major Italian websites."
+    }
+  },
+
+  "6_meta_conversions_api_consent": {
+    "overview": "Meta Conversions API (CAPI) is a server-to-server integration. It does NOT bypass consent requirements—consent must be checked before sending events.",
+    "consent_signal_implementation": {
+      "browser_side": {
+        "meta_pixel": "fbq('consent', 'revoke') to deny, fbq('consent', 'grant') to allow. Must be called BEFORE fbq('init').",
+        "code_pattern_deny": "fbq('consent', 'revoke'); fbq('init', 'PIXEL_ID');",
+        "code_pattern_grant_after_consent": "fbq('consent', 'grant');"
+      },
+      "server_side_capi": {
+        "approach": "Check consent status in your server/data layer BEFORE making CAPI calls. Do not send events for users who have not consented.",
+        "data_processing_options": {
+          "parameter": "data_processing_options",
+          "values": {
+            "empty_array": "[] = no restrictions (user consented or not subject to restrictions)",
+            "ldu": "['LDU'] = Limited Data Use mode for US state privacy laws (CCPA/CPRA)",
+            "ldu_with_geo": "['LDU'], country=1, state=1000 = LDU with automatic geolocation"
+          },
+          "note": "LDU is for US state laws only. For GDPR, the solution is to NOT send the event at all if consent is not given."
+        },
+        "required_parameters_per_event": [
+          "client_user_agent (required)",
+          "action_source (required)",
+          "event_source_url (required)",
+          "Hashed user data (email, phone, etc.) - only if consented"
+        ]
+      }
+    },
+    "limited_data_use_ldu": {
+      "purpose": "Compliance with US state privacy laws (California CCPA/CPRA, Virginia VCDPA, Colorado CPA, etc.)",
+      "not_for_gdpr": "LDU does NOT satisfy GDPR. For EU users without consent, do not send data at all.",
+      "what_ldu_restricts": [
+        "Data not used for personalized advertising",
+        "Data not used for optimization beyond the specific advertiser",
+        "Restricts cross-advertiser data sharing"
+      ]
+    },
+    "meta_consent_mode_2025": {
+      "description": "Meta now supports a consent mode similar to Google's, integrating with CMPs.",
+      "record_keeping": "2025 policy update: advertisers must maintain detailed records of user consent including when, where, and how consent was obtained. Must provide evidence to Meta upon request.",
+      "integration_with_gtm_server_side": {
+        "approach": "CMP sets consent in dataLayer → web GTM passes consent state to server GTM → server GTM checks consent before firing Meta CAPI tag",
+        "meta_tag_in_sgtm": "The Meta Conversions API tag in server-side GTM should be configured to respect consent settings. Use consent-based trigger conditions."
+      }
+    },
+    "gdpr_compliance_checklist": [
+      "Do NOT fire Meta Pixel before consent is granted",
+      "Do NOT send CAPI events for EU users who have not consented",
+      "Hash all user data (SHA-256) before sending",
+      "Implement fbq('consent', 'revoke') as default for EU users",
+      "Pass data_processing_options for US users subject to state laws",
+      "Maintain consent audit trail",
+      "Support consent withdrawal (stop sending data when consent is revoked)"
+    ]
+  },
+
+  "7_server_side_tagging_consent": {
+    "overview": "Server-side GTM does not automatically enforce consent. Consent state must be forwarded from the web container and explicitly checked in the server container.",
+    "consent_forwarding_mechanism": {
+      "web_to_server_flow": [
+        "1. User interacts with CMP on website",
+        "2. CMP pushes consent state to dataLayer",
+        "3. Web GTM gtag/GA4 tag reads consent state",
+        "4. Google tags append consent parameters (gcs, gcd) to HTTP request sent to server container",
+        "5. Server container's GA4 client extracts gcs/gcd from request",
+        "6. Consent state is available in server container event data"
+      ],
+      "x_ga_gcs_parameter": {
+        "description": "In server-side GTM event data, the consent state is available as x-ga-gcs",
+        "location": "Event Data in server-side GTM",
+        "format": "Same as gcs: G1xy where x=ad_storage, y=analytics_storage",
+        "values": {
+          "G100": "Both denied",
+          "G110": "ad_storage granted, analytics_storage denied",
+          "G101": "ad_storage denied, analytics_storage granted",
+          "G111": "Both granted"
+        }
+      },
+      "x_ga_gcd_parameter": {
+        "description": "Extended consent data for all four consent signals",
+        "location": "Event Data in server-side GTM"
+      }
+    },
+    "server_side_consent_enforcement": {
+      "built_in_behavior": "Native Google tags (GA4, Google Ads, Floodlight) in server GTM automatically read GCS and respect consent without extra config.",
+      "third_party_tags": {
+        "problem": "Non-Google tags in server GTM (Meta CAPI, TikTok, custom HTTP requests) do NOT automatically respect consent. You must build consent checks.",
+        "solution": {
+          "step_1": "Create an Event Data variable for x-ga-gcs (Key Path: x-ga-gcs)",
+          "step_2": "Create a trigger condition: x-ga-gcs matches RegEx G1[1][1] (both granted) or appropriate pattern",
+          "step_3": "Attach this trigger to third-party tags so they only fire when consent is granted",
+          "regex_examples": {
+            "analytics_granted": "G1.1 (second digit = 1, meaning analytics_storage granted)",
+            "ads_granted": "G11. (third digit = 1, meaning ad_storage granted)",
+            "both_granted": "G111",
+            "either_granted_for_analytics": "G1[01]1"
+          }
+        }
+      }
+    },
+    "common_pitfalls": [
+      "Assuming server-side GTM inherently blocks unconsented data (it does NOT)",
+      "Not forwarding consent state from web container to server container",
+      "Firing Meta CAPI or other third-party tags without consent checks in server GTM",
+      "Using server-side tagging as a way to 'bypass' consent (this is illegal and auditable)",
+      "Not checking x-ga-gcs before custom HTTP request tags"
+    ],
+    "audit_checks": [
+      "Verify x-ga-gcs is present in server-side event data",
+      "Verify third-party server tags have consent-based triggers",
+      "Test: reject all cookies in CMP → check if server-side tags still fire to third parties",
+      "Check server-side GTM tag configuration for consent settings"
+    ]
+  },
+
+  "8_common_compliance_failures": {
+    "overview": "Technical patterns frequently found in audits that indicate non-compliance. Statistics: 60% of websites with 'Reject all' do not honor the choice; 72% of financial services sites set non-essential cookies before consent; 74% of ecommerce sites collect behavioral data on page load.",
+    "failure_patterns": {
+      "tags_firing_before_consent": {
+        "description": "Marketing/analytics tags execute before the CMP initializes or before the user makes a choice",
+        "technical_indicators": [
+          "Network requests to google-analytics.com, facebook.com/tr, doubleclick.net visible in DevTools before CMP banner appears",
+          "Hardcoded scripts in <head> that load before the CMP script",
+          "gtag('config', ...) called without prior gtag('consent', 'default', ...) command",
+          "fbq('track', 'PageView') firing without prior fbq('consent', 'revoke')"
+        ],
+        "root_cause": "CMP loads at ~2 seconds, but tracking pixels (Facebook, LinkedIn, etc.) are optimized and fire at ~0.5 seconds.",
+        "code_pattern_bad": "<head><script src='https://connect.facebook.net/en_US/fbevents.js'></script><script src='cmp-loader.js'></script></head>",
+        "code_pattern_good": "<head><script>gtag('consent','default',{ad_storage:'denied',analytics_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});</script><script src='cmp-loader.js'></script></head>"
+      },
+      "hardcoded_tracking_scripts": {
+        "description": "Marketing scripts embedded directly in HTML rather than loaded through GTM with consent triggers",
+        "technical_indicators": [
+          "<script> tags in page source loading tracking domains directly",
+          "Third-party scripts not managed by tag manager",
+          "Inline JavaScript that sets tracking cookies"
+        ],
+        "domains_to_check": [
+          "connect.facebook.net",
+          "www.googletagmanager.com (direct, not through consent layer)",
+          "www.google-analytics.com",
+          "bat.bing.com",
+          "snap.licdn.com",
+          "analytics.tiktok.com",
+          "static.hotjar.com",
+          "cdn.segment.com"
+        ]
+      },
+      "consent_not_honored_on_reject": {
+        "description": "User clicks 'Reject All' but cookies are still set or network requests still fire",
+        "technical_indicators": [
+          "After rejecting: _ga, _gid, _fbp, _gcl_au cookies still present in Application > Cookies",
+          "Network requests to ad/analytics domains still visible after rejection",
+          "dataLayer still contains marketing events after rejection"
+        ]
+      },
+      "missing_consent_default_command": {
+        "description": "Google Consent Mode default command not present or fires after tags",
+        "technical_indicators": [
+          "In Console: dataLayer has no 'consent' event with commandName 'default'",
+          "gtag('consent', 'default', ...) appears after gtag('config', ...) in execution order",
+          "Tag Assistant shows 'Consent Mode not detected'"
+        ]
+      },
+      "incorrect_consent_mode_configuration": {
+        "description": "Consent Mode implemented but with wrong default states or missing parameters",
+        "technical_indicators": [
+          "ad_user_data or ad_personalization missing from consent default (v2 non-compliant)",
+          "Default state set to 'granted' instead of 'denied' for EU users",
+          "wait_for_update not set or set too low (CMP doesn't have time to initialize)",
+          "gcs parameter shows G111 before user interacts with banner"
+        ]
+      },
+      "dark_pattern_implementations": {
+        "description": "CMP UI designed to steer users toward accepting",
+        "technical_indicators": [
+          "Accept button has different CSS styling (larger, brighter color, higher contrast)",
+          "Reject option requires 2+ clicks while Accept requires 1 click",
+          "Pre-selected toggles in cookie preferences",
+          "Confusing button labels (e.g., 'Continue' meaning 'Accept All')",
+          "Banner positioned to obscure content, incentivizing quick acceptance"
+        ]
+      },
+      "cookie_respawning": {
+        "description": "Cookies regenerated after user deletes them or withdraws consent",
+        "technical_indicators": [
+          "Deleted cookies reappear after page navigation",
+          "localStorage or sessionStorage used to recreate cookies",
+          "Fingerprinting techniques used to recreate identifiers"
+        ]
+      },
+      "cross_domain_consent_gaps": {
+        "description": "Consent collected on one domain but not enforced on subdomains or linked domains",
+        "technical_indicators": [
+          "Different CMP configurations across subdomains",
+          "Consent cookie scope too narrow (not shared across subdomains)",
+          "Tracking active on subdomains without their own consent mechanism"
+        ]
+      }
+    }
+  },
+
+  "9_cmp_evaluation_criteria": {
+    "compliance_criteria": {
+      "legal_requirements": [
+        "Supports GDPR, ePrivacy, CCPA/CPRA, LGPD and applicable regulations",
+        "IAB TCF v2.2 certified (for programmatic advertising compliance)",
+        "Google Certified CMP Partner (for Consent Mode integration)",
+        "Supports granular consent by purpose and vendor",
+        "Provides consent proof/audit trail (timestamp, version, choices)",
+        "Supports consent withdrawal as easily as granting",
+        "Configurable consent renewal periods by jurisdiction"
+      ],
+      "banner_compliance": [
+        "Accept and Reject buttons at same level with equal prominence",
+        "No pre-ticked boxes",
+        "No dark patterns in UI design",
+        "X close = deny (Italian Garante requirement)",
+        "Multilingual support",
+        "Second layer with granular cookie-by-cookie controls",
+        "Accessible to screen readers (WCAG 2.2 Level AA)"
+      ]
+    },
+    "technical_criteria": {
+      "google_consent_mode_integration": {
+        "must_support": [
+          "gtag('consent', 'default', ...) with all 7 parameters",
+          "gtag('consent', 'update', ...) on user interaction",
+          "Proper consent signal in dataLayer before any tags fire",
+          "wait_for_update configuration support"
+        ]
+      },
+      "tag_blocking_capability": [
+        "Ability to block scripts BEFORE they execute (not just reactive signaling)",
+        "Integration with GTM consent-built-in triggers",
+        "Support for blocking hardcoded scripts via script rewriting or placeholder patterns",
+        "Blocking of cookie-setting by non-managed scripts"
+      ],
+      "cookie_scanning": [
+        "Automatic periodic scanning of all cookies set by the website",
+        "Classification of cookies by category (technical, analytics, marketing, etc.)",
+        "Detection of new/unknown cookies",
+        "Cookie descriptions database"
+      ]
+    },
+    "performance_criteria": {
+      "loading_impact": {
+        "good": "CMP loads in <500ms, does not block page render, uses async loading",
+        "bad": "CMP adds >1 second to page load, blocks rendering, large JS bundle (>200KB)",
+        "measurement": "Measure with Lighthouse, WebPageTest. Check impact on LCP and CLS."
+      },
+      "core_web_vitals_impact": {
+        "cls": "Banner should not cause layout shift. Use fixed positioning or reserved space. CLS impact should be <0.05.",
+        "lcp": "CMP script should not block LCP element rendering.",
+        "inp": "Banner interaction (accept/reject) should respond in <200ms."
+      },
+      "bundle_size": {
+        "good": "<100KB total (JS + CSS)",
+        "acceptable": "100-200KB",
+        "bad": ">200KB"
+      }
+    },
+    "accessibility_criteria": {
+      "wcag_requirements": [
+        "WCAG 2.2 Level AA compliance",
+        "Keyboard navigable (Tab, Enter, Escape)",
+        "Screen reader compatible (proper ARIA labels, role attributes)",
+        "Sufficient color contrast (4.5:1 for normal text, 3:1 for large text)",
+        "Focus management (focus trapped in modal if overlay, returned to trigger on close)",
+        "Buttons same size with comparable visual weight",
+        "Text readable without zoom up to 200%"
+      ],
+      "common_accessibility_failures": [
+        "Banner not reachable by keyboard",
+        "Accept button visually larger/more prominent than Reject",
+        "Missing ARIA labels on consent toggles",
+        "Banner overlay traps focus permanently",
+        "Insufficient contrast on preference center UI"
+      ]
+    },
+    "good_vs_bad_implementation": {
+      "good_cmp_signs": [
+        "Consent default fires BEFORE any tags",
+        "Network tab shows zero third-party tracking requests before consent",
+        "Rejecting all results in only essential cookies remaining",
+        "Consent state correctly reflected in gcs/gcd parameters",
+        "Banner meets WCAG 2.2 AA",
+        "CMP adds <500ms to page load",
+        "Consent audit trail stored and retrievable"
+      ],
+      "bad_cmp_signs": [
+        "Tags fire before CMP loads",
+        "Reject all still leaves marketing cookies",
+        "CMP adds >1 second to load time",
+        "Banner causes significant CLS",
+        "No keyboard accessibility",
+        "Accept is visually dominant over Reject",
+        "No consent proof storage",
+        "Missing ad_user_data/ad_personalization in Consent Mode"
+      ]
+    }
+  },
+
+  "10_consent_verification_testing_methodology": {
+    "overview": "Step-by-step technical methodology to verify consent implementation is working correctly. Use Chrome DevTools, Tag Assistant, and browser extensions.",
+    "pre_test_setup": {
+      "browser_preparation": [
+        "Use Chrome Incognito mode (or clear all site data)",
+        "Open DevTools (F12) BEFORE loading the page",
+        "Enable 'Preserve log' in Network tab",
+        "Install extensions: Tag Assistant, DataLayer Checker, WASP (Web Analytics Solution Profiler)",
+        "Disable any ad blockers that might interfere with testing"
+      ],
+      "tools_required": [
+        "Chrome DevTools (Network, Application, Console tabs)",
+        "Google Tag Assistant (Chrome extension)",
+        "DataLayer Checker (Chrome extension)",
+        "WASP or Omnibug (Chrome extension for tracking request inspection)",
+        "Lighthouse (for performance impact assessment)"
+      ]
+    },
+    "test_scenarios": {
+      "scenario_1_initial_page_load_no_interaction": {
+        "description": "Load page without interacting with the consent banner",
+        "steps": [
+          "1. Open DevTools > Network tab, enable Preserve log",
+          "2. Load the page in incognito",
+          "3. DO NOT interact with the consent banner",
+          "4. Check Network tab: filter by domain (google-analytics, facebook, doubleclick, etc.)",
+          "5. Check Application > Cookies: look for _ga, _gid, _fbp, _gcl_au, _gcl_aw",
+          "6. Check Console: type 'dataLayer' and inspect for consent events"
+        ],
+        "expected_results": {
+          "network": "No requests to analytics/advertising domains (Basic mode) OR only cookieless consent-state pings (Advanced mode)",
+          "cookies": "No _ga, _gid, _fbp, _gcl_au, _gcl_aw cookies present. Only CMP consent cookie and essential cookies.",
+          "dataLayer": "Should contain gtag consent default event with all parameters set to 'denied'. Example: {event: 'consent_default', ad_storage: 'denied', ...}"
+        },
+        "failure_indicators": [
+          "ANY request to tracking domains before consent = FAIL",
+          "ANY non-essential cookie present = FAIL",
+          "No consent default event in dataLayer = FAIL"
+        ]
+      },
+      "scenario_2_reject_all": {
+        "description": "Click 'Reject All' on the consent banner",
+        "steps": [
+          "1. From Scenario 1 state, click 'Reject All'",
+          "2. Check Network tab for any NEW requests to tracking domains",
+          "3. Check Application > Cookies for any new non-essential cookies",
+          "4. Navigate to another page on the site",
+          "5. Repeat network and cookie checks",
+          "6. Check Console: dataLayer should show consent update with all 'denied'"
+        ],
+        "expected_results": {
+          "network": "No new tracking requests after rejection. On page navigation, only consent-state pings (Advanced mode) or nothing (Basic mode).",
+          "cookies": "Only essential cookies + CMP preference cookie. No _ga, _fbp, etc.",
+          "dataLayer": "consent_update event with ad_storage:'denied', analytics_storage:'denied', ad_user_data:'denied', ad_personalization:'denied'",
+          "gcs_parameter": "Any Google requests should show gcs=G100"
+        },
+        "failure_indicators": [
+          "New tracking cookies appear after reject = FAIL",
+          "Network requests to ad platforms after reject = FAIL",
+          "gcs shows G111 after reject = FAIL"
+        ]
+      },
+      "scenario_3_accept_all": {
+        "description": "Click 'Accept All' on the consent banner",
+        "steps": [
+          "1. Clear all data, reload page in incognito",
+          "2. Click 'Accept All' on the consent banner",
+          "3. Check Network tab: tracking requests should now appear",
+          "4. Check Application > Cookies: analytics/advertising cookies should be set",
+          "5. Check Console: dataLayer should show consent update with 'granted'",
+          "6. Check gcs parameter in Google requests"
+        ],
+        "expected_results": {
+          "network": "Requests to analytics and advertising domains now visible",
+          "cookies": "_ga, _gid (GA4), _fbp (Meta Pixel), _gcl_au (Google Ads) cookies present",
+          "dataLayer": "consent_update event with ad_storage:'granted', analytics_storage:'granted', ad_user_data:'granted', ad_personalization:'granted'",
+          "gcs_parameter": "G111"
+        }
+      },
+      "scenario_4_granular_consent": {
+        "description": "Accept only analytics, reject marketing",
+        "steps": [
+          "1. Clear all data, reload page",
+          "2. Open cookie preferences, enable only analytics, reject marketing",
+          "3. Check Network tab: only analytics requests should fire",
+          "4. Check cookies: only analytics cookies present, no advertising cookies",
+          "5. Check gcs parameter: should show G101 (analytics granted, ads denied)"
+        ],
+        "expected_results": {
+          "gcs_parameter": "G101",
+          "cookies": "_ga present, _gcl_au NOT present, _fbp NOT present"
+        }
+      },
+      "scenario_5_consent_persistence": {
+        "description": "Verify consent choice persists across sessions",
+        "steps": [
+          "1. Accept all cookies",
+          "2. Close the browser tab",
+          "3. Reopen the site in a new tab (same browser, NOT incognito)",
+          "4. Verify: consent banner should NOT reappear",
+          "5. Verify: correct consent state is applied (check gcs, cookies, dataLayer)"
+        ]
+      },
+      "scenario_6_consent_withdrawal": {
+        "description": "Verify users can withdraw consent",
+        "steps": [
+          "1. Accept all cookies",
+          "2. Find and use the 'manage cookies' or 'privacy settings' link",
+          "3. Reject all / withdraw consent",
+          "4. Check that tracking cookies are removed",
+          "5. Check that tracking requests stop",
+          "6. Navigate to a new page and verify consent state is 'denied'"
+        ],
+        "failure_indicators": [
+          "No mechanism to withdraw consent = CRITICAL FAIL",
+          "Cookies not deleted after withdrawal = FAIL",
+          "Tracking continues after withdrawal = FAIL"
+        ]
+      }
+    },
+    "specific_devtools_checks": {
+      "network_tab": {
+        "filter_tracking_domains": "Use filter: /google-analytics|googletagmanager|doubleclick|facebook.*tr|fbevents|bat.bing|snap.licdn|analytics.tiktok|hotjar/",
+        "check_timing": "Sort by 'Time' column. Any tracking request with timestamp before CMP interaction = non-compliant.",
+        "check_gcs_in_url": "Click on any Google request > check URL parameters for gcs= and gcd= values",
+        "check_response_cookies": "Click on request > Response Headers > look for Set-Cookie headers from tracking domains"
+      },
+      "application_tab": {
+        "cookies_check": "Application > Cookies > select domain > look for non-essential cookies",
+        "local_storage_check": "Application > Local Storage > check for tracking-related keys",
+        "session_storage_check": "Application > Session Storage > check for tracking-related keys",
+        "key_cookies_to_monitor": {
+          "_ga": "Google Analytics client ID",
+          "_ga_*": "GA4 session cookie",
+          "_gid": "Google Analytics session ID (UA, legacy)",
+          "_gcl_au": "Google Ads conversion linker",
+          "_gcl_aw": "Google Ads click ID",
+          "_fbp": "Meta Pixel browser ID",
+          "_fbc": "Meta Pixel click ID",
+          "_ttp": "TikTok Pixel",
+          "_li_fat_id": "LinkedIn",
+          "_uetsid": "Microsoft Ads (Bing)",
+          "IDE": "DoubleClick",
+          "NID": "Google (preferences, but third-party)"
+        }
+      },
+      "console_tab": {
+        "check_dataLayer": "Type: dataLayer.filter(e => e.event && e.event.includes('consent'))",
+        "check_consent_state": "Type: google_tag_data?.ics?.entries — shows internal consent state if available",
+        "check_gtag_consent": "Type: dataLayer.filter(e => e[0] === 'consent')"
+      }
+    },
+    "automated_testing_approach": {
+      "tools": [
+        "Cookiebot scanner (free scan available)",
+        "CookieYes scanner",
+        "2gdpr.com",
+        "Ghostery browser extension",
+        "Chrome Lighthouse with custom audit",
+        "Playwright/Puppeteer scripts for automated consent testing"
+      ],
+      "playwright_test_concept": {
+        "description": "Automated test that loads page, checks for pre-consent tracking, clicks reject, and verifies no tracking persists",
+        "pseudocode": "1. Launch browser with clean profile\n2. Intercept network requests\n3. Navigate to page\n4. Assert: no tracking requests before CMP interaction\n5. Click 'Reject All'\n6. Navigate to second page\n7. Assert: no tracking cookies present\n8. Assert: no tracking network requests\n9. Assert: gcs parameter = G100 in any Google requests"
+      }
+    }
+  }
+}

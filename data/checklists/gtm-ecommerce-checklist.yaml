@@ -1,0 +1,1137 @@
+# ============================================================================
+# GTM ECOMMERCE AUDIT CHECKLIST — KNOWLEDGE BASE
+# ============================================================================
+# Versione: 1.0
+# Data: 2026-02-26
+# Scopo: Checklist completa per audit automatizzato di container GTM ecommerce
+# Input: JSON export del container GTM (client-side)
+# Verticale: Ecommerce (Shopify, WooCommerce, Magento, custom)
+# ============================================================================
+
+metadata:
+  version: "1.0"
+  vertical: "ecommerce"
+  last_updated: "2026-02-26"
+  description: >
+    Checklist strutturata per audit automatizzato di container GTM per siti ecommerce.
+    Ogni check include: cosa cercare nel JSON, perché è importante, impatto se manca,
+    e come rilevarlo programmaticamente.
+
+# ============================================================================
+# SEZIONE 1: TAG FONDAMENTALI — Devono esistere nel container
+# ============================================================================
+
+required_tags:
+
+  ga4_config:
+    name: "GA4 Configuration Tag"
+    description: "Tag di configurazione Google Analytics 4 — base di tutto il tracking"
+    json_detection:
+      primary_type: "googtag"
+      fallback_type: "gaawc"
+      required_parameters:
+        - key: "tagId"
+          description: "Measurement ID (G-XXXXXXXXXX) per googtag"
+        - key: "measurementId"
+          description: "Measurement ID per gaawc (legacy)"
+    validation_rules:
+      - rule: "Almeno un tag di tipo 'googtag' o 'gaawc' deve esistere"
+      - rule: "Il measurementId deve iniziare con 'G-'"
+      - rule: "Deve avere un trigger su All Pages (pageview)"
+      - rule: "Se presente 'gaawc' senza 'googtag', segnalare migrazione consigliata"
+    impact: "critical"
+    impact_description: "Senza GA4 config, nessun dato analytics viene raccolto"
+    recommendation_if_missing: >
+      Nessun tag GA4 trovato nel container. Il sito non sta raccogliendo dati
+      in Google Analytics 4. Creare immediatamente un tag Google Tag con il
+      Measurement ID corretto.
+
+  ga4_ecommerce_events:
+    name: "GA4 Ecommerce Event Tag"
+    description: "Tag per invio eventi ecommerce a GA4 con dati dal data layer"
+    json_detection:
+      type: "gaawe"
+      required_parameters:
+        - key: "sendEcommerceData"
+          expected_value: "true"
+          description: "Flag che abilita lettura automatica dell'oggetto ecommerce dal dataLayer"
+        - key: "eventName"
+          description: "Nome evento — può essere {{Event}} per tag unico o evento specifico"
+    validation_rules:
+      - rule: "Almeno un tag 'gaawe' con sendEcommerceData=true deve esistere"
+      - rule: "Il tag deve essere collegato al GA4 config tag (measurementId o TAG_REFERENCE)"
+      - rule: "Il trigger deve matchare gli eventi ecommerce standard"
+    impact: "critical"
+    impact_description: >
+      Senza sendEcommerceData=true, GA4 non legge i dati ecommerce dal dataLayer.
+      Nessun report ecommerce sarà disponibile (ricavi, prodotti, funnel).
+    recommendation_if_missing: >
+      Il tag GA4 Event non ha 'Send Ecommerce Data' abilitato oppure non esiste
+      un tag dedicato agli eventi ecommerce. I dati di vendita, carrello e funnel
+      non arrivano a GA4.
+
+  conversion_linker:
+    name: "Conversion Linker"
+    description: "Cattura i parametri gclid/dclid/wbraid/gbraid dalle URL di Google Ads e li salva in cookie first-party"
+    json_detection:
+      type: "gclidw"
+    validation_rules:
+      - rule: "Deve esistere almeno un tag 'gclidw'"
+      - rule: "Deve avere trigger su All Pages"
+      - rule: "Deve sparare PRIMA di qualsiasi tag awct (Google Ads Conversion)"
+      - rule: "Se cross-domain, verificare parametro enableCrossDomain"
+    impact: "critical"
+    impact_description: >
+      Senza Conversion Linker, Google Ads non può attribuire le conversioni.
+      Smart Bidding (tROAS, tCPA) non funziona. I dati di conversione risultano zero.
+    recommendation_if_missing: >
+      URGENTE: Conversion Linker assente. Tutte le conversioni Google Ads non vengono
+      attribuite. Le campagne stanno ottimizzando alla cieca. Aggiungere immediatamente.
+    cross_check:
+      - "Se esiste almeno un tag 'awct', il Conversion Linker è OBBLIGATORIO"
+      - "Se non ci sono tag 'awct', il Conversion Linker è comunque consigliato per futuro"
+
+  google_ads_conversion:
+    name: "Google Ads Conversion Tracking (Purchase)"
+    description: "Tag conversione Google Ads che si attiva sull'evento purchase"
+    json_detection:
+      type: "awct"
+      required_parameters:
+        - key: "conversionId"
+          description: "ID conversione (AW-XXXXXXXXX)"
+        - key: "conversionLabel"
+          description: "Label conversione"
+      recommended_parameters:
+        - key: "conversionValue"
+          description: "Valore dinamico della conversione — deve essere una variabile, non hardcoded"
+        - key: "currencyCode"
+          description: "Valuta — deve essere variabile dinamica (ISO 4217)"
+        - key: "orderId"
+          description: "Transaction ID per deduplicazione — FONDAMENTALE"
+    validation_rules:
+      - rule: "conversionId e conversionLabel devono essere presenti e non vuoti"
+      - rule: "conversionValue NON deve essere hardcoded (no valori fissi come '1' o '0')"
+      - rule: "currencyCode deve essere dinamico o almeno coerente (es. EUR)"
+      - rule: "orderId deve essere mappato su transaction_id dal dataLayer"
+      - rule: "Deve sparare solo sull'evento purchase (non su All Pages)"
+      - rule: "Deve avere consentSettings con ad_storage"
+    impact: "critical"
+    impact_description: >
+      Senza tag conversione Google Ads, Smart Bidding non ha segnali.
+      Le campagne non possono ottimizzare per ROAS o CPA.
+    recommendation_if_missing: >
+      Nessun tag conversione Google Ads trovato. Se il cliente investe in Google Ads,
+      sta buttando budget senza tracciamento conversioni.
+    conditional: "Richiesto solo se il cliente usa Google Ads"
+
+# ============================================================================
+# SEZIONE 2: EVENTI ECOMMERCE GA4 — Funnel completo
+# ============================================================================
+
+ga4_ecommerce_events_checklist:
+  description: >
+    Eventi ecommerce standard GA4. Il parser verifica che esistano trigger
+    customEvent nel container che matchano questi nomi evento.
+    NOTA: Gli eventi vengono pushati dal sito via dataLayer, non configurati in GTM.
+    In GTM verifichiamo che i trigger li intercettino correttamente.
+
+  events:
+    view_item_list:
+      name: "view_item_list"
+      description: "L'utente vede una lista di prodotti (categoria, ricerca, homepage)"
+      ga4_required_params: ["item_list_id", "item_list_name", "items"]
+      impact: "medium"
+      impact_description: "Senza questo evento, nessun report sulle performance delle liste prodotto"
+      funnel_position: 1
+
+    select_item:
+      name: "select_item"
+      description: "L'utente clicca su un prodotto dalla lista"
+      ga4_required_params: ["item_list_id", "item_list_name", "items"]
+      impact: "medium"
+      impact_description: "Non si può analizzare il CTR dalle liste prodotto"
+      funnel_position: 2
+
+    view_item:
+      name: "view_item"
+      description: "L'utente visualizza la pagina dettaglio prodotto"
+      ga4_required_params: ["currency", "value", "items"]
+      impact: "high"
+      impact_description: "Manca il primo step fondamentale del funnel ecommerce"
+      funnel_position: 3
+
+    add_to_cart:
+      name: "add_to_cart"
+      description: "L'utente aggiunge un prodotto al carrello"
+      ga4_required_params: ["currency", "value", "items"]
+      impact: "high"
+      impact_description: "Non si può misurare il tasso di aggiunta al carrello — KPI fondamentale"
+      funnel_position: 4
+
+    remove_from_cart:
+      name: "remove_from_cart"
+      description: "L'utente rimuove un prodotto dal carrello"
+      ga4_required_params: ["currency", "value", "items"]
+      impact: "low"
+      impact_description: "Nice to have per analisi comportamento carrello"
+      funnel_position: 4.5
+
+    view_cart:
+      name: "view_cart"
+      description: "L'utente visualizza il carrello"
+      ga4_required_params: ["currency", "value", "items"]
+      impact: "medium"
+      impact_description: "Manca un passaggio del funnel checkout"
+      funnel_position: 5
+
+    begin_checkout:
+      name: "begin_checkout"
+      description: "L'utente inizia il processo di checkout"
+      ga4_required_params: ["currency", "value", "items", "coupon"]
+      impact: "high"
+      impact_description: "Non si può misurare il tasso di inizio checkout — punto critico del funnel"
+      funnel_position: 6
+
+    add_shipping_info:
+      name: "add_shipping_info"
+      description: "L'utente aggiunge le informazioni di spedizione"
+      ga4_required_params: ["currency", "value", "shipping_tier", "items"]
+      impact: "medium"
+      impact_description: "Non si può analizzare quale metodo di spedizione performa meglio"
+      funnel_position: 7
+
+    add_payment_info:
+      name: "add_payment_info"
+      description: "L'utente aggiunge le informazioni di pagamento"
+      ga4_required_params: ["currency", "value", "payment_type", "items"]
+      impact: "medium"
+      impact_description: "Non si può analizzare quale metodo di pagamento performa meglio"
+      funnel_position: 8
+
+    purchase:
+      name: "purchase"
+      description: "Transazione completata con successo"
+      ga4_required_params: ["transaction_id", "value", "currency", "tax", "shipping", "items"]
+      ga4_optional_params: ["coupon", "affiliation"]
+      impact: "critical"
+      impact_description: >
+        SENZA PURCHASE NON CI SONO DATI DI REVENUE IN GA4.
+        Nessun report ecommerce, nessun ROAS, nessun funnel completo.
+      funnel_position: 9
+      critical_notes:
+        - "transaction_id è OBBLIGATORIO per deduplicazione"
+        - "value deve corrispondere alla somma di (price * quantity) degli items"
+        - "currency deve essere ISO 4217 (EUR, USD, GBP)"
+
+    refund:
+      name: "refund"
+      description: "Ordine rimborsato (totale o parziale)"
+      ga4_required_params: ["transaction_id", "value", "currency", "items"]
+      impact: "high"
+      impact_description: >
+        Senza refund tracking, i ricavi in GA4 sono gonfiati. Il ROAS calcolato è falso.
+      funnel_position: 10
+      conditional: "Importante se il tasso di reso è significativo (>5%)"
+
+  items_object_validation:
+    description: "Validazione struttura oggetto items nell'array ecommerce"
+    required_item_fields:
+      - field: "item_id"
+        alternative: "item_name"
+        note: "Almeno uno dei due è OBBLIGATORIO — GA4 scarta items senza entrambi"
+        impact: "critical"
+      - field: "item_name"
+        alternative: "item_id"
+        note: "Almeno uno dei due è OBBLIGATORIO"
+        impact: "critical"
+      - field: "price"
+        note: "Deve essere un numero, non una stringa"
+        impact: "high"
+      - field: "quantity"
+        note: "Deve essere un intero"
+        impact: "high"
+    recommended_item_fields:
+      - field: "item_brand"
+        impact: "medium"
+      - field: "item_category"
+        note: "Fino a 5 livelli: item_category, item_category2, ..., item_category5"
+        impact: "medium"
+      - field: "item_variant"
+        impact: "low"
+      - field: "discount"
+        impact: "low"
+      - field: "coupon"
+        impact: "low"
+      - field: "affiliation"
+        impact: "low"
+      - field: "item_list_id"
+        note: "Fondamentale per analisi performance liste"
+        impact: "medium"
+      - field: "item_list_name"
+        impact: "medium"
+      - field: "index"
+        note: "Posizione del prodotto nella lista"
+        impact: "low"
+
+  datalayer_best_practices:
+    - check: "ecommerce: null deve essere pushato PRIMA di ogni evento ecommerce"
+      reason: "Senza clear, dati stale dall'evento precedente contaminano quello corrente"
+      impact: "high"
+      detection: "Non rilevabile dal JSON GTM — richiede analisi del codice sito o test runtime"
+    - check: "items array non deve superare 200 elementi"
+      reason: "GA4 scarta gli items oltre il 200esimo"
+      impact: "low"
+      detection: "Non rilevabile dal JSON GTM — richiede test runtime"
+    - check: "value deve corrispondere a sum(price * quantity) degli items"
+      reason: "Discrepanza causa incoerenza nei report revenue"
+      impact: "high"
+      detection: "Non rilevabile dal JSON GTM — richiede test runtime"
+
+# ============================================================================
+# SEZIONE 3: CONSENT MODE v2
+# ============================================================================
+
+consent_mode:
+  name: "Google Consent Mode v2"
+  description: >
+    Obbligatoria per traffico EEA dal marzo 2024. Senza Consent Mode v2,
+    Google limita le funzionalità ads e il remarketing per utenti EU.
+  impact: "critical"
+  impact_description: >
+    Rischio legale (GDPR, fino al 4% del fatturato globale), Google restringe
+    funzionalità ads, audience remarketing vuote per traffico EU.
+
+  required_consent_types:
+    - type: "ad_storage"
+      description: "Controlla cookie pubblicitari"
+      required_since: "v1"
+    - type: "analytics_storage"
+      description: "Controlla cookie analytics"
+      required_since: "v1"
+    - type: "ad_user_data"
+      description: "Consenso per invio dati utente a Google per ads"
+      required_since: "v2 — marzo 2024"
+    - type: "ad_personalization"
+      description: "Consenso per pubblicità personalizzata / remarketing"
+      required_since: "v2 — marzo 2024"
+
+  optional_consent_types:
+    - type: "functionality_storage"
+    - type: "personalization_storage"
+    - type: "security_storage"
+
+  json_detection:
+    consent_initialization:
+      description: "Deve esistere un tag CMP che spara su trigger Consent Initialization"
+      detection_rules:
+        - "Cercare trigger con type 'consentInit' o 'init'"
+        - "Cercare tag con firingTriggerId che punta a trigger consent init"
+        - "Cercare tag di tipo 'cvt_*' con nome contenente 'iubenda', 'cookiebot', 'onetrust', 'didomi', 'usercentrics'"
+    consent_default:
+      description: "I default devono essere 'denied' per tutti e 4 i tipi richiesti"
+      detection_rules:
+        - "Cercare gtag('consent', 'default', ...) in tag Custom HTML"
+        - "Oppure verificare configurazione nel CMP template tag"
+        - "wait_for_update deve essere presente (tipicamente 500ms)"
+    tag_consent_settings:
+      description: "Ogni tag deve avere consentSettings configurati"
+      detection_rules:
+        - "Per ogni tag, verificare consentSettings.consentStatus == 'needed'"
+        - "Tags Google Ads (awct, sp) devono richiedere ad_storage"
+        - "Tags GA4 (gaawe) devono richiedere analytics_storage"
+        - "Tag senza consentSettings = potenziale violazione GDPR"
+
+  basic_vs_advanced:
+    description: >
+      Basic: i tag Google NON sparano finché non c'è consenso (nessun dato pre-consenso).
+      Advanced: i tag sparano in modalità cookieless, inviano ping senza cookie che
+      Google usa per modellazione comportamentale per colmare i gap di dati.
+    detection: >
+      Basic: i tag Google hanno firing trigger che include condizione di consenso.
+      Advanced: i tag Google sparano su page load con consent checks built-in.
+      Advanced è CONSIGLIATO perché abilita la modellazione Google.
+
+  validation_rules:
+    - rule: "Almeno un CMP (Iubenda, Cookiebot, OneTrust, etc.) deve essere nel container"
+      impact: "critical"
+    - rule: "Il CMP deve sparare su Consent Initialization (non All Pages)"
+      impact: "critical"
+      reason: "Se spara su All Pages, altri tag potrebbero caricarsi prima del consenso"
+    - rule: "ad_user_data e ad_personalization devono essere presenti nei default"
+      impact: "critical"
+      reason: "Senza questi due, NON è Consent Mode v2 — solo v1"
+    - rule: "Ogni tag marketing/analytics deve avere consentSettings"
+      impact: "high"
+
+# ============================================================================
+# SEZIONE 4: IUBENDA — Integrazione e Compliance
+# ============================================================================
+
+iubenda_integration:
+  name: "Iubenda Privacy Controls and Cookie Solution"
+  description: "CMP per gestione consenso GDPR — integrazione con GTM"
+  conditional: "Solo se il cliente usa Iubenda come CMP"
+
+  json_detection:
+    tag_identification:
+      - "Tag di tipo 'cvt_*' con nome contenente 'iubenda'"
+      - "Oppure tag Custom HTML con riferimenti a _iub.csConfiguration"
+    trigger_check:
+      - "Il tag iubenda DEVE sparare su Consent Initialization trigger"
+      - "NON deve sparare su All Pages (troppo tardi)"
+
+  configuration_checks:
+    emit_gtm_events:
+      check: "emitGtmEvents deve essere true nella configurazione"
+      reason: "Senza questo, i tag non-Google non ricevono segnale di consenso via dataLayer"
+      impact: "high"
+      detection: "Cercare 'emitGtmEvents' nei parametri del tag iubenda"
+
+    consent_mode_integration:
+      check: "Iubenda deve gestire Consent Mode v2 automaticamente"
+      reason: "Iubenda può settare automaticamente i default denied e gli update su consenso"
+      impact: "critical"
+      detection: "Verificare che il template iubenda sia configurato per Google Consent Mode"
+
+    prior_blocking_non_google:
+      check: "Tag non-Google devono avere trigger su iubenda_consent_given"
+      reason: "I tag Google rispettano Consent Mode nativamente, ma tag custom/terze parti no"
+      impact: "high"
+      detection: >
+        Per ogni tag Custom HTML: verificare che il trigger includa
+        customEvent 'iubenda_consent_given' o 'iubenda_gtm_consent_event'
+
+  iubenda_events:
+    - event: "iubenda_gtm_consent_event"
+      description: "Fired quando preferenze consenso cambiano"
+    - event: "iubenda_consent_given"
+      description: "Consenso generale dato"
+    - event: "iubenda_preference_not_needed"
+      description: "Consenso non richiesto (es. visitatore non-EU)"
+    - event: "iubenda_consent_given_purpose_1"
+      description: "Consenso per scopo specifico (numerazione iubenda)"
+
+  known_issues:
+    - issue: "iubenda_gtm_consent_event può sparare DOPO altri custom event"
+      workaround: "Usare Trigger Groups che combinano page event + consent event"
+      impact: "medium"
+
+# ============================================================================
+# SEZIONE 5: ENHANCED CONVERSIONS — Google Ads
+# ============================================================================
+
+enhanced_conversions:
+  name: "Enhanced Conversions (Conversioni Avanzate)"
+  description: >
+    Inviano dati first-party hashati (email, telefono, nome, indirizzo) a Google
+    per migliorare l'attribuzione delle conversioni. Recuperano il 5-15% di
+    conversioni perse per restrizioni cookie/iOS.
+  impact: "high"
+  impact_description: >
+    Senza Enhanced Conversions, si perdono circa 5-15% delle conversioni attribuite.
+    Smart Bidding ha meno segnali per ottimizzare. Il ROAS riportato è sottostimato.
+  conditional: "Richiesto se il cliente usa Google Ads"
+
+  json_detection:
+    in_awct_tag:
+      - key: "enableEnhancedConversions"
+        expected_value: "true"
+        description: "Flag abilitazione nel tag Google Ads Conversion"
+      - key: "cssProvidedEnhancedConversionValue"
+        description: "Variabile che contiene i dati utente per enhanced conversions"
+    user_data_variable:
+      description: "Cercare variabili con riferimenti a user_data, sha256_email, email"
+      detection: >
+        Cercare in variable[] variabili il cui nome contiene 'user_data',
+        'enhanced_conversion', 'email', 'sha256' o che hanno parametri
+        con key 'name' e value contenente 'email' o 'phone'
+
+  required_data_fields:
+    - field: "email"
+      gtm_key: "sha256_email_address"
+      importance: "Primario — campo più importante per match rate"
+      impact: "high"
+    - field: "phone_number"
+      gtm_key: "sha256_phone_number"
+      format: "E.164 (es. +39XXXXXXXXXX)"
+      importance: "Secondario — migliora match rate"
+      impact: "medium"
+    - field: "first_name"
+      gtm_key: "address.sha256_first_name"
+      importance: "Terziario"
+      impact: "low"
+    - field: "last_name"
+      gtm_key: "address.sha256_last_name"
+      importance: "Terziario"
+      impact: "low"
+    - field: "street"
+      gtm_key: "address.street"
+      impact: "low"
+    - field: "city"
+      gtm_key: "address.city"
+      impact: "low"
+    - field: "region"
+      gtm_key: "address.region"
+      impact: "low"
+    - field: "postal_code"
+      gtm_key: "address.postal_code"
+      impact: "low"
+    - field: "country"
+      gtm_key: "address.country"
+      format: "ISO 2 lettere (IT, US, GB)"
+      impact: "low"
+
+  setup_types:
+    automatic:
+      description: "Google scansiona la pagina per trovare automaticamente email, telefono, etc."
+      reliability: "Bassa — fallback"
+      detection: "Parametro automatic detection abilitato nel tag"
+    manual_css:
+      description: "Specificati CSS selector o variabili JS per ogni campo"
+      reliability: "Media"
+      detection: "Variabile User-Provided Data con CSS selectors"
+    manual_datalayer:
+      description: "Dati pushati nel dataLayer come enhanced_conversion_data"
+      reliability: "Alta — metodo consigliato"
+      detection: "Variabile dataLayer con path enhanced_conversion_data.email"
+
+# ============================================================================
+# SEZIONE 6: META / FACEBOOK PIXEL
+# ============================================================================
+
+meta_pixel:
+  name: "Meta (Facebook) Pixel"
+  description: "Tracking per Meta Ads — pixel browser + opzionalmente CAPI server-side"
+  conditional: "Solo se il cliente usa Meta Ads"
+
+  json_detection:
+    browser_pixel:
+      methods:
+        - method: "Community Template"
+          detection: "Tag tipo 'cvt_*' con nome contenente 'Facebook' o 'Meta'"
+        - method: "Custom HTML"
+          detection: "Tag tipo 'html' con parametri contenenti 'fbq(' o 'facebook'"
+      pixel_id_extraction:
+        - "In community template: cercare parametro 'pixelId' o 'pixel_id'"
+        - "In custom HTML: cercare pattern fbq('init', 'XXXXXXXXXX')"
+
+    server_side_capi:
+      description: >
+        CAPI è configurato nel server-side GTM container, non nel client-side.
+        Dal client-side possiamo solo rilevare INDICATORI di setup server-side.
+      indicators:
+        - indicator: "transport_url presente in GA4 config"
+          confidence: "Alta — indica che dati vanno a server container"
+        - indicator: "Assenza di pixel Facebook nel client container + transport_url presente"
+          confidence: "Media — suggerisce che Meta è gestito server-side"
+        - indicator: "event_id generato e passato nei tag pixel"
+          confidence: "Alta — deduplicazione indica setup dual (browser + CAPI)"
+
+  ecommerce_events_mapping:
+    - meta_event: "PageView"
+      ga4_equivalent: "page_view"
+      required_params: []
+      impact: "high"
+    - meta_event: "ViewContent"
+      ga4_equivalent: "view_item"
+      required_params: ["content_ids", "content_type", "value", "currency"]
+      impact: "high"
+    - meta_event: "AddToCart"
+      ga4_equivalent: "add_to_cart"
+      required_params: ["content_ids", "content_type", "value", "currency"]
+      impact: "high"
+    - meta_event: "InitiateCheckout"
+      ga4_equivalent: "begin_checkout"
+      required_params: ["content_ids", "value", "currency", "num_items"]
+      impact: "high"
+    - meta_event: "AddPaymentInfo"
+      ga4_equivalent: "add_payment_info"
+      required_params: ["content_ids", "value", "currency"]
+      impact: "medium"
+    - meta_event: "Purchase"
+      ga4_equivalent: "purchase"
+      required_params: ["content_ids", "content_type", "value", "currency"]
+      impact: "critical"
+    - meta_event: "Search"
+      ga4_equivalent: "search"
+      required_params: ["search_string"]
+      impact: "medium"
+    - meta_event: "AddToWishlist"
+      ga4_equivalent: "add_to_wishlist"
+      required_params: ["content_ids", "content_type", "value", "currency"]
+      impact: "low"
+
+  validation_rules:
+    - rule: "Almeno un tag Meta Pixel deve esistere (se il cliente usa Meta Ads)"
+      impact: "critical"
+    - rule: "Il pixel deve avere consent settings configurati"
+      impact: "critical"
+      reason: "Pixel senza consent = violazione GDPR per utenti EU"
+    - rule: "L'evento Purchase deve sparare solo su purchase (non All Pages)"
+      impact: "high"
+    - rule: "content_ids devono corrispondere agli ID del catalogo prodotti Meta"
+      impact: "high"
+      reason: "Senza match, Dynamic Product Ads non funzionano"
+    - rule: "Se pixel è in Custom HTML, consigliare migrazione a community template o GTM server-side"
+      impact: "medium"
+      reason: "Custom HTML è più fragile e meno gestibile"
+
+  capi_recommendation:
+    description: >
+      Meta CAPI recupera il 15-30% di conversioni perse per ad blocker, ITP, iOS.
+      È richiesto per Aggregated Event Measurement (AEM).
+    detection_question: "Il cliente ha CAPI configurato? (Non rilevabile dal JSON client-side)"
+    impact: "high"
+
+# ============================================================================
+# SEZIONE 7: SERVER-SIDE TAGGING
+# ============================================================================
+
+server_side_tagging:
+  name: "Server-Side GTM"
+  description: >
+    Indica se il container client-side invia dati a un server container GTM
+    piuttosto che direttamente ai vendor (Google, Meta, etc.)
+  impact: "high"
+  impact_description: >
+    Server-side tagging migliora: raccolta dati (bypass ad blocker),
+    performance sito (meno JS client), privacy (controllo dati prima dell'invio),
+    first-party data strategy.
+
+  json_detection:
+    primary_indicators:
+      - indicator: "transport_url nei parametri del tag googtag/gaawc"
+        json_path: "tag[].parameter[] where key='transport_url' or key='server_container_url'"
+        confidence: "Definitivo"
+      - indicator: "transport_url in fieldsToSet"
+        json_path: "tag[].parameter[key='fieldsToSet'].list[].map[] where fieldName='transport_url'"
+        confidence: "Definitivo"
+    secondary_indicators:
+      - indicator: "Container client-side molto leggero (pochi tag) con transport_url"
+        confidence: "Alta — suggerisce architettura server-side"
+      - indicator: "Assenza di tag terze parti (Meta, TikTok, etc.) ma transport_url presente"
+        confidence: "Media — probabilmente gestiti server-side"
+
+  validation_rules:
+    - rule: "Se transport_url presente, deve puntare a un sottodominio first-party"
+      impact: "high"
+      reason: "Dominio terza parte vanifica i benefici del server-side"
+      example_good: "https://gtm.chiostrodisaronno.com"
+      example_bad: "https://server-side-gtm.googleusercontent.com"
+    - rule: "event_id deve essere generato per deduplicazione browser/server"
+      impact: "high"
+      reason: "Senza event_id, le conversioni vengono contate due volte"
+
+  client_question_if_not_detected: >
+    Non sono stati trovati indicatori di server-side tagging nel container.
+    DOMANDA PER IL CLIENTE: Avete un server container GTM configurato?
+    Se sì, fornire l'URL del server container per verifica.
+
+# ============================================================================
+# SEZIONE 8: GOOGLE ADS REMARKETING DINAMICO
+# ============================================================================
+
+dynamic_remarketing:
+  name: "Google Ads Dynamic Remarketing"
+  description: >
+    Tag remarketing che passa dati prodotto per ads dinamiche
+    che mostrano i prodotti specifici visualizzati dall'utente.
+  conditional: "Richiesto se il cliente usa Google Ads Display/Shopping campaigns"
+  impact: "high"
+
+  json_detection:
+    type: "sp"
+    required_parameters:
+      - key: "conversionId"
+        description: "ID account Google Ads (AW-XXXXXXXXX)"
+      - key: "enableDynamicRemarketing"
+        expected_value: "true"
+    custom_params:
+      - key: "ecomm_prodid"
+        description: "ID prodotto — DEVE corrispondere al feed Google Merchant Center"
+        impact: "critical"
+      - key: "ecomm_pagetype"
+        description: "Tipo pagina (home, category, product, cart, purchase, other)"
+        impact: "high"
+      - key: "ecomm_totalvalue"
+        description: "Valore totale prodotti visualizzati/nel carrello"
+        impact: "medium"
+
+  validation_rules:
+    - rule: "enableDynamicRemarketing deve essere true"
+      impact: "high"
+    - rule: "ecomm_prodid deve essere dinamico (variabile, non hardcoded)"
+      impact: "critical"
+    - rule: "ecomm_prodid deve matchare gli ID del feed Google Merchant Center"
+      impact: "critical"
+      note: "Non verificabile dal JSON — richiede cross-check con Merchant Center"
+    - rule: "Il tag deve sparare su tutte le pagine con valori dinamici per pagetype"
+      impact: "high"
+    - rule: "Deve avere consentSettings con ad_storage"
+      impact: "critical"
+
+# ============================================================================
+# SEZIONE 9: CROSS-DOMAIN TRACKING
+# ============================================================================
+
+cross_domain:
+  name: "Cross-Domain Tracking"
+  description: >
+    Necessario se l'ecommerce usa domini diversi (es. sito principale +
+    checkout su dominio diverso, o marketplace + blog su altro dominio).
+  conditional: "Solo se il cliente usa più domini nello stesso funnel"
+  impact: "high"
+
+  json_detection:
+    in_googtag:
+      - "Cercare parametro 'linker' con lista domini nel tag googtag"
+      - "Cercare 'auto_link' in fieldsToSet"
+    in_conversion_linker:
+      - "Cercare parametro enableCrossDomain nel tag gclidw"
+
+  pre_audit_question: >
+    DOMANDA PER IL CLIENTE: Il checkout avviene sullo stesso dominio del sito
+    o su un dominio/sottodominio diverso? (es. Shopify checkout su checkout.shopify.com)
+
+  validation_rules:
+    - rule: "Tutti i domini del funnel devono essere nella lista cross-domain"
+      impact: "critical"
+    - rule: "Tutti i domini devono usare lo stesso Measurement ID GA4"
+      impact: "critical"
+    - rule: "Referral exclusion list deve includere tutti i domini cross-domain"
+      impact: "high"
+      note: "Configurazione in GA4 Admin, non nel container GTM"
+    - rule: "GTM deve essere installato su TUTTI i domini"
+      impact: "critical"
+
+  shopify_specific:
+    note: >
+      Shopify ha un checkout su checkout.shopify.com o su dominio custom.
+      Se il cliente usa Shopify senza headless checkout, il cross-domain
+      tracking è necessario tra il dominio principale e il checkout domain.
+
+# ============================================================================
+# SEZIONE 10: DATA LAYER VARIABLES — Verifica configurazione GTM
+# ============================================================================
+
+datalayer_variables:
+  name: "Data Layer Variables nel Container"
+  description: >
+    Verifica che le variabili Data Layer necessarie per l'ecommerce
+    siano definite nel container GTM.
+
+  json_detection:
+    type: "v"
+    parameter_key: "name"
+    description: "Il valore del parametro 'name' è il percorso nel dataLayer (dot notation)"
+
+  required_variables:
+    - path: "ecommerce.items"
+      description: "Array prodotti per tutti gli eventi ecommerce"
+      impact: "critical"
+    - path: "ecommerce.transaction_id"
+      description: "ID transazione per purchase e refund"
+      impact: "critical"
+    - path: "ecommerce.value"
+      description: "Valore monetario dell'evento"
+      impact: "high"
+    - path: "ecommerce.currency"
+      description: "Valuta (ISO 4217)"
+      impact: "high"
+
+  recommended_variables:
+    - path: "ecommerce.tax"
+      impact: "medium"
+    - path: "ecommerce.shipping"
+      impact: "medium"
+    - path: "ecommerce.coupon"
+      impact: "medium"
+    - path: "ecommerce.payment_type"
+      impact: "low"
+    - path: "ecommerce.shipping_tier"
+      impact: "low"
+
+  note: >
+    Se il tag GA4 ecommerce usa sendEcommerceData=true, GA4 legge
+    automaticamente dall'oggetto ecommerce del dataLayer. Le variabili
+    potrebbero non essere definite esplicitamente ma usate implicitamente.
+    Verificare che almeno le variabili usate nei tag Google Ads siano definite.
+
+# ============================================================================
+# SEZIONE 11: QUALITY CHECKS & RED FLAGS
+# ============================================================================
+
+red_flags:
+  description: "Problemi comuni che indicano setup problematico"
+
+  critical_flags:
+    - flag: "Tag awct senza tag gclidw nel container"
+      description: "Google Ads conversion tracking senza Conversion Linker = zero attribuzioni"
+      impact: "critical"
+
+    - flag: "Tag marketing/analytics senza consentSettings"
+      description: "Potenziale violazione GDPR — tag spara prima del consenso"
+      impact: "critical"
+
+    - flag: "Nessun CMP (iubenda, cookiebot, onetrust) nel container"
+      description: "Nessuna gestione consenso = violazione GDPR certa"
+      impact: "critical"
+
+    - flag: "Tag UA (Universal Analytics) ancora presenti"
+      description: "Universal Analytics è stato dismesso a luglio 2023 — tag inutili nel container"
+      impact: "medium"
+      recommendation: "Rimuovere tutti i tag UA per pulizia container"
+
+  high_flags:
+    - flag: "Multipli tag googtag/gaawc con Measurement ID diversi"
+      description: "Più configurazioni GA4 = dati duplicati o split tra properties"
+      impact: "high"
+
+    - flag: "Tag che sparano su All Pages quando dovrebbero essere event-specific"
+      description: "Es. tag conversione purchase che spara su ogni pagina = conversioni false"
+      impact: "critical"
+
+    - flag: "Custom HTML con document.write()"
+      description: "Causa problemi di performance e compatibilità browser"
+      impact: "medium"
+
+    - flag: "Tag con tagFiringOption UNLIMITED quando dovrebbe essere ONCE_PER_EVENT"
+      description: "Potrebbe causare invio multiplo dello stesso evento"
+      impact: "medium"
+
+    - flag: "Nessun trigger customEvent per eventi ecommerce"
+      description: "Se non ci sono trigger per purchase, add_to_cart, etc., il tracking ecommerce non funziona"
+      impact: "critical"
+
+  medium_flags:
+    - flag: "Tag paused=true che occupano spazio nel container"
+      description: "Tag disabilitati che andrebbero rimossi per pulizia"
+      impact: "low"
+
+    - flag: "Variabili definite ma non usate da nessun tag/trigger"
+      description: "Inquinamento del container — pulizia consigliata"
+      impact: "low"
+
+    - flag: "Consent Mode v1 senza v2 (mancano ad_user_data e ad_personalization)"
+      description: "Solo v1 = Google limita funzionalità ads per traffico EEA"
+      impact: "high"
+
+# ============================================================================
+# SEZIONE 12: PLATFORM-SPECIFIC — SHOPIFY
+# ============================================================================
+
+shopify_specific:
+  name: "Check specifici per Shopify"
+  description: >
+    Shopify ha un ecosistema tracking proprio (plugin, theme snippets, checkout extensibility).
+    Molti ecommerce Shopify usano plugin invece di GTM, creando setup frammentati.
+
+  common_issues:
+    - issue: "Tracking via plugin Shopify invece di GTM"
+      description: >
+        Plugin come 'Google & YouTube' o 'Facebook & Instagram' installano
+        tracking direttamente nel theme, bypassando GTM.
+      impact: "high"
+      symptoms:
+        - "Container GTM vuoto o con pochi tag"
+        - "GA4 e pixel trovati nel sorgente HTML ma non nel container GTM"
+        - "Duplicazione: stesso pixel in GTM E nel theme"
+      recommendation: >
+        Centralizzare tutto il tracking in GTM. Rimuovere plugin di tracking
+        e gestire tutto dal container. Questo dà controllo completo su
+        consent management e data quality.
+
+    - issue: "Checkout domain diverso"
+      description: "Shopify standard usa checkout.shopify.com — richiede cross-domain"
+      impact: "high"
+      check: "Verificare se cross-domain è configurato per il checkout domain"
+
+    - issue: "DataLayer non standard"
+      description: >
+        Shopify non implementa nativamente il dataLayer GA4 ecommerce standard.
+        Richiede app/plugin (es. Elevar, GTM4WP equivalent) o codice custom.
+      impact: "high"
+      recommendation: >
+        Verificare che esista un meccanismo di push dataLayer per gli eventi
+        ecommerce. Se basato su Shopify Web Pixels, la struttura potrebbe
+        essere diversa dallo standard GA4.
+
+    - issue: "Customer Events (Shopify Web Pixels)"
+      description: >
+        Dal 2024, Shopify usa un sistema 'Customer Events' con web pixels
+        in sandbox. Questi funzionano in un iframe isolato e possono
+        confliggere con GTM tradizionale.
+      impact: "medium"
+      recommendation: "Verificare se il tracking usa Customer Events o GTM tradizionale"
+
+  pre_audit_questions:
+    - "Usate plugin Shopify per il tracking (Google & YouTube, Facebook & Instagram)?"
+    - "Il checkout è su dominio custom o su checkout.shopify.com?"
+    - "Avete app come Elevar, Analyzify o simili per il dataLayer?"
+    - "Usate Shopify Customer Events (Web Pixels) o GTM script nel theme?"
+
+# ============================================================================
+# SEZIONE 13: PRE-AUDIT QUESTIONNAIRE
+# ============================================================================
+
+pre_audit_questions:
+  description: >
+    Domande da porre al cliente PRIMA dell'audit per contestualizzare
+    i risultati e personalizzare le raccomandazioni.
+
+  general:
+    - id: "q_platform"
+      question: "Quale piattaforma ecommerce utilizzate?"
+      options: ["Shopify", "WooCommerce", "Magento", "PrestaShop", "Custom", "Altro"]
+      affects: ["shopify_specific", "cross_domain", "datalayer_variables"]
+
+    - id: "q_google_ads"
+      question: "Utilizzate Google Ads?"
+      type: "boolean"
+      affects: ["google_ads_conversion", "conversion_linker", "enhanced_conversions", "dynamic_remarketing"]
+
+    - id: "q_meta_ads"
+      question: "Utilizzate Meta (Facebook/Instagram) Ads?"
+      type: "boolean"
+      affects: ["meta_pixel"]
+
+    - id: "q_server_side"
+      question: "Avete un server container GTM configurato?"
+      type: "boolean"
+      affects: ["server_side_tagging"]
+
+    - id: "q_cmp"
+      question: "Quale CMP (Consent Management Platform) utilizzate?"
+      options: ["Iubenda", "Cookiebot", "OneTrust", "Didomi", "Usercentrics", "Nessuno", "Altro"]
+      affects: ["consent_mode", "iubenda_integration"]
+
+    - id: "q_checkout_domain"
+      question: "Il checkout avviene sullo stesso dominio del sito?"
+      type: "boolean"
+      follow_up: "Se no, su quale dominio?"
+      affects: ["cross_domain"]
+
+    - id: "q_multi_domain"
+      question: "Il business opera su più domini (es. blog, shop, landing pages)?"
+      type: "boolean"
+      follow_up: "Se sì, quali domini?"
+      affects: ["cross_domain"]
+
+    - id: "q_tracking_plugins"
+      question: "Utilizzate plugin della piattaforma per il tracking (es. Shopify Google & YouTube)?"
+      type: "boolean"
+      affects: ["shopify_specific"]
+
+    - id: "q_objectives"
+      question: "Quali sono gli obiettivi principali del tracking?"
+      options:
+        - "Tracciare vendite e revenue"
+        - "Ottimizzare campagne ads (ROAS)"
+        - "Analizzare il funnel di conversione"
+        - "Remarketing dinamico"
+        - "Tutti i precedenti"
+      affects: ["ga4_ecommerce_events_checklist", "google_ads_conversion", "dynamic_remarketing"]
+
+    - id: "q_revenue_range"
+      question: "Range di fatturato mensile online (per prioritizzare le raccomandazioni)?"
+      options: ["< 10K€", "10K-50K€", "50K-200K€", "> 200K€", "Preferisco non dire"]
+      affects: ["recommendation_priority"]
+
+# ============================================================================
+# SEZIONE 14: SCORING E PRIORITIZZAZIONE
+# ============================================================================
+
+scoring:
+  description: >
+    Sistema di scoring per dare un punteggio all'health del setup GTM
+    e prioritizzare le raccomandazioni.
+
+  impact_weights:
+    critical: 10
+    high: 5
+    medium: 2
+    low: 1
+
+  categories:
+    data_collection:
+      name: "Raccolta Dati"
+      description: "GA4 config, eventi ecommerce, dataLayer"
+      max_score: 100
+      checks:
+        - ref: "required_tags.ga4_config"
+          weight: 15
+        - ref: "required_tags.ga4_ecommerce_events"
+          weight: 15
+        - ref: "ga4_ecommerce_events_checklist.events.purchase"
+          weight: 15
+        - ref: "ga4_ecommerce_events_checklist.events.add_to_cart"
+          weight: 10
+        - ref: "ga4_ecommerce_events_checklist.events.begin_checkout"
+          weight: 10
+        - ref: "ga4_ecommerce_events_checklist.events.view_item"
+          weight: 10
+        - ref: "ga4_ecommerce_events_checklist.events.view_item_list"
+          weight: 5
+        - ref: "ga4_ecommerce_events_checklist.events.select_item"
+          weight: 5
+        - ref: "ga4_ecommerce_events_checklist.events.add_shipping_info"
+          weight: 5
+        - ref: "ga4_ecommerce_events_checklist.events.add_payment_info"
+          weight: 5
+        - ref: "ga4_ecommerce_events_checklist.events.refund"
+          weight: 5
+
+    ads_optimization:
+      name: "Ottimizzazione Ads"
+      description: "Conversion tracking, remarketing, enhanced conversions"
+      max_score: 100
+      conditional: "Solo se il cliente usa Google Ads"
+      checks:
+        - ref: "required_tags.conversion_linker"
+          weight: 25
+        - ref: "required_tags.google_ads_conversion"
+          weight: 25
+        - ref: "enhanced_conversions"
+          weight: 20
+        - ref: "dynamic_remarketing"
+          weight: 20
+        - ref: "server_side_tagging"
+          weight: 10
+
+    privacy_compliance:
+      name: "Privacy & Compliance"
+      description: "Consent Mode, CMP, GDPR compliance"
+      max_score: 100
+      checks:
+        - ref: "consent_mode"
+          weight: 40
+        - ref: "iubenda_integration"
+          weight: 30
+        - ref: "red_flags.critical_flags (consent related)"
+          weight: 30
+
+    meta_ads:
+      name: "Meta Ads Tracking"
+      description: "Pixel, eventi, CAPI"
+      max_score: 100
+      conditional: "Solo se il cliente usa Meta Ads"
+      checks:
+        - ref: "meta_pixel (pixel exists)"
+          weight: 30
+        - ref: "meta_pixel (purchase event)"
+          weight: 25
+        - ref: "meta_pixel (full funnel events)"
+          weight: 20
+        - ref: "meta_pixel (CAPI)"
+          weight: 15
+        - ref: "meta_pixel (consent settings)"
+          weight: 10
+
+  overall_health:
+    formula: "Media pesata delle categorie applicabili"
+    grades:
+      - range: "90-100"
+        grade: "A"
+        label: "Eccellente"
+      - range: "70-89"
+        grade: "B"
+        label: "Buono — miglioramenti consigliati"
+      - range: "50-69"
+        grade: "C"
+        label: "Sufficiente — interventi importanti necessari"
+      - range: "30-49"
+        grade: "D"
+        label: "Insufficiente — problemi critici da risolvere"
+      - range: "0-29"
+        grade: "F"
+        label: "Critico — setup gravemente incompleto"
+
+# ============================================================================
+# SEZIONE 15: GTM JSON PARSING REFERENCE
+# ============================================================================
+
+json_parsing_reference:
+  description: >
+    Riferimento tecnico per il parser automatico del JSON GTM.
+    Mappatura tra type identifier e significato.
+
+  tag_types:
+    googtag: "Google Tag (GA4 config moderno)"
+    gaawc: "GA4 Configuration (legacy)"
+    gaawe: "GA4 Event"
+    awct: "Google Ads Conversion Tracking"
+    sp: "Google Ads Remarketing"
+    gclidw: "Conversion Linker"
+    html: "Custom HTML"
+    img: "Custom Image"
+    ua: "Universal Analytics (LEGACY — da rimuovere)"
+    flc: "Floodlight Counter (Campaign Manager 360)"
+    fls: "Floodlight Sales (Campaign Manager 360)"
+    cvt_prefix: "Community Template (Meta Pixel, CMP, etc.) — ID varia per installazione"
+
+  trigger_types:
+    pageview: "Page View"
+    domReady: "DOM Ready"
+    windowLoaded: "Window Loaded"
+    customEvent: "Custom Event (dataLayer push)"
+    click: "Click - All Elements"
+    linkClick: "Click - Just Links"
+    formSubmission: "Form Submission"
+    scrollDepth: "Scroll Depth"
+    timer: "Timer"
+    elementVisibility: "Element Visibility"
+    historyChange: "History Change"
+    consentInit: "Consent Initialization (spara PRIMA di tutto)"
+    init: "Initialization (spara prima di pageview)"
+
+  variable_types:
+    v: "Data Layer Variable"
+    c: "Constant"
+    jsm: "Custom JavaScript"
+    k: "First-Party Cookie"
+    u: "URL"
+    d: "DOM Element"
+    j: "JavaScript Variable (global)"
+    aev: "Auto-Event Variable"
+    remm: "RegEx Table"
+    smm: "Lookup Table"
+    gas: "Google Analytics Settings (legacy UA)"
+
+  parameter_types:
+    TEMPLATE: "Stringa (può contenere {{variabile}})"
+    INTEGER: "Intero"
+    BOOLEAN: "'true' o 'false' come stringa"
+    LIST: "Array di parametri nel campo 'list'"
+    MAP: "Mappa di parametri nel campo 'map'"
+    TAG_REFERENCE: "Riferimento a un altro tag (per nome)"
+    TRIGGER_REFERENCE: "Riferimento a un trigger (per ID)"
+
+  json_structure:
+    root: "containerVersion"
+    arrays:
+      - "containerVersion.tag[]"
+      - "containerVersion.trigger[]"
+      - "containerVersion.variable[]"
+      - "containerVersion.folder[]"
+      - "containerVersion.builtInVariable[]"
+      - "containerVersion.customTemplate[]"
+    tag_fields:
+      - "tagId, name, type"
+      - "parameter[] (configurazione)"
+      - "firingTriggerId[] (trigger che attivano il tag)"
+      - "blockingTriggerId[] (trigger che bloccano il tag)"
+      - "consentSettings (configurazione consenso)"
+      - "tagFiringOption (ONCE_PER_EVENT, ONCE_PER_LOAD, UNLIMITED)"
+      - "paused (boolean)"
+    trigger_fields:
+      - "triggerId, name, type"
+      - "filter[] (condizioni)"
+      - "customEventFilter[] (filtri per customEvent)"
+      - "autoEventFilter[] (filtri per auto-event)"
+    variable_fields:
+      - "variableId, name, type"
+      - "parameter[] (configurazione)"
+    filter_condition_types:
+      - "EQUALS, CONTAINS, STARTS_WITH, ENDS_WITH"
+      - "MATCH_REGEX, GREATER, LESS"
+      - "CSS_SELECTOR, URL_MATCHES"

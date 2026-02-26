@@ -1,0 +1,2487 @@
+# ============================================================================
+# META BUSINESS MANAGER / META ADS AUDIT CHECKLIST — KNOWLEDGE BASE
+# ============================================================================
+# Version: 1.0
+# Date: 2026-02-26
+# Purpose: Comprehensive checklist for MarTech audit of Meta advertising
+#          accounts using EXPORTED data (CSV/reports), Ads Manager screenshots,
+#          and Events Manager data — NOT live API access. Covers Meta Pixel,
+#          Conversions API, account structure, audiences, creative, bidding,
+#          attribution, Advantage+, placements, catalog, reporting, GDPR,
+#          benchmarks, red flags, and 2025-2026 platform changes.
+# Vertical: All (with ecommerce-specific sections)
+# ============================================================================
+
+metadata:
+  version: "1.0"
+  vertical: "all"
+  last_updated: "2026-02-26"
+  description: >
+    Structured knowledge base for auditing a Meta Ads (Facebook/Instagram)
+    account using exported CSV reports, Ads Manager screenshots, Events Manager
+    data, and Commerce Manager exports. Each section includes field names,
+    thresholds, formulas, decision trees, and actionable audit checks with
+    severity ratings.
+  data_sources:
+    - "Ads Manager CSV exports (Campaigns, Ad Sets, Ads)"
+    - "Events Manager screenshots and diagnostics"
+    - "Meta Pixel Helper browser extension screenshots"
+    - "Commerce Manager / Catalog diagnostics exports"
+    - "Ads Manager Delivery Insights"
+    - "Account Quality screenshots"
+    - "Business Manager settings screenshots"
+    - "Audience Overlap tool screenshots"
+    - "Attribution Settings screenshots"
+  export_instructions: >
+    In Ads Manager: Select campaigns/ad sets/ads > Reports > Export Table Data
+    (CSV or XLSX). Use column presets (Performance, Delivery, Engagement,
+    Conversions) or customize columns. In Events Manager: screenshot Overview,
+    Diagnostics, and Test Events tabs. Use Meta Pixel Helper Chrome extension
+    for on-site pixel verification. In Commerce Manager: Catalog > Diagnostics
+    tab for feed health.
+
+# ============================================================================
+# SECTION 1: META PIXEL AUDIT
+# ============================================================================
+
+meta_pixel:
+
+  description: >
+    Evaluates Meta Pixel installation, event configuration, parameter quality,
+    and browser-side tracking health. The Meta Pixel is the JavaScript snippet
+    that fires on the advertiser's website to track user actions and send them
+    to Meta for ad optimization, audience building, and conversion measurement.
+
+  pixel_installation:
+    checks:
+      - id: "PX-001"
+        check: "Verify Pixel is installed on all website pages"
+        severity: "critical"
+        how_to_verify: >
+          Use Meta Pixel Helper Chrome extension on key pages (homepage,
+          product pages, cart, checkout, thank-you). Green icon = pixel found.
+          Red/yellow = issues detected.
+        red_flag: "Pixel Helper shows no pixel on any page or shows pixel on some pages but not others"
+
+      - id: "PX-002"
+        check: "Verify correct Pixel ID matches the ad account"
+        severity: "critical"
+        how_to_verify: >
+          In Pixel Helper, confirm the Pixel ID matches the one in Events Manager >
+          Data Sources. Cross-reference with Business Manager > Data Sources.
+        red_flag: "Multiple pixel IDs on same page, or pixel ID does not match the ad account being audited"
+
+      - id: "PX-003"
+        check: "Verify base code fires on page load (PageView event)"
+        severity: "critical"
+        how_to_verify: >
+          Pixel Helper should show 'PageView' event on every page load.
+          Events Manager > Overview should show PageView as the highest-volume event.
+        red_flag: "PageView not firing or firing inconsistently"
+
+      - id: "PX-004"
+        check: "Pixel is placed in the <head> section of the page"
+        severity: "high"
+        how_to_verify: >
+          View page source and confirm fbq('init',...) and fbq('track','PageView')
+          appear inside <head> tags, before the closing </head>.
+        red_flag: "Pixel code in <body> or loaded asynchronously via tag manager with delayed trigger"
+
+      - id: "PX-005"
+        check: "Only one Pixel base code instance per page"
+        severity: "medium"
+        how_to_verify: >
+          Pixel Helper should show exactly one PageView per page load.
+          Multiple PageView events indicate duplicate base code.
+        red_flag: "Pixel Helper shows 2+ PageView events on a single page load"
+
+  standard_events:
+    description: >
+      Meta defines 17 standard events. Each has a specific name (case-sensitive)
+      and accepts predefined parameters. The Purchase event REQUIRES value and
+      currency parameters. Standard events enable optimization and reporting
+      without custom configuration.
+
+    complete_list:
+      - event: "PageView"
+        description: "Page load (fires from base code automatically)"
+        typical_use: "All pages"
+        required_params: []
+        recommended_params: []
+
+      - event: "ViewContent"
+        description: "User views a key page (product page, article, landing page)"
+        typical_use: "Product detail pages, key content pages"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "content_name", "content_category", "value", "currency"]
+
+      - event: "AddToCart"
+        description: "User adds item to shopping cart"
+        typical_use: "Add-to-cart button click"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "content_name", "value", "currency", "num_items"]
+
+      - event: "AddToWishlist"
+        description: "User adds item to a wishlist"
+        typical_use: "Wishlist/save-for-later button"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "content_name", "value", "currency"]
+
+      - event: "InitiateCheckout"
+        description: "User begins checkout process"
+        typical_use: "Checkout page load or checkout button click"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "value", "currency", "num_items"]
+
+      - event: "AddPaymentInfo"
+        description: "User adds payment information during checkout"
+        typical_use: "Payment info step in checkout flow"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "value", "currency"]
+
+      - event: "Purchase"
+        description: "User completes a purchase"
+        typical_use: "Order confirmation / thank-you page"
+        required_params: ["value", "currency"]
+        recommended_params: ["content_ids", "content_type", "content_name", "num_items", "order_id"]
+
+      - event: "Lead"
+        description: "User submits information (form fill, sign-up)"
+        typical_use: "Form submission, newsletter sign-up"
+        required_params: []
+        recommended_params: ["content_name", "content_category", "value", "currency"]
+
+      - event: "CompleteRegistration"
+        description: "User completes a registration form"
+        typical_use: "Account creation, registration completion"
+        required_params: []
+        recommended_params: ["content_name", "value", "currency", "status"]
+
+      - event: "Search"
+        description: "User performs a search on the website"
+        typical_use: "Site search results page"
+        required_params: []
+        recommended_params: ["search_string", "content_ids", "content_category", "value", "currency"]
+
+      - event: "Contact"
+        description: "User contacts the business (phone, email, chat)"
+        typical_use: "Contact form submission, click-to-call"
+        required_params: []
+        recommended_params: ["content_name"]
+
+      - event: "CustomizeProduct"
+        description: "User customizes a product (color, size, configuration)"
+        typical_use: "Product configurator interactions"
+        required_params: []
+        recommended_params: ["content_ids", "content_type", "content_name"]
+
+      - event: "Donate"
+        description: "User makes a donation"
+        typical_use: "Donation completion"
+        required_params: []
+        recommended_params: ["value", "currency"]
+
+      - event: "FindLocation"
+        description: "User searches for a physical store/location"
+        typical_use: "Store locator page"
+        required_params: []
+        recommended_params: []
+
+      - event: "Schedule"
+        description: "User books an appointment"
+        typical_use: "Appointment scheduling confirmation"
+        required_params: []
+        recommended_params: ["content_name"]
+
+      - event: "StartTrial"
+        description: "User starts a free trial"
+        typical_use: "Trial sign-up completion"
+        required_params: []
+        recommended_params: ["value", "currency", "predicted_ltv"]
+
+      - event: "SubmitApplication"
+        description: "User submits an application (job, loan, program)"
+        typical_use: "Application form submission"
+        required_params: []
+        recommended_params: ["content_name", "content_category"]
+
+      - event: "Subscribe"
+        description: "User starts a paid subscription"
+        typical_use: "Subscription purchase confirmation"
+        required_params: []
+        recommended_params: ["value", "currency", "predicted_ltv"]
+
+    event_parameters:
+      description: >
+        Parameters provide granular data about each event. They enable
+        dynamic ads, value-based optimization, and detailed reporting.
+      standard_parameters:
+        - param: "content_ids"
+          type: "array of strings"
+          description: "Product IDs matching catalog product IDs"
+          example: "['ABC123', 'DEF456']"
+          critical_for: "Dynamic Ads / Advantage+ Catalog Ads"
+
+        - param: "content_type"
+          type: "string"
+          description: "Type of content: 'product' or 'product_group'"
+          example: "'product'"
+          critical_for: "Dynamic Ads matching"
+
+        - param: "content_name"
+          type: "string"
+          description: "Name of the product or page"
+          example: "'Blue Running Shoes'"
+
+        - param: "content_category"
+          type: "string"
+          description: "Category of the content"
+          example: "'Footwear > Running'"
+
+        - param: "value"
+          type: "float"
+          description: "Monetary value of the event (no currency symbols, decimal only)"
+          example: "49.99"
+          critical_for: "Value-based optimization, ROAS bidding"
+          validation: "Must be a decimal number, no symbols, no commas"
+
+        - param: "currency"
+          type: "string"
+          description: "ISO 4217 three-letter currency code"
+          example: "'USD', 'EUR', 'GBP'"
+          validation: "Must be 3-letter ISO code, NOT symbols like $ or abbreviations"
+
+        - param: "num_items"
+          type: "integer"
+          description: "Number of items in the event"
+          example: "3"
+
+        - param: "order_id"
+          type: "string"
+          description: "Unique order identifier for deduplication"
+          example: "'ORD-12345'"
+
+        - param: "search_string"
+          type: "string"
+          description: "The search query entered by the user"
+          example: "'running shoes size 10'"
+
+        - param: "status"
+          type: "boolean"
+          description: "Status of the registration (true/false)"
+          example: "true"
+
+        - param: "predicted_ltv"
+          type: "float"
+          description: "Predicted lifetime value of a subscriber"
+          example: "199.99"
+
+    audit_checks:
+      - id: "PX-010"
+        check: "All relevant standard events are implemented for the business model"
+        severity: "critical"
+        decision_tree:
+          ecommerce: ["ViewContent", "AddToCart", "InitiateCheckout", "Purchase", "AddPaymentInfo", "Search"]
+          lead_gen: ["Lead", "CompleteRegistration", "Contact", "Schedule", "SubmitApplication"]
+          saas: ["Lead", "CompleteRegistration", "StartTrial", "Subscribe", "Purchase"]
+          content_publisher: ["ViewContent", "Search", "Lead"]
+        red_flag: "Key funnel events missing (e.g., ecommerce site without AddToCart or Purchase)"
+
+      - id: "PX-011"
+        check: "Purchase event includes value and currency parameters"
+        severity: "critical"
+        how_to_verify: "Events Manager > Purchase event > Parameters tab should show value and currency"
+        red_flag: "Purchase events firing without value/currency — breaks ROAS reporting and value-based optimization"
+
+      - id: "PX-012"
+        check: "content_ids match product catalog IDs for dynamic ads"
+        severity: "critical"
+        condition: "Only if running Advantage+ Catalog / Dynamic Ads"
+        how_to_verify: >
+          Cross-reference content_ids in pixel events with product IDs in
+          Commerce Manager catalog. They must match exactly.
+        red_flag: "content_ids do not match catalog product IDs — dynamic ads will show wrong products or no products"
+
+      - id: "PX-013"
+        check: "Event names are case-sensitive and spelled correctly"
+        severity: "high"
+        how_to_verify: >
+          Events Manager should show events under 'Standard Events' not 'Custom Events'.
+          If a standard event appears under Custom, the name is misspelled.
+        red_flag: "'purchase' instead of 'Purchase', 'addtocart' instead of 'AddToCart'"
+
+      - id: "PX-014"
+        check: "Value parameter uses correct format (decimal, no symbols)"
+        severity: "high"
+        how_to_verify: "Events Manager > event details > check sample parameters"
+        red_flag: "value: '$49.99' or value: '49,99' instead of value: 49.99"
+
+      - id: "PX-015"
+        check: "Events fire at the correct point in the user journey"
+        severity: "high"
+        how_to_verify: >
+          Walk through the user funnel with Pixel Helper open. Verify AddToCart
+          fires on cart addition (not page load), Purchase fires on confirmation
+          page (not checkout page), etc.
+        red_flag: "Purchase firing on checkout page instead of confirmation page"
+
+  pixel_helper_diagnostics:
+    description: >
+      Common patterns seen in Meta Pixel Helper that indicate issues.
+      Note: Pixel Helper only shows browser-side (Pixel) events, NOT CAPI events.
+
+    common_errors:
+      - error: "Pixel Did Not Load"
+        meaning: "Base code not found on the page"
+        severity: "critical"
+        fix: "Install or fix the pixel base code"
+
+      - error: "Not a Standard Event"
+        meaning: "Event name does not match any of the 17 standard events"
+        severity: "high"
+        fix: "Check spelling and capitalization (case-sensitive)"
+
+      - error: "Invalid Pixel ID"
+        meaning: "The pixel ID in the code does not exist or is malformed"
+        severity: "critical"
+        fix: "Verify pixel ID against Events Manager"
+
+      - error: "Duplicate Pixel"
+        meaning: "Same pixel fires multiple times on one page"
+        severity: "medium"
+        fix: "Remove duplicate base code or duplicate event calls"
+
+      - error: "Pixel Activated"
+        meaning: "Pixel is loading and sending data (green checkmark)"
+        severity: "info"
+        fix: "No action needed — this is healthy"
+
+      - error: "Missing Required Parameter"
+        meaning: "Event is missing a required parameter (e.g., Purchase without value)"
+        severity: "high"
+        fix: "Add the missing parameter to the event call"
+
+      - error: "Slow Pixel Load"
+        meaning: "Pixel took too long to initialize"
+        severity: "medium"
+        fix: "Move pixel code higher in <head>, reduce page load blockers"
+
+  custom_events:
+    description: >
+      Custom events track actions not covered by the 17 standard events.
+      They can be used for optimization and audience building but may have
+      limited reporting compared to standard events.
+
+    audit_checks:
+      - id: "PX-020"
+        check: "Custom events have clear, descriptive names"
+        severity: "medium"
+        red_flag: "Vague names like 'event1', 'test', 'click' that provide no context"
+
+      - id: "PX-021"
+        check: "Custom events are not duplicating standard events"
+        severity: "high"
+        red_flag: "Custom event 'product_view' when 'ViewContent' standard event should be used"
+
+      - id: "PX-022"
+        check: "Custom events are mapped as custom conversions in Events Manager"
+        severity: "medium"
+        how_to_verify: "Events Manager > Custom Conversions — check if custom events are registered"
+
+# ============================================================================
+# SECTION 2: CONVERSIONS API (CAPI) AUDIT
+# ============================================================================
+
+conversions_api:
+
+  description: >
+    The Conversions API (CAPI) sends event data server-to-server from the
+    advertiser's backend to Meta, bypassing browser limitations (ad blockers,
+    ITP, cookie restrictions, iOS ATT). CAPI is essential for accurate
+    conversion tracking in 2025-2026 and directly improves ad optimization.
+    Best practice is redundant setup: Pixel (browser) + CAPI (server) with
+    deduplication via event_id.
+
+  implementation_checks:
+    - id: "CAPI-001"
+      check: "Conversions API is active and sending events"
+      severity: "critical"
+      how_to_verify: >
+        Events Manager > Data Sources > select Pixel > Overview tab.
+        Look for 'Server' events alongside 'Browser' events. Both channels
+        should appear for key conversion events.
+      red_flag: "Only browser events visible — no server events means CAPI is not implemented"
+
+    - id: "CAPI-002"
+      check: "CAPI sends the same events as the Pixel (redundant setup)"
+      severity: "critical"
+      how_to_verify: >
+        Events Manager > Overview > compare event names from Browser vs Server.
+        Key events (Purchase, AddToCart, Lead, etc.) should appear in both channels.
+      red_flag: "Server events missing for key conversion events"
+
+    - id: "CAPI-003"
+      check: "Event deduplication is configured via event_id"
+      severity: "critical"
+      how_to_verify: >
+        Events Manager > event details > check for 'Deduplicated' status.
+        Both browser and server events must send identical event_id for the
+        same user action. Events Manager shows deduplication rate.
+      red_flag: >
+        No deduplication = events counted twice. Check: are reported conversions
+        roughly double what the backend shows? Is event_id present on both
+        browser and server events?
+      deduplication_requirements:
+        - "Both Pixel and CAPI must send the same event_name"
+        - "Both must send the same event_id (identical string, case-sensitive)"
+        - "Events must arrive within 48 hours of each other"
+        - "event_id must be unique per user action (not reused across events)"
+
+    - id: "CAPI-004"
+      check: "Integration method is appropriate for the business"
+      severity: "medium"
+      integration_types:
+        - type: "Partner Integration"
+          description: "Pre-built integration via ecommerce platform"
+          examples: ["Shopify", "WooCommerce", "BigCommerce", "Magento"]
+          pros: "Easy setup, automatic event mapping"
+          cons: "Limited customization, dependent on platform updates"
+        - type: "GTM Server-Side"
+          description: "Google Tag Manager server container sends to Meta CAPI"
+          examples: ["GTM SS with Meta CAPI tag", "Stape.io", "Addingwell"]
+          pros: "Flexible, supports multiple platforms, good control"
+          cons: "Requires server-side GTM infrastructure"
+        - type: "Gateway Integration"
+          description: "Meta's Conversions API Gateway (lightweight server)"
+          examples: ["AWS Gateway", "GCP Gateway"]
+          pros: "Meta-managed, less custom code"
+          cons: "Infrastructure cost, less flexibility"
+        - type: "Direct API Integration"
+          description: "Custom server-side code sends events to Meta API"
+          examples: ["Custom PHP/Python/Node.js integration"]
+          pros: "Full control, best data quality"
+          cons: "Requires developer resources, maintenance"
+
+  event_match_quality:
+    description: >
+      Event Match Quality (EMQ) is Meta's score (1-10) measuring how well
+      server events can be matched to Meta user profiles. Higher EMQ = better
+      ad optimization, lower CPA, higher ROAS. EMQ refreshes every 48 hours
+      in Events Manager.
+
+    score_thresholds:
+      - range: "1-3"
+        rating: "Poor"
+        action: "Urgent: add more customer information parameters"
+        impact: "Severely limited optimization and attribution"
+      - range: "4-5"
+        rating: "OK"
+        action: "Improve: add additional parameters"
+        impact: "Basic matching but significant data gaps"
+      - range: "6-7"
+        rating: "Good"
+        action: "Acceptable but can be improved"
+        impact: "Solid matching, reasonable optimization"
+      - range: "8-10"
+        rating: "Great"
+        action: "Optimal — maintain and monitor"
+        impact: "Best possible ad optimization and attribution"
+
+    target: ">=6 minimum, >=8 recommended. Beyond 8.5, focus on data quality over score chasing"
+
+    customer_information_parameters:
+      description: >
+        These are the user data fields sent with CAPI events that Meta uses
+        to match events to user profiles. All PII must be SHA-256 hashed
+        before sending (except external_id, client_ip_address, client_user_agent,
+        fbc, fbp which are sent in plain text or as-is).
+
+      parameters:
+        - param: "em"
+          full_name: "Email address"
+          hashing: "SHA-256 (lowercase, trim whitespace)"
+          emq_impact: "Very High"
+          description: "Most impactful single parameter for matching"
+
+        - param: "ph"
+          full_name: "Phone number"
+          hashing: "SHA-256 (digits only, include country code, no symbols)"
+          emq_impact: "Very High"
+          description: "Second most impactful parameter"
+
+        - param: "fn"
+          full_name: "First name"
+          hashing: "SHA-256 (lowercase)"
+          emq_impact: "Medium"
+
+        - param: "ln"
+          full_name: "Last name"
+          hashing: "SHA-256 (lowercase)"
+          emq_impact: "Medium"
+
+        - param: "ct"
+          full_name: "City"
+          hashing: "SHA-256 (lowercase, no special characters)"
+          emq_impact: "Low-Medium"
+
+        - param: "st"
+          full_name: "State/Province"
+          hashing: "SHA-256 (2-letter code lowercase)"
+          emq_impact: "Low-Medium"
+
+        - param: "zp"
+          full_name: "ZIP/Postal code"
+          hashing: "SHA-256 (lowercase)"
+          emq_impact: "Low-Medium"
+
+        - param: "country"
+          full_name: "Country code"
+          hashing: "SHA-256 (2-letter ISO lowercase)"
+          emq_impact: "Low"
+
+        - param: "external_id"
+          full_name: "External user ID (CRM ID, user ID)"
+          hashing: "SHA-256 recommended but not required"
+          emq_impact: "High"
+          description: "Persistent cross-session identifier — very valuable"
+
+        - param: "client_ip_address"
+          full_name: "User's IP address"
+          hashing: "Not hashed — sent as plain text"
+          emq_impact: "Medium"
+          description: "Sent with server events for matching"
+
+        - param: "client_user_agent"
+          full_name: "User's browser user agent string"
+          hashing: "Not hashed — sent as plain text"
+          emq_impact: "Medium"
+          description: "Helps match server events to browser sessions"
+
+        - param: "fbc"
+          full_name: "Facebook click ID"
+          hashing: "Not hashed"
+          emq_impact: "Very High"
+          description: "fb click ID from _fbc cookie — critical for click attribution"
+          format: "fb.1.{timestamp}.{fbclid}"
+
+        - param: "fbp"
+          full_name: "Facebook browser ID"
+          hashing: "Not hashed"
+          emq_impact: "High"
+          description: "fb browser ID from _fbp cookie — identifies the browser"
+          format: "fb.1.{timestamp}.{random_number}"
+
+    audit_checks:
+      - id: "CAPI-010"
+        check: "EMQ score is 6 or above for all key conversion events"
+        severity: "critical"
+        how_to_verify: >
+          Events Manager > Data Sources > select Pixel > Overview tab.
+          Click on each server event to see its EMQ score.
+        red_flag: "EMQ below 6 for Purchase or Lead events"
+
+      - id: "CAPI-011"
+        check: "Email (em) and/or phone (ph) are sent with CAPI events"
+        severity: "critical"
+        how_to_verify: "Events Manager > event details > Customer Information Parameters"
+        red_flag: "No email or phone data being sent — EMQ will be very low"
+
+      - id: "CAPI-012"
+        check: "fbc and fbp cookies are forwarded with CAPI events"
+        severity: "high"
+        how_to_verify: "Events Manager > event details > check for fbc and fbp parameters"
+        red_flag: "Missing fbc/fbp means server events cannot be matched to ad clicks"
+
+      - id: "CAPI-013"
+        check: "client_ip_address and client_user_agent are sent with CAPI events"
+        severity: "high"
+        how_to_verify: "Events Manager > event details > Customer Information Parameters"
+        red_flag: "Missing IP and user agent reduces matching accuracy"
+
+      - id: "CAPI-014"
+        check: "Data is properly hashed (SHA-256) before sending"
+        severity: "critical"
+        how_to_verify: >
+          Events Manager > Diagnostics tab > check for 'Unhashed data' warnings.
+          PII sent in plain text is a privacy violation and may lead to account restrictions.
+        red_flag: "Events Manager shows 'Unhashed personal data detected' warning"
+
+# ============================================================================
+# SECTION 3: ACCOUNT STRUCTURE AUDIT
+# ============================================================================
+
+account_structure:
+
+  description: >
+    Evaluates the organizational hierarchy of the Meta Ads account:
+    campaigns, ad sets, ads, naming conventions, and campaign-level settings.
+    In 2025-2026, Meta strongly favors consolidated account structures with
+    fewer, larger campaigns to give the algorithm more data for optimization.
+
+  campaign_objectives:
+    description: >
+      Meta offers 6 campaign objectives (ODAX — Outcome-Driven Ad Experiences).
+      The objective determines the optimization options available at the ad set level.
+
+    objectives:
+      - objective: "Awareness"
+        optimization_goals: ["Reach", "Brand Awareness", "Video Views", "Ad Recall Lift", "ThruPlay"]
+        typical_use: "Top-of-funnel brand awareness and reach"
+        kpis: ["CPM", "Reach", "Frequency", "Video Views", "Ad Recall Lift"]
+
+      - objective: "Traffic"
+        optimization_goals: ["Link Clicks", "Landing Page Views", "Reach", "Daily Unique Reach"]
+        typical_use: "Drive website or app traffic"
+        kpis: ["CPC", "CTR", "Landing Page Views", "Cost per Landing Page View"]
+
+      - objective: "Engagement"
+        optimization_goals: ["Post Engagement", "Page Likes", "Event Responses", "Messaging (Messenger, Instagram, WhatsApp)"]
+        typical_use: "Drive interactions, messaging conversations"
+        kpis: ["Cost per Engagement", "Cost per Message", "Messaging Conversations"]
+
+      - objective: "Leads"
+        optimization_goals: ["Instant Forms", "Messenger", "Instagram", "Conversions (website)", "Calls"]
+        typical_use: "Generate leads via forms or conversations"
+        kpis: ["CPL (Cost per Lead)", "Lead Volume", "Lead Quality"]
+
+      - objective: "App Promotion"
+        optimization_goals: ["App Installs", "App Events", "Value"]
+        typical_use: "Drive app installs and in-app actions"
+        kpis: ["CPI (Cost per Install)", "Cost per App Event"]
+
+      - objective: "Sales"
+        optimization_goals: ["Conversions", "Value", "Catalog Sales"]
+        typical_use: "Drive purchases and revenue (ecommerce)"
+        kpis: ["CPA", "ROAS", "Purchase Volume", "Revenue"]
+
+  campaign_types:
+    - type: "Standard Campaign"
+      description: "Traditional campaign with manual control over targeting, placements, budget"
+      status: "active"
+      notes: "Still available but Meta pushes toward Advantage+ settings"
+
+    - type: "Advantage+ Shopping Campaign (ASC)"
+      description: "AI-automated campaign for ecommerce sales (now called Advantage+ Sales)"
+      status: "active"
+      notes: "Default for Sales objective; limited manual controls"
+
+    - type: "Advantage+ App Campaign"
+      description: "AI-automated campaign for app installs and events"
+      status: "active"
+      notes: "Default for App Promotion objective"
+
+    - type: "Advantage+ Leads Campaign"
+      description: "AI-automated campaign for lead generation"
+      status: "active"
+      notes: "Newer campaign type, rolling out 2025-2026"
+
+  budget_settings:
+    types:
+      - type: "Campaign Budget Optimization (CBO)"
+        description: >
+          Budget set at campaign level, Meta distributes across ad sets
+          automatically based on performance.
+        recommended: true
+        notes: "Preferred in 2025-2026 for consolidated structures"
+
+      - type: "Ad Set Budget (ABO)"
+        description: "Budget set at individual ad set level, manual allocation"
+        recommended: false
+        notes: "Use when you need strict budget control per audience"
+
+    audit_checks:
+      - id: "AS-001"
+        check: "Campaign uses appropriate budget type (CBO vs ABO)"
+        severity: "medium"
+        recommendation: >
+          CBO is generally recommended for 2025-2026. Use ABO only when
+          specific ad sets require guaranteed minimum spend (e.g., testing vs scaling).
+
+      - id: "AS-002"
+        check: "Budget is sufficient for ad sets to exit learning phase"
+        severity: "high"
+        threshold: >
+          Each ad set needs approximately 50 conversions per week to exit
+          learning phase. Minimum daily budget per ad set should be at least
+          10x the expected CPA. Example: if CPA = $20, minimum daily budget = $200.
+        red_flag: "Multiple ad sets with daily budgets too low for their optimization event"
+
+  naming_conventions:
+    audit_checks:
+      - id: "AS-010"
+        check: "Campaigns, ad sets, and ads follow consistent naming conventions"
+        severity: "medium"
+        recommended_format:
+          campaign: "[Objective]_[Funnel Stage]_[Target Market]_[Date]"
+          ad_set: "[Audience Type]_[Audience Name]_[Placement]"
+          ad: "[Creative Type]_[Message Angle]_[Version]"
+        examples:
+          campaign: "Sales_Prospecting_US_2026Q1"
+          ad_set: "LAL_Purchasers1%_AllPlacements"
+          ad: "Video_Testimonial_V2"
+        red_flag: "Default names like 'Campaign 1', 'Ad Set – Copy', no discernible pattern"
+
+  structure_best_practices_2026:
+    description: >
+      Meta's algorithm performs best with consolidated structures. The 2026
+      recommended approach is a simplified 2-3 campaign structure.
+
+    recommended_structure:
+      - campaign: "Prospecting / Testing"
+        purpose: "Test new creatives with broad targeting"
+        budget_share: "10-20% of total budget"
+        targeting: "Broad or Advantage+ Audience"
+        notes: "CBO, multiple ads per ad set"
+
+      - campaign: "Scaling / Evergreen"
+        purpose: "Scale winning creatives"
+        budget_share: "70-80% of total budget"
+        targeting: "Broad or Advantage+ Audience (or ASC)"
+        notes: "Move proven creatives here"
+
+      - campaign: "Retargeting (optional)"
+        purpose: "Re-engage warm audiences"
+        budget_share: "10-20% of total budget"
+        targeting: "Custom Audiences (website visitors, engagers)"
+        notes: "Optional in 2026 as ASC/Advantage+ handles this automatically"
+
+    audit_checks:
+      - id: "AS-020"
+        check: "Account is not over-segmented with too many campaigns/ad sets"
+        severity: "high"
+        threshold: >
+          Red flag: more than 5-10 active campaigns or more than 3-5 ad sets
+          per campaign (unless justified). Each ad set should have enough budget
+          for 50+ conversions/week.
+        red_flag: "Dozens of active campaigns with small budgets, most in learning phase"
+
+      - id: "AS-021"
+        check: "Advantage+ settings are used where appropriate"
+        severity: "medium"
+        how_to_verify: >
+          Check if Advantage+ Campaign Budget, Advantage+ Placements,
+          Advantage+ Audience are enabled (they are often default in 2026).
+        notes: "Meta defaults to Advantage+ settings for new campaigns as of early 2026"
+
+# ============================================================================
+# SECTION 4: AUDIENCE STRATEGY AUDIT
+# ============================================================================
+
+audience_strategy:
+
+  description: >
+    Evaluates audience targeting setup including Custom Audiences, Lookalike
+    Audiences, Saved Audiences, Advantage+ Audience, exclusions, overlap,
+    and frequency management. In 2025-2026, Meta strongly favors broad
+    targeting, letting the algorithm find the right users.
+
+  custom_audiences:
+    description: >
+      Custom Audiences are built from your own data sources. They are used
+      for retargeting and as seeds for Lookalike Audiences.
+
+    source_types:
+      - source: "Website"
+        description: "Users who visited your website (via Pixel/CAPI)"
+        retention_max: "180 days"
+        best_practice: "Create tiered audiences: 7d, 30d, 90d, 180d visitors"
+        audit_check: "Verify Pixel is active and audience is populating"
+
+      - source: "Customer List"
+        description: "Uploaded CRM data (email, phone, etc.)"
+        best_practice: "Update monthly, minimum 1000 records for meaningful matching"
+        match_rate_benchmark: "30-70% match rate is typical"
+        audit_check: "Check match rate and last upload date"
+
+      - source: "App Activity"
+        description: "Users who interacted with your mobile app"
+        retention_max: "180 days"
+        audit_check: "Requires app events SDK setup"
+
+      - source: "Offline Activity"
+        description: "Users from offline event sets (in-store purchases, calls)"
+        audit_check: "Requires offline event set in Business Manager"
+
+      - source: "Engagement"
+        subtypes:
+          - "Video viewers (3s, ThruPlay, 25%, 50%, 75%, 95%)"
+          - "Lead form openers/submitters"
+          - "Instant Experience viewers"
+          - "Instagram account engagers"
+          - "Facebook Page engagers"
+          - "Shopping activity (product views, purchases)"
+          - "Event RSVPs"
+        retention_max: "365 days"
+        best_practice: "Layer engagement audiences for warm retargeting"
+
+  lookalike_audiences:
+    description: >
+      Lookalike Audiences find new users similar to a source audience.
+      Quality depends heavily on the source audience quality.
+
+    parameters:
+      - param: "Source Audience"
+        description: "The Custom Audience used as the seed"
+        best_practice: "Use highest-value source: purchasers > leads > website visitors"
+        minimum_source_size: "100 people (1000+ recommended for quality)"
+
+      - param: "Percentage"
+        description: "How similar the lookalike should be (1% = most similar)"
+        ranges:
+          - range: "1%"
+            description: "Most similar to source, smallest audience"
+            best_for: "High-intent prospecting"
+          - range: "1-3%"
+            description: "Moderate similarity, balanced reach/relevance"
+            best_for: "General prospecting"
+          - range: "3-5%"
+            description: "Broader, less similar"
+            best_for: "Scale campaigns"
+          - range: "5-10%"
+            description: "Very broad, approaching general population"
+            best_for: "Maximum reach, awareness"
+
+      - param: "Country"
+        description: "Geographic market for the lookalike"
+        notes: "Can select multiple countries; must specify at least one"
+
+    audit_checks:
+      - id: "AUD-010"
+        check: "Lookalike source audiences are high-quality (purchasers, high-LTV customers)"
+        severity: "high"
+        red_flag: "Lookalikes based on page likes or broad website visitors instead of converters"
+
+      - id: "AUD-011"
+        check: "Lookalike percentages match campaign goals"
+        severity: "medium"
+        red_flag: "Using 10% lookalike for conversion campaigns (too broad for intent)"
+
+  advantage_plus_audience:
+    description: >
+      Advantage+ Audience (formerly broad targeting) lets Meta's AI find
+      the best audience without manual interest/behavior targeting. In
+      2025-2026, this often outperforms manually targeted campaigns.
+
+    how_it_works: >
+      You provide optional 'audience suggestions' (interests, demographics)
+      as starting hints, but Meta can target beyond these. The algorithm
+      uses pixel data, CAPI events, and engagement history to find converters.
+
+    audit_checks:
+      - id: "AUD-020"
+        check: "Advantage+ Audience is tested against manual targeting"
+        severity: "medium"
+        recommendation: >
+          In 2026, Advantage+ Audience (broad) often outperforms manual
+          interest stacking. At minimum, test one broad vs one manual ad set.
+        red_flag: "No broad targeting tested; all ad sets use narrow interest targeting"
+
+  audience_overlap:
+    description: >
+      Audience overlap occurs when multiple ad sets target the same users,
+      causing your ads to compete against themselves in the auction.
+
+    audit_checks:
+      - id: "AUD-030"
+        check: "Check for audience overlap between active ad sets"
+        severity: "high"
+        how_to_verify: >
+          Ads Manager > Audiences > select 2+ audiences > Actions > Show Audience Overlap.
+          Screenshot the overlap percentages.
+        threshold: "Overlap above 20-30% between ad sets is problematic"
+        red_flag: "Multiple ad sets with 30%+ overlap competing for same objective"
+        fix: "Consolidate overlapping audiences or use audience exclusions"
+
+  audience_exclusions:
+    audit_checks:
+      - id: "AUD-040"
+        check: "Prospecting campaigns exclude existing customers/converters"
+        severity: "high"
+        how_to_verify: >
+          Ad set level > Audience > Exclude > should exclude Custom Audience
+          of purchasers/converters.
+        red_flag: "Prospecting budget spent on existing customers"
+
+      - id: "AUD-041"
+        check: "Retargeting campaigns exclude recent converters"
+        severity: "medium"
+        how_to_verify: "Exclude users who purchased in last 7-30 days (depending on purchase cycle)"
+
+  frequency_management:
+    description: >
+      Frequency is the average number of times each person sees your ad.
+      High frequency causes ad fatigue and wasted spend.
+
+    thresholds:
+      prospecting:
+        healthy: "<3.0"
+        warning: "3.0-5.0"
+        critical: ">5.0"
+      retargeting:
+        healthy: "<5.0"
+        warning: "5.0-8.0"
+        critical: ">8.0"
+      awareness:
+        healthy: "<2.0 per week"
+        warning: "2.0-4.0 per week"
+        critical: ">4.0 per week"
+
+    audit_checks:
+      - id: "AUD-050"
+        check: "Frequency is within acceptable ranges for campaign type"
+        severity: "high"
+        how_to_verify: "Ads Manager > add 'Frequency' column to report"
+        red_flag: "Prospecting frequency above 3, or retargeting above 5-8"
+
+      - id: "AUD-051"
+        check: "Frequency caps are set for awareness/reach campaigns"
+        severity: "medium"
+        how_to_verify: "Campaign settings > Optimization & Delivery > Frequency Cap"
+
+# ============================================================================
+# SECTION 5: CREATIVE AUDIT
+# ============================================================================
+
+creative:
+
+  description: >
+    Evaluates ad creative quality, format diversity, fatigue indicators,
+    testing practices, and use of Meta's creative automation features.
+    In 2025-2026, creative is the single most important lever for Meta Ads
+    performance — the algorithm handles targeting, so creative differentiation
+    drives results.
+
+  ad_formats:
+    - format: "Single Image"
+      description: "Static image ad"
+      specs:
+        recommended_ratio: "1:1 (Feed), 9:16 (Stories/Reels)"
+        min_resolution: "1080x1080 (1:1), 1080x1920 (9:16)"
+        file_types: ["JPG", "PNG"]
+        max_file_size: "30 MB"
+      best_for: "Simple messaging, product showcases, testimonials"
+
+    - format: "Single Video"
+      description: "Video ad"
+      specs:
+        recommended_ratio: "1:1 (Feed), 9:16 (Stories/Reels), 16:9 (In-Stream)"
+        recommended_length: "15-30 seconds (Feed), 5-15 seconds (Stories/Reels)"
+        max_length: "241 minutes"
+        file_types: ["MP4", "MOV"]
+        max_file_size: "4 GB"
+      best_for: "Demonstrations, testimonials, storytelling, highest engagement"
+
+    - format: "Carousel"
+      description: "2-10 scrollable cards (image or video)"
+      specs:
+        cards: "2-10"
+        card_ratio: "1:1"
+        card_resolution: "1080x1080"
+      best_for: "Multiple products, step-by-step, feature showcases"
+
+    - format: "Collection"
+      description: "Cover image/video + product grid below"
+      specs:
+        cover: "Image or video"
+        products: "Pulled from catalog"
+      best_for: "Ecommerce product discovery, catalog browsing"
+      requires: "Product catalog"
+
+    - format: "Instant Experience (Canvas)"
+      description: "Full-screen interactive landing page within Facebook/Instagram"
+      specs:
+        components: ["Image", "Video", "Carousel", "Text", "Button", "Product Set"]
+      best_for: "Immersive storytelling, product exploration without leaving the app"
+
+  creative_fatigue:
+    description: >
+      Creative fatigue occurs when the same audience sees the same ad too
+      many times, causing declining performance. It is the #1 performance
+      killer in Meta Ads.
+
+    detection_formula: >
+      Creative fatigue = (Frequency > threshold) AND (CTR declining over
+      time OR CPA increasing over time). Monitor weekly.
+
+    indicators:
+      - indicator: "Frequency exceeds 3.0 (prospecting) or 5.0 (retargeting)"
+        metric: "Frequency"
+      - indicator: "CTR drops by 20%+ from initial performance"
+        metric: "CTR"
+      - indicator: "CPA increases by 20%+ from initial performance"
+        metric: "CPA"
+      - indicator: "CPM remains stable but conversions decline"
+        metric: "CPM vs Conversions"
+      - indicator: "Ad has been running for 10-14+ days without creative refresh"
+        metric: "Days running"
+
+    refresh_guidelines:
+      prospecting: "Refresh every 10-14 days or when frequency >3.0"
+      retargeting: "Refresh every 2-4 weeks or when frequency >5.0"
+      general: "After frequency exceeds 4, CTR drops significantly for most ads"
+
+    audit_checks:
+      - id: "CR-010"
+        check: "Monitor for creative fatigue across active ads"
+        severity: "high"
+        how_to_verify: >
+          Export ad-level data with date breakdown. Plot Frequency vs CTR
+          over time. Look for inverse correlation (rising frequency, falling CTR).
+        red_flag: "Ads running 3+ weeks with frequency >4 and declining CTR/increasing CPA"
+
+  testing:
+    description: >
+      A/B testing and iterative creative testing are essential for sustained
+      performance. Meta recommends testing creative variations, not audiences.
+
+    audit_checks:
+      - id: "CR-020"
+        check: "Active creative testing is in place"
+        severity: "high"
+        how_to_verify: >
+          Check for a dedicated testing campaign or ad set with multiple
+          active ad variations. Look for new ads being added regularly.
+        red_flag: "Only 1-2 ads per ad set with no new creative in 30+ days"
+
+      - id: "CR-021"
+        check: "Testing methodology is sound"
+        severity: "medium"
+        best_practices:
+          - "Test one variable at a time (visual, headline, CTA, format)"
+          - "3-6 ad variations per ad set minimum"
+          - "Allow 3-7 days and sufficient spend before concluding"
+          - "Use Meta's A/B Test tool for statistically valid comparisons"
+          - "Kill losers early, scale winners"
+
+  dynamic_creative_optimization:
+    description: >
+      DCO (now part of Advantage+ Creative) automatically combines
+      creative elements (images, videos, headlines, descriptions, CTAs)
+      to find the best-performing combinations per user.
+
+    features:
+      - "Advantage+ Creative enhancements (auto-adjust brightness, contrast, aspect ratio)"
+      - "Text variations (headline, primary text, description)"
+      - "Media enhancements (filters, templates, music for Reels)"
+      - "Advantage+ Catalog creative (dynamic product overlays)"
+
+    audit_checks:
+      - id: "CR-030"
+        check: "Advantage+ Creative features are tested"
+        severity: "medium"
+        how_to_verify: >
+          Ad level > check if Advantage+ Creative is enabled. Review which
+          enhancements are active.
+        notes: "Advantage+ Creative is on by default in 2026; can be disabled per ad"
+
+  ad_copy_best_practices:
+    guidelines:
+      primary_text:
+        max_recommended: "125 characters before truncation on mobile"
+        best_practice: "Hook in first line, benefit-driven, clear CTA"
+      headline:
+        max_recommended: "27-40 characters"
+        best_practice: "Clear value proposition or offer"
+      description:
+        max_recommended: "27 characters"
+        best_practice: "Supporting detail (not always shown)"
+      cta_button:
+        options: ["Shop Now", "Learn More", "Sign Up", "Book Now", "Get Offer", "Contact Us", "Apply Now", "Subscribe", "Download", "Get Quote"]
+
+# ============================================================================
+# SECTION 6: BIDDING & BUDGET AUDIT
+# ============================================================================
+
+bidding_and_budget:
+
+  description: >
+    Evaluates bid strategy selection, budget allocation, pacing, and
+    scaling practices. Proper bid strategy selection is critical for
+    hitting cost and return targets.
+
+  bid_strategies:
+    - strategy: "Lowest Cost (Highest Volume)"
+      description: "Meta finds the most results for your budget at the lowest cost"
+      cost_control: "None — Meta spends full budget"
+      best_for: "New campaigns, learning phase, maximum volume"
+      pros: "Simplest, maximizes delivery, good for learning"
+      cons: "No CPA control, costs can spike during competition"
+      when_to_use: "Default starting strategy; when learning what CPA to expect"
+
+    - strategy: "Cost Cap (Cost per Result Goal)"
+      description: "Meta targets an average cost per result at or below your cap"
+      cost_control: "Average CPA target"
+      best_for: "Campaigns with specific CPA targets"
+      pros: "Balances volume and cost control"
+      cons: "May underdeliver if cap is too low; set cap 10-20% above target CPA"
+      when_to_use: "When you know your target CPA and want to maintain it while scaling"
+
+    - strategy: "Bid Cap"
+      description: "Maximum bid in each auction — Meta never bids above this amount"
+      cost_control: "Maximum bid per auction"
+      best_for: "Strict cost control, competitive niches"
+      pros: "Maximum cost predictability"
+      cons: "Can severely limit delivery; requires frequent monitoring"
+      when_to_use: "When you have hard CPA limits that cannot be exceeded"
+
+    - strategy: "Minimum ROAS (ROAS Goal)"
+      description: "Meta optimizes for return on ad spend above your minimum threshold"
+      cost_control: "Minimum return threshold"
+      best_for: "Ecommerce with variable order values"
+      pros: "Optimizes for revenue/value, not just conversions"
+      cons: "Requires Purchase event with value parameter; may limit delivery"
+      when_to_use: "Ecommerce with good pixel data and varying purchase values"
+      requirement: "Purchase event must send value and currency parameters"
+
+  scaling:
+    description: >
+      Scaling budgets too aggressively resets the learning phase.
+      Meta's algorithm needs stability to optimize effectively.
+
+    rules:
+      - rule: "20% Rule"
+        description: >
+          Increase budget by no more than 20-30% every 2-3 days to avoid
+          resetting the learning phase.
+        red_flag: "Budget doubled overnight — will reset learning phase"
+
+      - rule: "Learning Phase"
+        description: >
+          Each ad set needs ~50 conversion events in 7 days to exit the
+          learning phase. During learning, performance is volatile and CPA
+          is typically 20-30% higher.
+        threshold: "50 conversions per ad set per 7-day period"
+        what_resets_learning:
+          - "Changing targeting"
+          - "Changing optimization event"
+          - "Adding or removing ads"
+          - "Changing bid strategy"
+          - "Budget change >20% (approximately)"
+          - "Pausing for 7+ days"
+        red_flag: >
+          Multiple ad sets stuck in 'Learning' or 'Learning Limited' status.
+          'Learning Limited' means the ad set is unlikely to exit learning
+          due to insufficient conversions.
+
+    audit_checks:
+      - id: "BB-001"
+        check: "Bid strategy matches campaign goals"
+        severity: "high"
+        red_flag: "Using Lowest Cost when strict CPA is needed; using Bid Cap on new campaigns"
+
+      - id: "BB-002"
+        check: "Budget is sufficient for the optimization event"
+        severity: "critical"
+        formula: "Minimum daily budget = target CPA x 10 (to achieve ~50 conversions/week)"
+        red_flag: "Daily budget of $20 optimizing for purchases with $50 CPA"
+
+      - id: "BB-003"
+        check: "No frequent learning phase resets from aggressive changes"
+        severity: "high"
+        how_to_verify: "Check change history for frequent budget changes >20%, targeting changes, etc."
+        red_flag: "Multiple edits per week causing perpetual learning phase"
+
+      - id: "BB-004"
+        check: "Scaling follows the 20% rule"
+        severity: "medium"
+        how_to_verify: "Review change history for budget increase patterns"
+
+# ============================================================================
+# SECTION 7: ATTRIBUTION AUDIT
+# ============================================================================
+
+attribution:
+
+  description: >
+    Evaluates attribution settings, conversion windows, iOS 14.5+ impact,
+    and Aggregated Event Measurement configuration. Attribution determines
+    how Meta counts conversions and directly affects reported ROAS, CPA,
+    and optimization.
+
+  attribution_windows:
+    description: >
+      Attribution windows define the time period after an ad click or view
+      in which a conversion is credited to the ad.
+
+    available_windows:
+      - window: "1-day click"
+        description: "Conversion within 1 day of clicking the ad"
+        notes: "Most conservative; required for iOS 14.5+ opted-out users"
+
+      - window: "7-day click"
+        description: "Conversion within 7 days of clicking the ad"
+        notes: "Default for most campaign types; recommended for most advertisers"
+
+      - window: "1-day view"
+        description: "Conversion within 1 day of viewing (not clicking) the ad"
+        notes: "Counts view-through conversions; adds to total conversions"
+
+      - window: "7-day click + 1-day view"
+        description: "Combines click and view attribution"
+        notes: "Default setting; captures both direct and influenced conversions"
+
+      - window: "28-day click"
+        description: "Conversion within 28 days of clicking"
+        notes: "DEPRECATED since January 2021 (iOS 14 changes). No longer available for new campaigns."
+        status: "deprecated"
+
+    audit_checks:
+      - id: "AT-001"
+        check: "Attribution window is appropriate for the business and sales cycle"
+        severity: "high"
+        decision_tree:
+          short_sales_cycle: "7-day click, 1-day view (ecommerce, impulse purchases)"
+          medium_sales_cycle: "7-day click (most businesses)"
+          conservative_reporting: "1-day click only (most conservative, closest to last-click)"
+        red_flag: >
+          Using 7-day click + 1-day view but comparing to Google Ads last-click
+          attribution without understanding the difference. View-through
+          conversions inflate Meta's reported numbers.
+
+      - id: "AT-002"
+        check: "Attribution settings are consistent across campaigns"
+        severity: "medium"
+        how_to_verify: "Ad set level > Optimization & Delivery > Attribution Setting"
+        red_flag: "Different attribution windows across campaigns making comparison impossible"
+
+  ios_14_5_impact:
+    description: >
+      Apple's App Tracking Transparency (ATT) framework requires iOS apps to
+      request permission before tracking. ~75-80% of iOS users opt out.
+      This significantly reduces Meta's ability to track conversions from
+      iOS devices.
+
+    effects:
+      - "Reduced conversion reporting (estimated 15-30% underreporting for iOS)"
+      - "Smaller retargeting audiences (iOS users who opt out are not added)"
+      - "Limited attribution windows for opted-out users (1-day click only)"
+      - "Delayed reporting (up to 72 hours for some conversions)"
+      - "Modeled/estimated conversions shown in reporting"
+
+    mitigations:
+      - "Implement Conversions API (CAPI) — server-side tracking bypasses browser limitations"
+      - "Verify domain ownership in Business Manager"
+      - "Use Aggregated Event Measurement (AEM)"
+      - "Send high-quality customer information parameters with CAPI events"
+      - "Use broad targeting to give algorithm more data signals"
+
+  aggregated_event_measurement:
+    description: >
+      AEM is Meta's privacy-focused framework for measuring conversions
+      from iOS 14.5+ users who opt out of tracking. Originally limited to
+      8 events per domain with priority ranking, Meta removed the 8-event
+      limit in mid-2025.
+
+    current_status_2026: >
+      As of mid-2025, the 8-event limit has been removed. Meta now supports
+      unlimited events without manual ranking or prioritization. The AEM
+      configuration tab has been removed from Events Manager. Event setup
+      is now automatic.
+
+    historical_context: >
+      Prior to mid-2025, advertisers had to select and rank up to 8 conversion
+      events per domain. Only the highest-ranked event from an opted-out iOS
+      user session was reported. This limitation no longer applies.
+
+    domain_verification:
+      description: >
+        Domain verification proves ownership of your website to Meta and was
+        originally required for AEM configuration. It remains a best practice.
+      how_to_verify: "Business Manager > Brand Safety > Domains — check for verified status"
+      methods: ["DNS TXT record", "HTML file upload", "Meta tag in <head>"]
+
+    audit_checks:
+      - id: "AT-010"
+        check: "Domain is verified in Business Manager"
+        severity: "high"
+        how_to_verify: "Business Manager > Brand Safety > Domains"
+        red_flag: "Domain not verified — may limit conversion optimization for iOS users"
+
+      - id: "AT-011"
+        check: "Key conversion events are receiving data from iOS users"
+        severity: "high"
+        how_to_verify: >
+          Events Manager > breakdown by platform. Compare iOS vs Android
+          event volumes. Some iOS drop-off is expected, but zero iOS events
+          indicates a configuration issue.
+
+# ============================================================================
+# SECTION 8: ADVANTAGE+ SHOPPING CAMPAIGNS (ASC)
+# ============================================================================
+
+advantage_plus_shopping:
+
+  description: >
+    Advantage+ Shopping Campaigns (now called Advantage+ Sales Campaigns)
+    are Meta's AI-driven campaign type for ecommerce. They automate targeting,
+    placements, creative selection, and budget allocation. In 2025-2026, ASC
+    consistently outperforms standard campaigns by 15-25% in ROAS for most
+    ecommerce advertisers.
+
+  setup_requirements:
+    - "Sales campaign objective"
+    - "Meta Pixel with Purchase event firing correctly (with value and currency)"
+    - "Conversions API recommended for best performance"
+    - "Product catalog connected (for catalog-based ads)"
+    - "Sufficient conversion history (50+ purchases in past 30 days recommended)"
+    - "Creative assets: minimum 5-10 ad creatives recommended, up to 150 supported"
+
+  key_features:
+    - feature: "Automated Targeting"
+      description: >
+        No manual audience selection. Meta's AI targets the full addressable
+        market and finds the best converters automatically.
+
+    - feature: "Existing Customer Controls"
+      description: >
+        Originally had an 'Existing Customer Budget Cap' (% of budget for
+        existing customers). This was REMOVED in 2025. Now use:
+        1) Exclude Custom Audiences of existing customers at ad set level
+        2) Use separate ad sets for new vs existing customer budgets
+      red_flag: "No existing customer definition set — budget may be spent re-acquiring existing customers"
+
+    - feature: "Creative Optimization"
+      description: >
+        ASC tests up to 150 ad creatives simultaneously and automatically
+        allocates budget to top performers. More creative diversity = better performance.
+
+    - feature: "All Placements"
+      description: "ASC uses all available placements by default (cannot be manually restricted)"
+
+  when_to_use_asc_vs_standard:
+    use_asc:
+      - "Ecommerce businesses with sufficient conversion volume"
+      - "When you have 5+ diverse creative assets"
+      - "When you want maximum algorithmic optimization"
+      - "When scaling proven creative"
+    use_standard:
+      - "When you need precise audience control"
+      - "When testing specific audience hypotheses"
+      - "Very low conversion volume (<20 purchases/month)"
+      - "Non-ecommerce objectives (leads, awareness)"
+
+  audit_checks:
+    - id: "ASC-001"
+      check: "ASC is being used for ecommerce Sales campaigns (or has been tested)"
+      severity: "high"
+      red_flag: "Ecommerce account with no ASC campaigns despite sufficient conversion volume"
+
+    - id: "ASC-002"
+      check: "Existing customer definition is configured"
+      severity: "high"
+      how_to_verify: >
+        ASC campaign settings > Existing Customers section. Should have a
+        Custom Audience defined (e.g., past purchasers, CRM list).
+      red_flag: "No existing customer audience defined — cannot measure new vs returning customer acquisition"
+
+    - id: "ASC-003"
+      check: "Sufficient creative diversity in ASC"
+      severity: "medium"
+      threshold: "Minimum 5-10 creatives, ideally mix of images, videos, carousels"
+      red_flag: "ASC running with only 1-2 ad creatives"
+
+    - id: "ASC-004"
+      check: "ASC performance is benchmarked against standard campaigns"
+      severity: "medium"
+      recommendation: >
+        Run ASC alongside a standard campaign for 2-4 weeks to compare ROAS.
+        ASC should outperform by 15-25% for most ecommerce accounts.
+
+# ============================================================================
+# SECTION 9: PLACEMENTS AUDIT
+# ============================================================================
+
+placements:
+
+  description: >
+    Evaluates placement strategy across Meta's family of apps.
+    In 2025-2026, Advantage+ Placements (automatic) is recommended for
+    most campaigns, as the algorithm optimizes delivery across all surfaces.
+
+  all_placements:
+    facebook:
+      - "Facebook Feed"
+      - "Facebook Marketplace"
+      - "Facebook Video Feeds"
+      - "Facebook Right Column (desktop only)"
+      - "Facebook Stories"
+      - "Facebook Reels"
+      - "Facebook In-Stream Video"
+      - "Facebook Search Results"
+      - "Facebook Instant Articles"
+
+    instagram:
+      - "Instagram Feed"
+      - "Instagram Stories"
+      - "Instagram Reels"
+      - "Instagram Explore"
+      - "Instagram Explore Home"
+      - "Instagram Shop"
+      - "Instagram Profile Feed"
+      - "Instagram Search Results"
+
+    messenger:
+      - "Messenger Inbox"
+      - "Messenger Stories"
+      - "Messenger Sponsored Messages"
+
+    audience_network:
+      - "Audience Network Native, Banner, Interstitial"
+      - "Audience Network Rewarded Video"
+
+    threads:
+      - "Threads Feed (new 2025)"
+
+  placement_strategy:
+    automatic_placements:
+      description: "Advantage+ Placements — Meta distributes ads across all placements automatically"
+      recommended: true
+      pros: "Lower costs, broader reach, algorithm optimizes per-user"
+      cons: "Less control over where ads appear"
+
+    manual_placements:
+      description: "Select specific placements manually"
+      recommended: false
+      when_to_use:
+        - "Specific creative that only works in certain placements (e.g., Stories-only vertical video)"
+        - "Brand safety concerns about Audience Network"
+        - "Placement-specific performance analysis"
+
+  audit_checks:
+    - id: "PL-001"
+      check: "Advantage+ Placements is enabled (or there is a strategic reason for manual)"
+      severity: "medium"
+      how_to_verify: "Ad set level > Placements section"
+      red_flag: "Manual placements with Feed-only selection — leaving performance on the table"
+
+    - id: "PL-002"
+      check: "Creative assets are optimized for key placements"
+      severity: "high"
+      how_to_verify: >
+        Check if ads have placement-specific creative (1:1 for Feed, 9:16 for
+        Stories/Reels). Asset customization should be used.
+      red_flag: "Only landscape (16:9) creative being used — will perform poorly in Stories/Reels"
+
+    - id: "PL-003"
+      check: "Placement-level performance is reviewed"
+      severity: "medium"
+      how_to_verify: >
+        Ads Manager > Breakdown > By Delivery > Placement. Export to see
+        CPM, CPC, CTR, CPA by placement.
+      action: "Identify underperforming placements and decide whether to optimize or exclude"
+
+# ============================================================================
+# SECTION 10: META ADS BENCHMARKS 2025-2026
+# ============================================================================
+
+benchmarks:
+
+  description: >
+    Industry benchmarks for key Meta Ads metrics. Use these as reference
+    points, not absolute targets — performance varies by vertical, offer,
+    creative quality, and market. Data sourced from industry reports
+    covering 2025-2026.
+
+  global_averages_all_industries:
+    ctr: "0.90-1.5%"
+    cpc: "$0.70-1.72"
+    cpm: "$7.47-14.00"
+    cvr: "7-9%"
+    cpa: "$18-28"
+    roas: "2.0-2.5x"
+
+  by_campaign_objective:
+    traffic:
+      avg_cpc: "$0.70"
+      avg_ctr: "1.57%"
+    lead_generation:
+      avg_cpl: "$27.66"
+      avg_cpc: "$1.92"
+      avg_ctr: "2.53%"
+      avg_cvr: "7.72%"
+    conversions_sales:
+      avg_cpa: "$18-25"
+      avg_roas: "2.0-4.0x"
+      avg_ctr: "1.0-1.4%"
+
+  by_industry:
+    ecommerce_general:
+      ctr: "1.0-1.3%"
+      cpc: "$0.70-1.20"
+      cpm: "$8-12"
+      cvr: "5-10%"
+      cpa: "$15-30"
+      roas: "3.0-4.0x (blended), 2.0-3.0x (prospecting), 6.0-10.0x (retargeting)"
+
+    apparel_fashion:
+      ctr: "1.24%"
+      cpc: "$0.45"
+      cpm: "$7-10"
+
+    automotive:
+      ctr: "0.80%"
+      cpc: "$1.50-2.00"
+      roas: "6.76x"
+
+    b2b_saas:
+      ctr: "0.78%"
+      cpc: "$2.00-3.50"
+      cpl: "$30-60"
+      roas: "1.5-2.0x"
+
+    legal:
+      ctr: "1.61%"
+      cpc: "$1.30-2.50"
+
+    retail:
+      ctr: "1.59%"
+      cpc: "$0.50-1.00"
+
+    travel:
+      ctr: "0.90%"
+      cpc: "$0.63"
+
+    health_wellness:
+      ctr: "1.0%"
+      cpc: "$1.00-1.50"
+
+    finance_insurance:
+      ctr: "0.56%"
+      cpc: "$2.50-4.00"
+      cpl: "$40-80"
+
+    education:
+      ctr: "0.73%"
+      cpc: "$1.00-2.00"
+      cpl: "$20-40"
+
+    real_estate:
+      ctr: "0.98%"
+      cpc: "$1.50-2.50"
+      cpl: "$15-35"
+
+  by_platform_cpm:
+    facebook: "$7.47-10.00"
+    instagram: "$6.25-9.00"
+    audience_network: "$3.00-6.00"
+    messenger: "$5.00-8.00"
+
+  2026_outlook:
+    ctr_range: "1.4-1.7% (expected average)"
+    asc_improvement: "15-25% ROAS improvement over standard campaigns"
+    note: >
+      Costs generally increasing year-over-year due to more advertisers
+      on platform and privacy-related signal loss. Creative quality is
+      the primary differentiator.
+
+# ============================================================================
+# SECTION 11: CATALOG / PRODUCT FEED AUDIT
+# ============================================================================
+
+catalog_product_feed:
+
+  description: >
+    Evaluates the Meta Commerce Manager catalog setup and product feed
+    quality for dynamic ads (Advantage+ Catalog Ads). A well-optimized
+    feed is essential for dynamic ad performance.
+
+  required_fields:
+    - field: "id"
+      description: "Unique product identifier"
+      type: "string"
+      notes: "Must match content_ids sent by pixel/CAPI events"
+
+    - field: "title"
+      description: "Product name"
+      type: "string"
+      max_length: "200 characters"
+      best_practice: "Include key attributes (brand, product type, color, size)"
+
+    - field: "description"
+      description: "Product description"
+      type: "string"
+      max_length: "9999 characters"
+
+    - field: "availability"
+      description: "Product availability"
+      type: "string"
+      values: ["in stock", "out of stock", "preorder", "available for order", "discontinued"]
+
+    - field: "condition"
+      description: "Product condition"
+      type: "string"
+      values: ["new", "refurbished", "used"]
+
+    - field: "price"
+      description: "Product price with currency"
+      type: "string"
+      format: "100.00 USD"
+      notes: "Must include currency ISO code"
+
+    - field: "link"
+      description: "Product page URL"
+      type: "string"
+      notes: "Must be a valid, accessible URL"
+
+    - field: "image_link"
+      description: "Main product image URL"
+      type: "string"
+      min_resolution: "500x500 pixels"
+      recommended_resolution: "1024x1024 pixels or higher"
+      notes: "White background recommended, no watermarks, no promotional text"
+
+    - field: "brand"
+      description: "Product brand name"
+      type: "string"
+      notes: "Required if no GTIN or MPN. At least one of brand/GTIN/MPN is required."
+
+  recommended_fields:
+    - field: "sale_price"
+      description: "Discounted price (if on sale)"
+    - field: "gtin"
+      description: "Global Trade Item Number (UPC, EAN, ISBN)"
+    - field: "mpn"
+      description: "Manufacturer Part Number"
+    - field: "google_product_category"
+      description: "Google product taxonomy category"
+    - field: "product_type"
+      description: "Your own product categorization"
+    - field: "additional_image_link"
+      description: "Additional product images (up to 10)"
+    - field: "color"
+      description: "Product color"
+    - field: "size"
+      description: "Product size"
+    - field: "gender"
+      description: "Target gender"
+    - field: "age_group"
+      description: "Target age group"
+    - field: "material"
+      description: "Product material"
+    - field: "pattern"
+      description: "Product pattern"
+    - field: "custom_label_0 through custom_label_4"
+      description: "Custom labels for campaign segmentation (e.g., margin tier, bestseller, seasonal)"
+
+  feed_formats:
+    - "CSV"
+    - "TSV"
+    - "XML (RSS/ATOM)"
+    - "Google Sheets"
+    - "XLSX"
+
+  dynamic_media_2025_update: >
+    As of October 2025, Meta enforces Dynamic Media by default for all new
+    Advantage+ Catalog ads. This adds automatic creative enhancements
+    (overlays, effects) to catalog product images unless explicitly disabled.
+
+  audit_checks:
+    - id: "CAT-001"
+      check: "Product catalog is connected and active in Commerce Manager"
+      severity: "critical"
+      how_to_verify: "Commerce Manager > Catalog > check status and item count"
+
+    - id: "CAT-002"
+      check: "All required fields are populated and valid"
+      severity: "critical"
+      how_to_verify: "Commerce Manager > Diagnostics tab > check for errors and warnings"
+      red_flag: "Errors preventing items from appearing in ads"
+
+    - id: "CAT-003"
+      check: "Product IDs in feed match content_ids from Pixel/CAPI events"
+      severity: "critical"
+      how_to_verify: >
+        Compare 'id' field in catalog export with content_ids parameter
+        in Events Manager pixel events.
+      red_flag: "ID mismatch means dynamic ads show wrong products or no products"
+
+    - id: "CAT-004"
+      check: "Product images meet quality standards"
+      severity: "high"
+      threshold: "Minimum 500x500px, recommended 1024x1024px"
+      red_flag: "Low-resolution images, watermarks, promotional text overlays, inconsistent backgrounds"
+
+    - id: "CAT-005"
+      check: "Feed is updated regularly"
+      severity: "high"
+      best_practice: "Daily feed updates for price and availability accuracy"
+      red_flag: "Feed last updated weeks ago — out-of-stock products being advertised"
+
+    - id: "CAT-006"
+      check: "At least one of brand, GTIN, or MPN is populated for each product"
+      severity: "high"
+      red_flag: "Products missing all three identifiers will be rejected"
+
+    - id: "CAT-007"
+      check: "Custom labels are used for campaign segmentation"
+      severity: "medium"
+      examples: ["custom_label_0: margin tier (high/medium/low)", "custom_label_1: bestseller (yes/no)", "custom_label_2: seasonal (spring/summer/etc.)"]
+      use_case: "Enables product set creation for targeted catalog campaigns"
+
+# ============================================================================
+# SECTION 12: REPORTING & DIAGNOSTICS
+# ============================================================================
+
+reporting_and_diagnostics:
+
+  description: >
+    Evaluates the use of Ads Manager reporting features, column configuration,
+    breakdown dimensions, delivery insights, and ad relevance diagnostics.
+
+  key_ads_manager_columns:
+    performance:
+      - "Results"
+      - "Cost per Result"
+      - "Amount Spent"
+      - "Impressions"
+      - "Reach"
+      - "Frequency"
+      - "CPM (Cost per 1,000 Impressions)"
+
+    clicks:
+      - "Link Clicks"
+      - "CTR (Link Click-Through Rate)"
+      - "CPC (Cost per Link Click)"
+      - "Unique Link Clicks"
+      - "Outbound Clicks"
+      - "Landing Page Views"
+      - "Cost per Landing Page View"
+
+    conversions:
+      - "Purchases"
+      - "Purchase ROAS"
+      - "Purchase Conversion Value"
+      - "Cost per Purchase"
+      - "Add to Cart"
+      - "Cost per Add to Cart"
+      - "Initiate Checkout"
+      - "Leads"
+      - "Cost per Lead"
+      - "Complete Registrations"
+
+    engagement:
+      - "Post Engagement"
+      - "Post Reactions"
+      - "Post Comments"
+      - "Post Shares"
+      - "Post Saves"
+      - "Video Views (3-second, ThruPlay)"
+      - "Video Average Play Time"
+
+    delivery:
+      - "Delivery (Active, Inactive, Learning, Learning Limited, Error)"
+      - "Bid Strategy"
+      - "Budget"
+      - "Schedule"
+      - "Attribution Setting"
+
+  breakdown_dimensions:
+    by_delivery:
+      - "Age"
+      - "Gender"
+      - "Age and Gender"
+      - "Country"
+      - "Region"
+      - "Placement"
+      - "Platform (Facebook, Instagram, Messenger, Audience Network)"
+      - "Device (Mobile, Desktop)"
+      - "Time of Day"
+
+    by_action:
+      - "Conversion Device"
+      - "Carousel Card"
+      - "Destination"
+      - "Video View Type"
+      - "Video Sound"
+
+    by_time:
+      - "Day"
+      - "Week"
+      - "2 Weeks"
+      - "Month"
+
+  ad_relevance_diagnostics:
+    description: >
+      Meta provides three diagnostic metrics for ads with 500+ impressions.
+      These compare your ad against others targeting the same audience.
+
+    metrics:
+      - metric: "Quality Ranking"
+        description: "Perceived quality compared to competing ads (same audience)"
+        values: ["Below Average", "Average (35th-55th percentile)", "Above Average"]
+        affected_by: "Ad creative quality, user feedback (hides, reports), post-click experience"
+
+      - metric: "Engagement Rate Ranking"
+        description: "Expected engagement rate compared to competing ads"
+        values: ["Below Average", "Average (35th-55th percentile)", "Above Average"]
+        affected_by: "Creative appeal, relevance to audience, ad format"
+
+      - metric: "Conversion Rate Ranking"
+        description: "Expected conversion rate compared to competing ads (same optimization goal)"
+        values: ["Below Average", "Average (35th-55th percentile)", "Above Average"]
+        affected_by: "Landing page experience, offer quality, funnel alignment"
+
+    interpretation:
+      all_below_average: "Complete ad overhaul needed — creative, targeting, and landing page"
+      low_quality_only: "Improve creative quality, reduce clickbait, fix landing page"
+      low_engagement_only: "Make creative more compelling, test new formats, improve hook"
+      low_conversion_only: "Fix landing page, improve offer, check funnel for friction"
+      priority: "Focus on improving 'Below Average' rankings — moving from low to average has more impact than average to above average"
+
+    audit_checks:
+      - id: "RD-001"
+        check: "Ad Relevance Diagnostics are monitored for active ads"
+        severity: "medium"
+        how_to_verify: >
+          Add Quality Ranking, Engagement Rate Ranking, and Conversion Rate
+          Ranking columns to Ads Manager view. Review for ads with 500+ impressions.
+        red_flag: "Multiple ads with 'Below Average' on all three rankings"
+
+  account_quality:
+    description: >
+      Account Quality dashboard shows policy violations, ad rejections,
+      and account health. Poor account quality can limit delivery.
+    how_to_access: "Business Manager > Account Quality (left menu)"
+    audit_checks:
+      - id: "RD-010"
+        check: "No active policy violations or restrictions"
+        severity: "critical"
+        red_flag: "Account restrictions, ad rejections, or policy strikes"
+
+  opportunity_score:
+    description: >
+      New in 2025-2026: Meta's Opportunity Score rates your account 0-100
+      based on how well you're following Meta's recommended practices.
+    how_to_access: "Ads Manager > Opportunity Score (if available)"
+    threshold: "Score below 50 indicates significant optimization opportunities"
+
+# ============================================================================
+# SECTION 13: COMMON MISTAKES & RED FLAGS
+# ============================================================================
+
+common_mistakes_and_red_flags:
+
+  description: >
+    Critical issues frequently found during Meta Ads audits. These are
+    the highest-impact problems to identify and fix.
+
+  tracking_red_flags:
+    - id: "RF-001"
+      issue: "No Conversions API (CAPI) implemented"
+      severity: "critical"
+      impact: >
+        15-30% conversion underreporting from iOS users, reduced ad
+        optimization, higher CPAs. CAPI is no longer optional in 2025-2026.
+      fix: "Implement CAPI via partner integration, GTM server-side, or direct API"
+
+    - id: "RF-002"
+      issue: "Low Event Match Quality (EMQ) score (<6)"
+      severity: "critical"
+      impact: "Poor event-to-user matching, degraded optimization, inflated CPAs"
+      fix: "Send additional customer information parameters (em, ph, fbc, fbp, external_id)"
+
+    - id: "RF-003"
+      issue: "No event deduplication between Pixel and CAPI"
+      severity: "critical"
+      impact: "Conversions counted twice, inflated ROAS, incorrect optimization signals"
+      fix: "Implement event_id on both Pixel and CAPI events for same actions"
+
+    - id: "RF-004"
+      issue: "Purchase event missing value/currency parameters"
+      severity: "critical"
+      impact: "Cannot use ROAS bidding, no revenue reporting, broken value optimization"
+      fix: "Add value (decimal) and currency (ISO 4217 code) to all Purchase events"
+
+  audience_red_flags:
+    - id: "RF-010"
+      issue: "High audience overlap between ad sets (>30%)"
+      severity: "high"
+      impact: "Self-competition in auctions, increased costs, inconsistent delivery"
+      fix: "Consolidate overlapping ad sets or use exclusions"
+
+    - id: "RF-011"
+      issue: "No audience exclusions on prospecting campaigns"
+      severity: "high"
+      impact: "Budget wasted re-acquiring existing customers"
+      fix: "Exclude purchasers/converters Custom Audience from prospecting"
+
+    - id: "RF-012"
+      issue: "Over-segmentation — too many small ad sets"
+      severity: "high"
+      impact: >
+        Ad sets starved of budget, stuck in learning phase, poor optimization.
+        Each ad set needs ~50 conversions/week to optimize properly.
+      fix: "Consolidate into fewer, larger ad sets with broader targeting"
+
+    - id: "RF-013"
+      issue: "No broad/Advantage+ targeting tested"
+      severity: "medium"
+      impact: "Potentially missing better performance from algorithmic targeting"
+      fix: "Test Advantage+ Audience alongside manual targeting"
+
+  creative_red_flags:
+    - id: "RF-020"
+      issue: "Creative fatigue — high frequency + declining CTR/rising CPA"
+      severity: "high"
+      impact: "Wasted spend, declining performance, audience burnout"
+      fix: "Refresh creative every 10-14 days or when frequency exceeds 3 (prospecting)"
+
+    - id: "RF-021"
+      issue: "No creative testing in place"
+      severity: "high"
+      impact: "No pipeline of fresh creative, performance decline over time"
+      fix: "Establish testing campaign with regular new creative additions (3-6 variants)"
+
+    - id: "RF-022"
+      issue: "Only one ad format used (e.g., only static images)"
+      severity: "medium"
+      impact: "Missing placements that favor video (Reels, Stories), limited engagement"
+      fix: "Test video, carousel, and collection formats alongside images"
+
+    - id: "RF-023"
+      issue: "No vertical (9:16) creative for Stories/Reels"
+      severity: "medium"
+      impact: "Poor performance in fastest-growing placements"
+      fix: "Create 9:16 assets for Stories and Reels placements"
+
+  optimization_red_flags:
+    - id: "RF-030"
+      issue: "Wrong attribution window — comparing unlike data across platforms"
+      severity: "high"
+      impact: "Misleading ROAS/CPA comparisons, incorrect budget allocation"
+      fix: "Standardize attribution windows and understand view-through vs click-through"
+
+    - id: "RF-031"
+      issue: "Frequent learning phase resets from aggressive changes"
+      severity: "high"
+      impact: "Algorithm never stabilizes, consistently higher CPAs"
+      fix: "Follow 20% budget increase rule, batch changes, minimize edits"
+
+    - id: "RF-032"
+      issue: "Optimizing for wrong event in funnel"
+      severity: "high"
+      impact: "Attracting wrong user intent (e.g., optimizing for Landing Page Views when you want Purchases)"
+      fix: "Optimize for the event closest to revenue that has sufficient volume (50+/week)"
+
+    - id: "RF-033"
+      issue: "No frequency cap on awareness/reach campaigns"
+      severity: "medium"
+      impact: "Budget waste on excessive impressions to same users"
+      fix: "Set frequency cap (e.g., 2 impressions per week for awareness)"
+
+    - id: "RF-034"
+      issue: "CBO enabled but ad sets have very different audience sizes"
+      severity: "medium"
+      impact: "Budget skews to largest audience, smaller audiences get no delivery"
+      fix: "Use similar-sized audiences with CBO, or switch to ABO for unequal audiences"
+
+# ============================================================================
+# SECTION 14: GDPR / CONSENT FOR META
+# ============================================================================
+
+gdpr_and_consent:
+
+  description: >
+    Evaluates GDPR compliance, consent management, and Meta's data processing
+    requirements for EU/EEA users. Non-compliance risks fines, account
+    restrictions, and data processing limitations.
+
+  meta_consent_mode:
+    description: >
+      Meta Consent Mode is a privacy framework that gates Meta Pixel and
+      CAPI data collection based on user consent status. When a user
+      declines consent, the Pixel and CAPI should not fire tracking events
+      or should fire in a limited/anonymized mode.
+
+    implementation: >
+      The CMP (Consent Management Platform) checks user consent before
+      allowing the Meta Pixel to initialize. The fbq('consent', 'grant')
+      and fbq('consent', 'revoke') functions control Pixel behavior based
+      on consent status.
+
+    functions:
+      - "fbq('consent', 'revoke') — blocks Pixel before consent is given"
+      - "fbq('consent', 'grant') — enables Pixel after consent is granted"
+
+  limited_data_use:
+    description: >
+      Meta's Limited Data Use (LDU) flag restricts how Meta processes data
+      for users in specific jurisdictions (California CCPA, and potentially
+      other regions). When LDU is enabled, Meta limits data processing to
+      essential operations only.
+
+    implementation: >
+      fbq('dataProcessingOptions', ['LDU'], 0, 0) — enables LDU with
+      automatic geo-detection. Can also specify state (e.g., 1000 for
+      California). For CAPI: include data_processing_options parameter.
+
+  eu_requirements:
+    - requirement: "Obtain explicit consent before firing Meta Pixel (GDPR Art. 6/7)"
+      severity: "critical"
+      notes: "Pixel must not fire until user actively consents to marketing cookies"
+
+    - requirement: "Implement a TCF 2.2 compliant CMP"
+      severity: "critical"
+      notes: "Required for EU/EEA traffic. Meta supports IAB Transparency and Consent Framework"
+
+    - requirement: "Record and store consent evidence"
+      severity: "critical"
+      notes: "Meta may request proof of consent. Store when, where, and how consent was obtained."
+
+    - requirement: "Provide option for 'Less Personalized Ads'"
+      severity: "high"
+      notes: "Since January 2025, Meta requires EU users be offered choice between personalized and less personalized ads"
+
+    - requirement: "CAPI events respect consent status"
+      severity: "critical"
+      notes: "Server-side events must also be gated by consent — do not send CAPI events for users who declined consent"
+
+  cmp_integrations:
+    description: >
+      Consent Management Platforms that integrate with Meta Pixel/CAPI
+      to automate consent-based firing.
+
+    supported_cmps:
+      - name: "Iubenda"
+        integration: "Google-certified CMP, supports TCF 2.2, integrates with Meta Pixel via consent callback"
+        notes: "Can block pixel until consent, then fire fbq('consent', 'grant')"
+
+      - name: "Cookiebot (Cybot)"
+        integration: "TCF 2.2, auto-blocks Meta Pixel scripts until consent"
+
+      - name: "OneTrust"
+        integration: "Enterprise CMP, TCF 2.2, Meta Pixel integration via tag categorization"
+
+      - name: "CookieScript"
+        integration: "Templates for Meta Pixel consent integration"
+
+      - name: "Consentmo"
+        integration: "Shopify-focused CMP with Meta Pixel consent support"
+
+      - name: "Osano"
+        integration: "CMP with Meta integration support"
+
+  audit_checks:
+    - id: "GDPR-001"
+      check: "Meta Pixel does not fire before user consent (EU/EEA traffic)"
+      severity: "critical"
+      how_to_verify: >
+        In an EU browser (or VPN), visit the site. Before accepting cookies,
+        check Pixel Helper — it should show NO pixel activity. After consent,
+        Pixel should initialize.
+      red_flag: "Pixel fires on page load before any consent interaction"
+
+    - id: "GDPR-002"
+      check: "CMP is implemented and properly configured"
+      severity: "critical"
+      how_to_verify: "Cookie banner appears for EU traffic, offers granular consent choices"
+      red_flag: "No cookie banner, or banner with only 'Accept' (no reject option)"
+
+    - id: "GDPR-003"
+      check: "CAPI events respect consent status"
+      severity: "critical"
+      how_to_verify: >
+        Verify server-side implementation checks consent status before
+        sending events to Meta API.
+      red_flag: "CAPI events sent for all users regardless of consent"
+
+    - id: "GDPR-004"
+      check: "Limited Data Use is configured for applicable jurisdictions"
+      severity: "high"
+      how_to_verify: "Check pixel code or GTM for dataProcessingOptions implementation"
+      red_flag: "CCPA-applicable traffic with no LDU flag"
+
+    - id: "GDPR-005"
+      check: "Consent records are maintained and auditable"
+      severity: "high"
+      notes: "Meta's 2025 policy requires advertisers to provide evidence of consent upon request"
+
+# ============================================================================
+# SECTION 15: 2025-2026 META ADS CHANGES
+# ============================================================================
+
+meta_ads_changes_2025_2026:
+
+  description: >
+    Key platform changes and new features that affect how Meta Ads accounts
+    should be set up and managed. Auditors should verify accounts have
+    adapted to these changes.
+
+  advantage_plus_expansion:
+    changes:
+      - change: "Advantage+ is now the default for Sales, Leads, and App Promotion objectives"
+        date: "Early 2026"
+        impact: "Old campaign structures automatically use Advantage+ settings"
+        audit_action: "Verify advertisers understand which Advantage+ features are active"
+
+      - change: "Advantage+ Shopping renamed to Advantage+ Sales"
+        date: "2025"
+        impact: "Same functionality, new name; also available for non-shopping Sales campaigns"
+
+      - change: "Existing Customer Budget Cap removed from ASC"
+        date: "2025"
+        impact: "Must use audience exclusions or separate ad sets to control new vs existing customer spend"
+        audit_action: "Check if existing customer controls are properly configured"
+
+      - change: "Advantage+ Audience replaces interest/behavior targeting as default"
+        date: "2025-2026"
+        impact: "Manual audience selections become 'suggestions' not restrictions"
+
+  threads_advertising:
+    changes:
+      - change: "Threads Feed placement available for ads"
+        date: "2025"
+        impact: "New placement option — 400M+ users by early 2026"
+        formats: ["Static image", "Carousel", "Video"]
+        notes: "Text-first environment; ads should feel native to conversations"
+
+  ai_creative_tools:
+    changes:
+      - change: "Image-to-Video AI tool"
+        date: "Q4 2025"
+        description: "Turn up to 20 product photos into multi-scene video ads"
+        impact: "Reduces need for external video production"
+
+      - change: "Generative AI for ad text and images"
+        date: "2025"
+        description: "AI generates ad copy variations, background images, and creative elements"
+        adoption: "4M+ advertisers using generative AI tools"
+
+      - change: "AI dubbing for video ads"
+        date: "2025"
+        description: "Automatic translation and dubbing in 9 languages"
+
+      - change: "Full campaign automation from URL"
+        date: "Testing 2026"
+        description: >
+          Input product URL + budget, Meta generates complete campaign
+          (creative, targeting, placements, budget allocation)
+        status: "Testing — broader availability expected later 2026"
+
+  attribution_and_measurement:
+    changes:
+      - change: "8-event limit removed from AEM"
+        date: "Mid-2025"
+        impact: "Unlimited events supported, no more manual prioritization"
+        audit_action: "Old event priority configurations are obsolete"
+
+      - change: "Improved modeled conversions"
+        date: "2025-2026"
+        impact: "Better estimation of conversions from opted-out iOS users"
+        notes: "Modeled data included in standard reporting"
+
+      - change: "Opportunity Score (0-100)"
+        date: "2025"
+        description: "Account health check-up score based on Meta's best practices"
+
+  privacy_changes:
+    changes:
+      - change: "EU Less Personalized Ads option"
+        date: "January 2025"
+        impact: "Users can opt for reduced personalization; affects targeting and optimization"
+
+      - change: "Enhanced consent record requirements"
+        date: "2025"
+        impact: "Advertisers must maintain detailed consent records for EU users"
+
+      - change: "Meta Consent Mode"
+        date: "2025"
+        impact: "Framework for gating pixel/CAPI based on consent; integration with CMPs"
+
+  andromeda_algorithm_update:
+    description: >
+      Meta's Andromeda update (2025-2026) significantly improved the ad
+      retrieval and ranking system, processing more ads per auction.
+    impact:
+      - "Better performance for broad targeting"
+      - "Improved delivery for smaller advertisers"
+      - "Creative quality and diversity more important than ever"
+      - "Narrow targeting less effective as algorithm handles audience finding"
+
+  business_ai_assistant:
+    description: >
+      Meta is testing an AI business assistant for advertisers that provides
+      personalized optimization recommendations and account support.
+    status: "Testing, expanding in 2026"
+
+  audit_checks:
+    - id: "CH-001"
+      check: "Account has adapted to Advantage+ as default"
+      severity: "high"
+      red_flag: "Fighting Advantage+ settings or not understanding which automations are active"
+
+    - id: "CH-002"
+      check: "Account has adapted to post-iOS 14.5 tracking requirements"
+      severity: "critical"
+      red_flag: "No CAPI, no domain verification, relying solely on browser pixel"
+
+    - id: "CH-003"
+      check: "Creative strategy accounts for AI tools and format diversity"
+      severity: "medium"
+      red_flag: "Not testing video, not using Advantage+ Creative, no creative refresh pipeline"
+
+    - id: "CH-004"
+      check: "Consent and privacy compliance is up to date"
+      severity: "critical"
+      red_flag: "No CMP for EU traffic, no LDU for CCPA, pixel fires without consent"
+
+# ============================================================================
+# SCORING FRAMEWORK
+# ============================================================================
+
+scoring:
+  description: >
+    Each audit check has a severity that maps to point weights. The overall
+    audit score is calculated as a percentage of maximum possible points.
+
+  severity_weights:
+    critical: 10
+    high: 5
+    medium: 3
+    low: 1
+
+  grade_thresholds:
+    A: "90-100%"
+    B: "75-89%"
+    C: "60-74%"
+    D: "40-59%"
+    F: "0-39%"
+
+  scoring_formula: >
+    Score = (sum of passed check weights / sum of all applicable check weights) x 100.
+    Non-applicable checks (e.g., catalog checks for non-ecommerce) are excluded
+
+# ============================================================================
+# SECTION 16: ECOMMERCE-SPECIFIC DEEP DIVE
+# ============================================================================
+
+ecommerce_specific:
+
+  pixel_ecommerce_events:
+    description: "Specifiche complete parametri per ogni evento ecommerce standard"
+    events:
+      ViewContent:
+        required_params: ["content_ids", "content_type", "value", "currency"]
+        recommended_params: ["content_name", "content_category"]
+        notes: "content_ids DEVE corrispondere al campo id nel feed prodotti"
+      AddToCart:
+        required_params: ["content_ids", "content_type", "value", "currency"]
+        recommended_params: ["content_name", "num_items"]
+      InitiateCheckout:
+        required_params: ["content_ids", "content_type", "value", "currency"]
+        recommended_params: ["num_items"]
+      Purchase:
+        required_params: ["content_ids", "content_type", "value", "currency"]
+        recommended_params: ["num_items", "order_id"]
+        critical_notes:
+          - "value e currency sono OBBLIGATORI per Purchase"
+          - "order_id necessario per deduplication con CAPI"
+          - "content_ids deve matchare il feed per DPA"
+      AddPaymentInfo:
+        required_params: ["content_ids", "content_type", "value", "currency"]
+      AddToWishlist:
+        required_params: ["content_ids", "content_type"]
+        recommended_params: ["content_name", "value", "currency"]
+      Search:
+        required_params: ["search_string"]
+        recommended_params: ["content_ids", "content_type"]
+    content_type_values:
+      product: "Per prodotti individuali"
+      product_group: "Per varianti (colore/taglia) — usa il group ID"
+    critical_rule: "content_ids nel Pixel DEVE corrispondere a id nel feed prodotti per DPA"
+
+  advantage_plus_shopping:
+    description: "Advantage+ Shopping Campaigns (ASC) per ecommerce"
+    performance_benchmarks:
+      roas_lift: "+22% medio vs campagne manuali"
+      cpa_reduction: "-17% medio vs campagne tradizionali"
+      ai_bidding_roas: "+27% ROAS vs bidding manuale"
+    existing_customer_cap:
+      status: "RIMOSSO nel 2025"
+      previous: "Cap al 10-20% per focus acquisizione"
+      workaround: "Creare campagna Sales manuale con esclusione audience clienti esistenti"
+      risk: "Senza cap, ASC over-delivera a clienti esistenti gonfiando ROAS"
+    creative_requirements:
+      minimum: "10-20+ variazioni creative"
+      mix: "Static + Video + Carousel + UGC"
+      refresh: "Ogni 7-14 giorni per prevenire fatigue"
+    scaling:
+      - "Partire con $100-200/giorno, validare ROAS per 7 giorni"
+      - "Scalare 20-30% ogni 3-5 giorni"
+      - "Aggiungere creative fresche prima di aumentare budget"
+    when_underperforms:
+      - "Catalogo piccolo (<50 prodotti)"
+      - "Audience molto di nicchia"
+      - "Serve controllo strict su new customer acquisition"
+      - "Poche variazioni creative (<5)"
+      - "Budget <$50/giorno (learning insufficiente)"
+
+  dynamic_product_ads:
+    feed_required_fields:
+      - { field: "id", notes: "Unico per prodotto, deve matchare content_ids nel Pixel" }
+      - { field: "title", notes: "Max 200 chars, consigliato <65 per troncamento. No testo promo." }
+      - { field: "description", notes: "Max 9999 chars, deve differire dal titolo" }
+      - { field: "availability", notes: "in stock, out of stock, preorder, available for order" }
+      - { field: "condition", notes: "new, refurbished, used" }
+      - { field: "price", notes: "Formato: 29.99 USD (numero + codice ISO valuta)" }
+      - { field: "link", notes: "URL pagina prodotto completa" }
+      - { field: "image_link", notes: "1200x1200 (single), 1080x1080 (carousel). Min 500x500." }
+      - { field: "brand", notes: "Obbligatorio se mancano mpn e gtin" }
+    product_set_strategies:
+      best_sellers: "custom_label_0 = 'best_seller' → bid più alto"
+      high_margin: "custom_label_1 = 'high_margin' → priorità spesa"
+      seasonal: "custom_label_2 = 'spring_2026' → campagne limitate"
+      price_tiers: "custom_label_3 = 'under_50'/'50_100'/'over_100' → segmento per AOV"
+      clearance: "custom_label_4 = 'clearance' → bidding aggressivo"
+    dynamic_media_2025: "Da ottobre 2025, Dynamic Media è default per tutti i nuovi Advantage+ Catalog ads"
+
+  capi_ecommerce:
+    emq_targets:
+      purchase: "8.8 - 9.3"
+      add_to_cart: "8.0+"
+      view_content: "6.5 - 7.5"
+    parameter_priority:
+      - { param: "em", description: "Email hashata — gold standard per matching" }
+      - { param: "ph", description: "Telefono hashato — quasi equivalente a email" }
+      - { param: "fn/ln", description: "Nome/cognome hashati" }
+      - { param: "fbc", description: "Facebook click ID (dal parametro URL fbclid)" }
+      - { param: "fbp", description: "Facebook browser ID (dal cookie _fbp)" }
+      - { param: "ct/st/zp/country", description: "Dati localizzazione hashati" }
+      - { param: "external_id", description: "Il tuo customer ID, hashato" }
+      - { param: "client_ip_address/client_user_agent", description: "Dati tecnici" }
+    deduplication:
+      method: "Stesso event_id + stesso event_name = Meta conta una sola volta"
+      window: "48 ore"
+      without_dedup: "Conversioni doppie, ROAS gonfiato, budget sprecato, audience corrotte"
+    shopify_known_issues:
+      - "Shopify modifica valori fbclid nei parametri fbc, degradando match quality"
+      - "Non tutte le varianti prodotto (colore/taglia) si sincronizzano correttamente"
+      - "Discrepanze inventario: Meta mostra 'out of stock' quando Shopify ha stock"
+      - "Sync collezioni solo per store USA; non-USA devono creare in Commerce Manager"
+      - "Rifiuti prodotti silenziosi senza alert"
+      - "EMQ nativo tipicamente 5-7 (vs 8+ con implementazione custom)"
+      - "Dominio checkout diverso dal dominio store"
+      - "Installazioni Pixel duplicate se app nativa + codice manuale"
+    enhancement_options:
+      - "Elevar / Analyzify / TrackBee: tracking server-side per CAPI più ricco"
+      - "GTM server-side container: controllo completo su tutti i parametri"
+      - "Shopify Web Pixels API: codice custom in ambiente sandboxed"
+
+  remarketing_ecommerce:
+    audience_windows:
+      all_visitors: { source: "PageView", window: "30-180 giorni" }
+      product_viewers: { source: "ViewContent", window: "7-14 giorni (hot), 14-30 (warm)" }
+      cart_abandoners: { source: "AddToCart NOT Purchase", window: "3-7 giorni (hot), 7-14 (warm)" }
+      checkout_abandoners: { source: "InitiateCheckout NOT Purchase", window: "1-3 giorni" }
+      purchasers: { source: "Purchase", window: "30-180 giorni (esclusione o cross-sell)" }
+      repeat_purchasers: { source: "Purchase freq >1", window: "365 giorni (VIP)" }
+    dpa_roas_benchmarks:
+      cart_abandoner: "8-12x tipico"
+      product_viewer: "3-5x tipico"
+    cross_sell_strategies:
+      - "Acquirenti Categoria A → mostra Categoria B complementare"
+      - "Acquirenti prodotto base → mostra versione premium (upsell)"
+      - "Acquirenti consumabili → target a intervallo riordino (30/60/90 giorni)"
+    value_based_lookalikes:
+      source: "Customer list con valori LTV in dollari (non ranking)"
+      percentage: "1% lookalike dal top 25% clienti per LTV"
+      learning_period: "21-35 giorni per ottimizzazione LTV stabile"
+      best_source: "Acquirenti 180 giorni con valori LTV"
+
+  creative_strategy_ecommerce:
+    ugc_vs_studio:
+      ugc_engagement_lift: "+28% vs contenuto branded/studio"
+      recommended_mix: "60% UGC / 40% studio"
+    video_best_practices:
+      optimal_length: "15-30 secondi"
+      sound_off_rate: "85% degli utenti guarda senza audio — sottotitoli obbligatori"
+      best_format: "4:5 verticale con PNG prodotto, caption bold, CTA grafiche"
+    carousel_2025: "Nuova opzione: primo card statico/video + prodotti catalogo dinamici con link a PDP"
+    testing_framework:
+      budget_split: "70% proven winners / 20% variazioni iterative / 10% concept nuovi"
+      minimum_per_test: "$50-100/giorno per significatività statistica"
+      declare_winner: "Dopo 1000+ impressioni o 3-5 giorni minimo"
+
+  ecommerce_benchmarks_2025:
+    overall:
+      ctr: "0.90% (media globale); 1.71% apparel; 1.16% beauty"
+      cpc: "$1.72 (media); $0.45 apparel; $0.70 retail"
+      cpm: "$19.66 (up 81% da 2024)"
+      cvr: "9.21% (media); 7.10% beauty"
+      cpa: "$18.68 (media); $25.49 beauty; $21.47 retail"
+      roas: "2.19:1 mediano; retargeting 3.61:1; prospecting 2.19:1"
+
+  ios_privacy_impact:
+    att_opt_in_rate: "~25% (75% utenti iOS opta OUT)"
+    conversion_modeling: "Meta usa modelli probabilistici/statistici per stimare conversioni opt-out"
+    underreporting_gap: "20-40% senza CAPI; CAPI chiude significativamente il gap"
+    aem_2025_update: "Giugno 2025: rimosso limite 8 eventi e prioritizzazione manuale"
+    mitigation_decision_tree:
+      step_1: "CAPI implementata? NO → implementare immediatamente (priorità massima)"
+      step_2: "EMQ >= 8 su Purchase? NO → aggiungere più parametri customer"
+      step_3: "Deduplication attiva? NO → implementare event_id su Pixel e CAPI"
+      step_4: "Gap reported vs expected > 30%? → verificare domain, first-party cookies, Enhanced Conversions"
+
+# ============================================================================
+# SECTION 17: PRE-AUDIT QUESTIONS
+# ============================================================================
+
+pre_audit_questions:
+
+  - id: "Q-MA01"
+    question: "Hai accesso a Meta Business Manager / Ads Manager?"
+    options: ["Sì, accesso completo", "Sì, solo analista", "Solo export/screenshot", "Nessun accesso"]
+    purpose: "Determina il livello di audit possibile"
+    critical: true
+
+  - id: "Q-MA02"
+    question: "Quali tipi di campagne hai attivi?"
+    options: ["Advantage+ Shopping (ASC)", "Campagne Sales standard", "Campagne Traffic/Engagement", "Campagne Lead Gen", "Retargeting/DPA"]
+    multi_select: true
+    purpose: "Determina quali sezioni dell'audit applicare"
+
+  - id: "Q-MA03"
+    question: "Il Meta Pixel è installato?"
+    options: ["Sì, tramite GTM", "Sì, codice diretto", "Sì, plugin piattaforma (Shopify/WooCommerce)", "Non so", "No"]
+    purpose: "Base del tracking — senza Pixel, nessun dato"
+    critical: true
+
+  - id: "Q-MA04"
+    question: "La Conversions API (CAPI) è attiva?"
+    options: ["Sì, tramite partner (Shopify nativo)", "Sì, tramite GTM server-side", "Sì, implementazione custom", "No", "Non so"]
+    purpose: "CAPI è critica post-iOS 14.5 per recupero conversioni"
+    critical: true
+
+  - id: "Q-MA05"
+    question: "Hai un catalogo prodotti in Commerce Manager?"
+    options: ["Sì, sync automatico", "Sì, feed manuale", "No", "Non so"]
+    purpose: "Necessario per DPA e ASC"
+    conditional: "Solo per ecommerce"
+
+  - id: "Q-MA06"
+    question: "Budget mensile Meta Ads approssimativo?"
+    options: ["< €1.000", "€1.000-5.000", "€5.000-20.000", "> €20.000"]
+    purpose: "ASC richiede budget minimo; strategie diverse per scale diverse"
+
+  - id: "Q-MA07"
+    question: "Obiettivo principale?"
+    options: ["Vendite ecommerce (ROAS)", "Lead generation", "Brand awareness/reach", "App installs"]
+    purpose: "Determina KPI e benchmark"
+    critical: true
+
+  - id: "Q-MA08"
+    question: "Piattaforma ecommerce?"
+    options: ["Shopify", "WooCommerce", "Magento", "PrestaShop", "Custom", "Non ecommerce"]
+    purpose: "Shopify ha integrazioni e issue specifiche con Meta"
+    conditional: "Solo per ecommerce"
+
+  - id: "Q-MA09"
+    question: "Hai audience di remarketing attive?"
+    options: ["Sì, website custom audiences", "Sì, customer list", "Sì, engagement audiences", "No", "Non so"]
+    purpose: "Remarketing è tipicamente il canale a più alto ROAS"
+
+  - id: "Q-MA10"
+    question: "Il dominio è verificato in Business Manager?"
+    options: ["Sì", "No", "Non so"]
+    purpose: "Obbligatorio per AEM e attribuzione post-iOS 14.5"
+    from the denominator.

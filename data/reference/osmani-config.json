@@ -1,0 +1,181 @@
+{
+  "performance_budgets": {
+    "page_weight": 1500000,
+    "js": 300000,
+    "css": 100000,
+    "images": 500000,
+    "fonts": 100000,
+    "third_party": 200000,
+    "ttfb": 800,
+    "lcp": {
+      "good": 2500,
+      "needs_improvement": 4000,
+      "poor": 4000
+    },
+    "inp": {
+      "good": 200,
+      "needs_improvement": 500,
+      "poor": 500
+    },
+    "cls": {
+      "good": 0.1,
+      "needs_improvement": 0.25,
+      "poor": 0.25
+    }
+  },
+
+  "accessibility_thresholds": {
+    "contrast": 4.5,
+    "contrast_large": 3.0,
+    "tap_target": 48,
+    "min_font": 16
+  },
+
+  "schema_required": {
+    "Product": ["name", "image", "description", "offers"],
+    "Offer": ["price", "priceCurrency", "availability"],
+    "Organization": ["name", "url", "logo"],
+    "LocalBusiness": ["name", "address", "telephone"],
+    "BreadcrumbList": ["itemListElement"],
+    "FAQPage": ["mainEntity"],
+    "Article": ["headline", "author", "datePublished", "image"],
+    "WebSite": ["name", "url"],
+    "Event": ["name", "startDate", "location"]
+  },
+
+  "page_patterns": {
+    "category": "/(categori|collections|shop|c/|categoria|prodotti|products|catalog)",
+    "product": "/(product|prodotto|p/|item|detail|dp/)",
+    "blog": "/(blog|news|articol|journal|magazine|post)"
+  },
+
+  "exclude_patterns": "\\.(js|css|png|jpg|jpeg|gif|svg|ico|xml|json|pdf|zip|woff|woff2|ttf|eot)(\\?|$)",
+  "exclude_paths": "/(cart|checkout|account|login|register|privacy|cookie|terms|contatti|about|faq|sitemap|search|wishlist|compare|reset|confirm|unsubscribe)",
+
+  "detection": {
+    "cms": {
+      "check_id": "a0_1_1",
+      "entries": [
+        { "name": "WordPress", "patterns": ["wp-content"], "regex": "meta[^>]*generator[^>]*wordpress" },
+        { "name": "Shopify", "patterns": ["shopify.", "cdn.shopify"] },
+        { "name": "Magento", "patterns": ["magento", "mage/", "mage.cookies"] },
+        { "name": "WooCommerce", "patterns": ["woocommerce"] },
+        { "name": "PrestaShop", "patterns": ["prestashop"] },
+        { "name": "BigCommerce", "patterns": ["bigcommerce"] },
+        { "name": "Squarespace", "patterns": ["squarespace"] },
+        { "name": "Wix", "patterns": ["wix.com"] }
+      ]
+    },
+    "cdn": {
+      "check_id": "a0_1_2",
+      "entries": [
+        { "name": "Cloudflare", "patterns": ["cloudflare"] },
+        { "name": "Fastly", "patterns": ["fastly"] },
+        { "name": "Akamai", "patterns": ["akamai"] },
+        { "name": "CDN77", "patterns": ["cdn77"] },
+        { "name": "CloudFront", "patterns": ["cloudfront"] },
+        { "name": "jsDelivr", "patterns": ["jsdelivr"] }
+      ]
+    },
+    "analytics": {
+      "check_id": "a0_1_4",
+      "entries": [
+        { "name": "GA4", "regex": "G-[A-Z0-9]+" },
+        { "name": "Google Tag Manager", "patterns": ["gtag", "googletagmanager"] },
+        { "name": "Hotjar", "patterns": ["hotjar"] },
+        { "name": "Microsoft Clarity", "patterns": ["clarity.ms"] },
+        { "name": "Mixpanel", "patterns": ["mixpanel"] },
+        { "name": "Amplitude", "patterns": ["amplitude"] },
+        { "name": "Segment", "patterns": ["segment.com", "segment.io"] }
+      ]
+    },
+    "consent": {
+      "check_id": "a1_1_1",
+      "entries": [
+        { "name": "OneTrust", "patterns": ["onetrust", "optanon"] },
+        { "name": "Cookiebot", "patterns": ["cookiebot", "consent.cookiebot"] },
+        { "name": "Iubenda", "patterns": ["iubenda"] },
+        { "name": "Didomi", "patterns": ["didomi"] },
+        { "name": "Quantcast", "patterns": ["quantcast"] },
+        { "name": "Osano", "patterns": ["osano"] },
+        { "name": "TrustArc", "patterns": ["trustarc"] }
+      ]
+    },
+    "email": {
+      "check_id": "a0_1_5",
+      "entries": [
+        { "name": "Klaviyo", "patterns": ["klaviyo"] },
+        { "name": "Mailchimp", "patterns": ["mailchimp"] },
+        { "name": "Brevo", "patterns": ["brevo", "sendinblue"] },
+        { "name": "MailUp", "patterns": ["mailup"] },
+        { "name": "ActiveCampaign", "patterns": ["activecampaign"] }
+      ]
+    },
+    "ab_testing": {
+      "check_id": "a0_1_6",
+      "entries": [
+        { "name": "Optimizely", "patterns": ["optimizely"] },
+        { "name": "VWO", "patterns": ["vwo.com", "visualwebsiteoptimizer"] },
+        { "name": "Google Optimize", "patterns": ["google optimize", "googleoptimize"] },
+        { "name": "AB Smartly", "patterns": ["absmartly"] }
+      ]
+    },
+    "crm": {
+      "check_id": "a0_1_7",
+      "entries": [
+        { "name": "Salesforce", "patterns": ["salesforce"] },
+        { "name": "HubSpot", "patterns": ["hubspot"] },
+        { "name": "Zoho", "patterns": ["zoho"] },
+        { "name": "Pipedrive", "patterns": ["pipedrive"] }
+      ]
+    },
+    "chat": {
+      "check_id": "a0_1_8",
+      "entries": [
+        { "name": "Zendesk", "patterns": ["zendesk"] },
+        { "name": "Intercom", "patterns": ["intercom"] },
+        { "name": "Tidio", "patterns": ["tidio"] },
+        { "name": "Tawk.to", "patterns": ["tawk.to", "tawk"] },
+        { "name": "Crisp", "patterns": ["crisp"] },
+        { "name": "Drift", "patterns": ["drift"] },
+        { "name": "LiveChat", "patterns": ["livechat"] }
+      ]
+    },
+    "pixels": {
+      "entries": [
+        { "name": "Meta Pixel", "check_id": "a2_3_1", "patterns": ["fbq(", "facebook.com/tr", "connect.facebook.net"] },
+        { "name": "Microsoft Clarity", "check_id": "a2_3_2", "patterns": ["clarity.ms"] },
+        { "name": "Hotjar", "check_id": "a2_3_2", "patterns": ["hotjar.com", "static.hotjar.com"] },
+        { "name": "LinkedIn Insight Tag", "check_id": "a2_3_3", "patterns": ["snap.licdn.com", "linkedin.com/px"] },
+        { "name": "TikTok Pixel", "check_id": "a2_3_4", "patterns": ["analytics.tiktok.com"] },
+        { "name": "Pinterest Tag", "check_id": "a2_3_5", "patterns": ["pintrk", "s.pinimg.com/ct/core.js"] }
+      ]
+    }
+  },
+
+  "prompts": {
+    "osmani_base": "You are a senior web quality auditor trained on Google Lighthouse internals and Addy Osmani's web quality methodology (150+ production audits). You provide specific, actionable findings categorized by severity. Always respond in ITALIAN.\n\nFor EVERY finding, use this exact format:\n**FINDING [SEVERITY]:** Title\n- Problema: detailed description of the current state\n- Impatto: quantified business impact (e.g., -20% CTR, +0.5s LCP, €X lost revenue, legal risk)\n- Fix: specific actionable recommendation with code snippets where applicable, and expected result after fix\n\nSeverity levels: CRITICO (immediate fix, revenue/legal impact), ALTO (fix within 1 month, significant impact), MEDIO (fix within 3 months), BASSO (nice to have).\n\nWhen analyzing multi-page content, clearly indicate which page each finding applies to.\n\nREGOLE CRITICHE:\n1. Basa la tua analisi ESCLUSIVAMENTE sul contenuto HTML fornito. NON fare MAI assunzioni basate sul nome del dominio o del brand.\n2. Quando ricevi una sezione \"DATI SEO ESTRATTI PROGRAMMATICAMENTE\", quei dati sono AUTORITATIVI e corretti al 100%. NON contraddirli MAI.\n3. NON dire mai \"non posso accedere\" o \"non posso verificare\" se il contenuto è fornito nel prompt.",
+
+    "performance": "Esegui un audit performance completo basato su Lighthouse e Core Web Vitals.\n\nBUDGET DI PERFORMANCE (soglie Osmani):\n- Peso totale pagina: < 1.5MB\n- JavaScript: < 300KB (compresso)\n- CSS: < 100KB\n- Immagini above-fold: < 500KB\n- Font: < 100KB\n- Script terze parti: < 200KB\n- TTFB: < 800ms\n- LCP: <= 2.5s (buono), 2.5-4s (migliorabile), >4s (scarso)\n- INP: <= 200ms (buono), 200-500ms (migliorabile), >500ms (scarso)\n- CLS: <= 0.1 (buono), 0.1-0.25 (migliorabile), >0.25 (scarso)\n\nCHECKLIST:\n1. SERVER: TTFB, compressione Brotli/Gzip, HTTP/2+, CDN, edge caching\n2. RENDER-BLOCKING: Critical CSS inline < 14KB? Script defer/async? Font preload con font-display:swap?\n3. IMMAGINI: Formati moderni (AVIF > WebP > PNG)? srcset responsive? Lazy loading below-fold? LCP image con fetchpriority=\"high\"?\n4. JAVASCRIPT: Code splitting? Tree shaking? Codice inutilizzato?\n5. FONT: font-display impostato? Font preloaded? Subsetting unicode?\n6. CACHING: Cache-Control headers? Immutable per asset hashati?\n7. TERZE PARTI: Script async/defer? Facade pattern per embed pesanti?\n8. IMPATTO GOOGLE ADS: Come le performance impattano Quality Score e CPC\n\nPer ogni problema trovato indica: severità (CRITICO/ALTO/MEDIO/BASSO), impatto business, e fix specifico.",
+
+    "cwv": "Esegui un audit specializzato Core Web Vitals. Google misura al 75° percentile.\n\n**LCP (Largest Contentful Paint) - Target: <= 2.5s:**\n- TTFB lento (> 800ms)?\n- Risorse render-blocking?\n- LCP element: è preloaded? fetchpriority=\"high\"? Nel HTML iniziale (non JS-rendered)?\n- Critical CSS inline?\n- Font con font-display:swap?\n\n**INP (Interaction to Next Paint) - Target: <= 200ms:**\n- Long tasks > 50ms sul main thread?\n- Event handlers pesanti (visual feedback immediato? Lavoro non-critico deferito?)\n- Script terze parti bloccanti?\n\n**CLS (Cumulative Layout Shift) - Target: <= 0.1:**\n- Immagini senza width/height o aspect-ratio?\n- Embed/iframe senza spazio riservato?\n- Contenuto iniettato dinamicamente sopra il viewport?\n- Font che causano FOUT (font-display:optional o size-adjust)?\n- Animazioni che usano layout (usare transform/opacity)?\n\nPer ogni metrica: stato attuale, causa root, fix specifico con codice.",
+
+    "seo": "Esegui un audit SEO completo basato su Google Search guidelines e Lighthouse SEO.\n\nIMPORTANTE: Prima di tutto, leggi i DATI SEO ESTRATTI PROGRAMMATICAMENTE. Quei dati sono CERTI al 100%.\n- Se h1_count = 1, il H1 ESISTE. Non dire che manca.\n- Se json_ld_schemas contiene oggetti, gli schema ESISTONO. Non dire che mancano.\n- Analizza la qualità di ciò che c'è, non inventare assenze.\n\n**APPROCCIO PROATTIVO:**\n1. Leggi il testo visibile e i prodotti per capire COSA FA il sito (es: pasticceria, moda, tech)\n2. Per ogni heading presente, spiega se è ottimizzato per SEO o come dovrebbe essere migliorato\n3. Per il title, suggerisci un title ottimizzato specifico per il business del cliente\n\n**SEO TECNICO:**\n- robots.txt: analizza il contenuto FORNITO nel prompt\n- Canonical URL, Meta robots, XML Sitemap, HTTPS, struttura URL\n\n**ON-PAGE SEO (analizza ciò che ESISTE, non inventare assenze):**\n- Title tag: lunghezza attuale, keyword presenti?, suggerisci versione ottimizzata\n- Meta description: presente o assente? Se assente, proponi testo specifico per il business\n- Heading hierarchy: analizza gli H1/H2/H3 PRESENTI, valuta se sono keyword-rich e ben strutturati\n- Per ogni heading, spiega: cosa c'è ora → cosa dovrebbe essere → perché (impatto SEO)\n- Image SEO: quante immagini, quante senza alt, impatto\n\n**STRUCTURED DATA — ANALISI SCHEMA (segui questa metodologia):**\nI dati JSON-LD sono forniti nel campo json_ld_schemas. Analizzali su 4 livelli:\n\nLivello A — Presenza: Quali tipi schema sono implementati?\nLivello B — Validità: I campi obbligatori sono presenti? Errori strutturali?\nLivello C — Rich Results: Google può generare risultati avanzati?\nLivello D — Qualità: Campi raccomandati presenti? Il markup rappresenta il contenuto reale?\n\nPer homepage verifica: Organization (name, url, logo, sameAs), WebSite (name, url, potentialAction/SearchAction)\nPer prodotti: Product (name, image, description, offers/price/availability/currency), BreadcrumbList\nIndica i CAMPI MANCANTI specifici e il loro impatto.\n\nSe è presente anche una PAGINA PRODOTTO, analizza i suoi schema separatamente.\n\nConcluci sempre con: \"Markup strutturato tecnicamente valido ≠ garanzia di rich results. Serve verifica con Rich Results Test.\"\n\n**MOBILE SEO:** Viewport, tap targets, font-size, horizontal scroll\n**INTERNATIONAL SEO:** hreflang, html lang\n\nPer ogni issue: severità, impatto su ranking/CTR, fix specifico con esempio concreto.",
+
+    "accessibility": "Esegui un audit accessibilità WCAG 2.1 AA completo seguendo i principi POUR.\n\n**PERCEIVABLE:**\n- Ogni <img> ha alt text significativo? Decorative con alt=\"\"?\n- Icon buttons hanno accessible name (aria-label o visually-hidden text)?\n- Contrasto colori >= 4.5:1 testo normale, >= 3:1 testo grande?\n- Colore non è unico indicatore (icone + testo)?\n- Video con captions?\n\n**OPERABLE:**\n- Tutti gli elementi interattivi accessibili da tastiera?\n- Nessuna keyboard trap? Modal con Escape per chiudere e focus management?\n- Focus indicator visibile (:focus-visible)?\n- Skip link \"Skip to main content\" presente?\n- prefers-reduced-motion rispettato?\n- Tap targets >= 48px?\n\n**UNDERSTANDABLE:**\n- <html lang> impostato?\n- Form input con <label> associato?\n- Errori form con aria-invalid + aria-describedby?\n- Navigazione consistente con aria-current?\n\n**ROBUST:**\n- HTML valido (no ID duplicati, nesting corretto)?\n- Elementi nativi preferiti su ARIA (button vs div role=button)?\n- ARIA roles/properties usati correttamente?\n- Live regions per contenuto dinamico (aria-live)?\n\nCategorizza: CRITICO (fix immediato), ALTO (fix prima del lancio), MEDIO (fix presto).\nPer ogni issue il fix specifico con codice.",
+
+    "security": "Esegui un audit security e best practices web.\n\n**SECURITY:**\n- HTTPS ovunque? No mixed content?\n- HSTS header (Strict-Transport-Security)?\n- Content Security Policy (CSP) configurata?\n- Security headers: X-Frame-Options, X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy\n- Nessuna libreria JS vulnerabile?\n\n**BROWSER COMPATIBILITY:**\n- HTML5 doctype?\n- <meta charset=\"UTF-8\"> primo elemento in <head>?\n- Viewport meta tag?\n\n**API DEPRECATE:**\n- No document.write?\n- No synchronous XHR?\n\n**ERRORI & CODE QUALITY:**\n- Error handling corretto?\n- HTML semantico (header/nav/main/article)?\n- No ID duplicati?\n\nPer ogni issue: severità, rischio, fix specifico.",
+
+    "robots": "Analizza questo robots.txt come esperto SEO tecnico.\n\nVerifica:\n1. User-agent configurati (Googlebot, Bingbot, * minimo)\n2. Sitemap reference presente\n3. Disallow sensati (no blocco pagine importanti per errore)\n4. Crawl-delay (sconsigliato per Googlebot)\n5. Risorse CSS/JS non bloccate\n\nRispondi in ITALIANO con:\n**STATO:** OK / Problemi trovati\n**SITEMAP:** Presente/Assente + URL\n**USER-AGENTS:** Lista configurati\n**PROBLEMI:** (con severità CRITICO/ALTO/MEDIO/BASSO)\n**RACCOMANDAZIONI:** miglioramenti specifici\n**SCORE SUGGERITO:** /10",
+
+    "sitemap": "Analizza questa sitemap XML come esperto SEO tecnico.\n\nVerifica:\n1. Formato XML valido\n2. Tipo: sitemap index o sitemap singola\n3. Conteggio URL / sub-sitemap\n4. lastmod: aggiornato o statico/assente\n5. URL coerenti col dominio\n6. Max 50K URL per file\n7. Struttura logica\n\nRispondi in ITALIANO con:\n**STATO:** OK / Problemi trovati\n**TIPO:** Sitemap Index / Singola\n**CONTEGGIO:** N URL o sub-sitemap\n**LASTMOD:** Aggiornato/Statico/Assente\n**PROBLEMI:** (con severità)\n**RACCOMANDAZIONI:** miglioramenti specifici\n**SCORE SUGGERITO:** /10",
+
+    "datalayer": "Analizza questo dataLayer ecommerce come esperto Google Tag Manager.\n\nVerifica conformità con la documentazione ufficiale Google GA4 Ecommerce:\nhttps://developers.google.com/analytics/devguides/collection/ga4/ecommerce\n\nPer ogni evento controlla:\n1. Nome evento corretto (add_to_cart, purchase, etc.)\n2. Struttura oggetto ecommerce conforme\n3. Campi obbligatori presenti: currency, value, items[]\n4. Per items[]: item_id (string), item_name (string), price (number), quantity (number)\n5. TIPI DATI: price e value devono essere NUMBER, item_id deve essere STRING\n6. ecommerce:null push PRIMA dell'evento\n7. transaction_id univoco per purchase\n\nRispondi in ITALIANO con:\n**EVENTI TROVATI:** lista\n**CONFORMITA:** % conforme a Google docs\n**PROBLEMI:** (con severità e impatto su GA4/Google Ads)\n**FIX SUGGERITI:** codice corretto per ogni problema",
+
+    "seo_deep": "Esegui un SEO AUDIT APPROFONDITO basato su Google Search Quality Rater Guidelines e E-E-A-T.\n\nIMPORTANTE: Leggi i DATI SEO ESTRATTI — sono certi al 100%. NON contraddirli.\nLeggi il testo visibile per capire il business reale del sito.\n\n**APPROCCIO PROATTIVO:**\n1. Identifica il settore del cliente dal contenuto visibile (es: pasticceria artigianale, moda, etc.)\n2. Basati su questo per suggerimenti specifici di keyword, contenuti, e strategia\n\n**E-E-A-T:**\n- Autore identificabile? \"Chi siamo\" completa?\n- Contenuti mostrano esperienza diretta?\n- Trust: HTTPS, privacy policy, contatti chiari\n\n**SCHEMA MARKUP APPROFONDITO:**\nSe sono forniti dati di una PAGINA PRODOTTO, analizza:\n- Product schema: name, image, description, offers con price/availability/currency presenti?\n- BreadcrumbList presente?\n- Confronta homepage vs prodotto: gap di implementazione?\n- Campi mancanti che impediscono rich results (stelle, prezzo in SERP)\n- Schema consigliati ma assenti per tipo pagina (FAQ, Review, HowTo se applicabili)\n\n**SITE-TYPE SPECIFIC (Ecommerce):**\n- Keyword cannibalization tra categorie/prodotti?\n- Thin content: pagine prodotto con < 300 parole?\n- Faceted navigation: canonical/noindex?\n\n**CRAWL BUDGET:** Redirect chains, soft 404, pagine orfane\n**CONTENT GAPS:** Blog? FAQ? Landing page per intent diversi?\n**UTM CONVENTIONS:** Tracking plan consistente?\n\nPer ogni issue: severità, impatto su ranking/traffico organico, fix specifico con esempio.",
+
+    "cro": "Esegui un audit CRO (Conversion Rate Optimization) completo della pagina.\n\n**1. VALUE PROPOSITION (Above the Fold):**\n- Il visitatore capisce COSA offri in 5 secondi?\n- Headline specifica e outcome-driven?\n- Visual hero: supporta il messaggio?\n\n**2. CTA (Call-to-Action):**\n- CTA primaria above-the-fold? Alto contrasto?\n- Testo action-oriented e specifico?\n- Micro-copy di supporto sotto CTA?\n\n**3. TRUST SIGNALS & SOCIAL PROOF:**\n- Recensioni con dettagli specifici?\n- Rating aggregato visibile?\n- Numeri concreti?\n- Garanzie esplicite?\n\n**4. FRICTION POINTS:**\n- Checkout semplificato?\n- Form con validazione inline?\n- Loading speed percepito?\n\n**5. PAGE-TYPE SPECIFIC:**\n- Homepage, Categoria, Prodotto, Carrello, Checkout analysis\n\nPer ogni area: problemi specifici con severità, fix concreto.",
+
+    "advertising": "Esegui un audit della readiness pubblicitaria del sito ecommerce.\n\n**GOOGLE ADS READINESS:**\n- Tag di Google presente e configurato?\n- Conversion Linker attivo?\n- Enhanced Conversions attive?\n- Conversion tracking: purchase, add_to_cart tracciati?\n- Google Merchant Center: structured data Product/Offer?\n\n**META ADS READINESS:**\n- Meta Pixel installato?\n- Eventi standard configurati?\n- Conversions API server-side?\n\n**TRACKING QUALITY:**\n- Deduplication eventi?\n- Attribution: UTM/GCLID/FBCLID preservati?\n- Cross-domain linker?\n- Consent Mode per DMA?\n\n**IMPATTO BUSINESS:**\n- Quality Score: impatto performance su CPC\n- ROAS tracking accuracy\n- Audience building\n\nPer ogni issue: severità, impatto su ROAS/CPC, fix specifico."
+  }
+}
