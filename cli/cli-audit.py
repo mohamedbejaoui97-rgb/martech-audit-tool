@@ -1026,7 +1026,7 @@ def call_claude(api_key, system_prompt, user_message, max_tokens=12000):
     raise RuntimeError("Claude API: max retries exceeded")
 
 
-def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_htmls=None):
+def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_htmls=None, discovered=None):
     """Run a single AI analysis. Returns (type, result_text) or (type, error_string)."""
     try:
         content = ''
@@ -1148,7 +1148,10 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
 
         prompts = _get_prompts()
         prompt = prompts.get(analysis_type, prompts.get('seo', ''))
-        user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{prompt}\n\nContenuto recuperato:\n```\n{content[:50000]}\n```"
+        discovery_block = ''
+        if discovered:
+            discovery_block = f"\n=== DATI AUTO-DISCOVERY (FASE 1) ===\n{json.dumps(discovered, indent=2, ensure_ascii=False, default=str)[:10000]}\n=== FINE DATI AUTO-DISCOVERY ===\n\n"
+        user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{discovery_block}{prompt}\n\nContenuto recuperato:\n```\n{content[:50000]}\n```"
 
         result = call_claude(api_key, _get_osmani_base(), user_msg)
         return (analysis_type, result)
@@ -1463,6 +1466,8 @@ def generate_report_html(domain, client_name, scores, findings, discovered, ai_r
 
     # Build AI analysis sections
     ai_sections_html = ''
+    appendix_html = ''
+    appendix_types = {'accessibility', 'security'}
     analysis_labels = {
         'performance': ('⚡', 'Performance & Core Web Vitals'),
         'cwv': ('📊', 'Core Web Vitals Dettaglio'),
@@ -1483,11 +1488,15 @@ def generate_report_html(domain, client_name, scores, findings, discovered, ai_r
         formatted = esc(text)
         formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', formatted)
         formatted = formatted.replace('\n', '<br>\n')
-        ai_sections_html += f'''
+        section_block = f'''
   <div class="ai-section">
     <h3>{icon} {label}</h3>
     <div class="ai-content">{formatted}</div>
   </div>'''
+        if atype in appendix_types:
+            appendix_html += section_block
+        else:
+            ai_sections_html += section_block
 
     # Tech stack summary table
     tech_categories = [
@@ -1696,6 +1705,10 @@ def generate_report_html(domain, client_name, scores, findings, discovered, ai_r
     {roadmap_html if roadmap_html else '<p style="color:#666">Consulta le sezioni di analisi per la prioritizzazione degli interventi.</p>'}
   </div>
 
+  <!-- APPENDICE -->
+  <h2>Appendice — Security &amp; Accessibility</h2>
+  {appendix_html if appendix_html else '<p style="color:#666">Nessun dato di appendice disponibile.</p>'}
+
   <div class="footer">
     <p><strong>Report generato da MarTech Audit Tool — Mr Tech</strong></p>
     <p>{date_str}</p>
@@ -1824,7 +1837,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
-            executor.submit(run_analysis, atype, url, api_key, google_key, homepage_html, extra_htmls): atype
+            executor.submit(run_analysis, atype, url, api_key, google_key, homepage_html, extra_htmls, discovered): atype
             for atype in analysis_types
         }
         done_count = 0
