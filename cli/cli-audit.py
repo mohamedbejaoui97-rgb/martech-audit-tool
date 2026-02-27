@@ -370,9 +370,11 @@ _FALLBACK_PAGE_PATTERNS = {
     'category': re.compile(r'/(categori|collections|shop|c/|categoria|prodotti|products|catalog)', re.I),
     'product': re.compile(r'/(product|prodotto|p/|item|detail|dp/)', re.I),
     'blog': re.compile(r'/(blog|news|articol|journal|magazine|post)', re.I),
+    'about': re.compile(r'/(about|chi-siamo|azienda|storia|about-us|pages/about)', re.I),
+    'policy': re.compile(r'/(privacy|terms|policy|policies|condizioni|contatti|faq|legal)', re.I),
 }
 _FALLBACK_EXCLUDE_PATTERNS = re.compile(r'\.(js|css|png|jpg|jpeg|gif|svg|ico|xml|json|pdf|zip|woff|woff2|ttf|eot)(\?|$)', re.I)
-_FALLBACK_EXCLUDE_PATHS = re.compile(r'/(cart|checkout|account|login|register|privacy|cookie|terms|contatti|about|faq|sitemap|search|wishlist|compare|reset|confirm|unsubscribe)', re.I)
+_FALLBACK_EXCLUDE_PATHS = re.compile(r'/(cart|checkout|account|login|register|cookie|sitemap|search|wishlist|compare|reset|confirm|unsubscribe)', re.I)
 _FALLBACK_SCHEMA_REQUIRED = {
     'Product': ['name', 'image', 'description', 'offers'],
     'Offer': ['price', 'priceCurrency', 'availability'],
@@ -434,12 +436,13 @@ def discover_pages(html_content, base_url, cfg=None):
                 continue
             if page_type != 'other':
                 pages.append({'url': origin + path, 'type': page_type})
-        # Deduplicate by type
+        # Deduplicate by type (max 2 per type)
         by_type = {}
         result = []
         for p in pages:
-            if p['type'] not in by_type:
-                by_type[p['type']] = True
+            count = by_type.get(p['type'], 0)
+            if count < 2:
+                by_type[p['type']] = count + 1
                 result.append(p)
         return result
     except Exception as e:
@@ -785,7 +788,7 @@ def auto_discover(domain, extra_urls=None, use_render=False):
                 auto_pages.append({'url': full, 'type': 'manual'})
 
     extra_htmls = []
-    for page in auto_pages[:4]:
+    for page in auto_pages[:6]:
         log('🔍', f'Scanning {page["url"]} ({page["type"]})...', C.CYAN)
         discovered_pages.append({'url': page['url'], 'type': page['type'], 'discovered': True})
         try:
@@ -1250,9 +1253,10 @@ def extract_seo_summary(html_content):
 LIGHT_ANALYSIS_TYPES = {'robots', 'sitemap', 'security', 'datalayer'}
 MODEL_HAIKU = 'claude-haiku-4-5-20251001'
 MODEL_SONNET = 'claude-sonnet-4-20250514'
+MODEL_OPUS = 'claude-opus-4-6'
 
 
-def call_claude(api_key, system_prompt, user_message, max_tokens=4000, model=None):
+def call_claude(api_key, system_prompt, user_message, max_tokens=8000, model=None):
     """Call Claude API via urllib with error handling and retry for transient errors."""
     if model is None:
         model = MODEL_SONNET
@@ -1314,7 +1318,7 @@ def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_h
             if not content:
                 content = 'Sitemap non trovata ai path comuni.'
             else:
-                # Bug 8: Parse sitemap XML programmatically
+                # Parse sitemap XML programmatically
                 try:
                     sitemap_urls = re.findall(r'<loc>\s*(.*?)\s*</loc>', content, re.I)
                     sitemap_lastmods = re.findall(r'<lastmod>\s*(.*?)\s*</lastmod>', content, re.I)
@@ -1325,9 +1329,27 @@ def run_analysis(analysis_type, url, api_key, google_key, homepage_html, extra_h
                             unique_domains.add(urllib.parse.urlparse(u).netloc)
                         except Exception:
                             pass
+
+                    # If sitemap index, fetch sub-sitemaps to count total URLs
+                    total_urls = 0
+                    sub_sitemaps = []
+                    if is_index:
+                        sub_sitemaps = [u for u in sitemap_urls if u.endswith('.xml')]
+                        for sub_url in sub_sitemaps[:20]:  # cap at 20 sub-sitemaps
+                            try:
+                                s_status, _, s_body = fetch_url(sub_url, timeout=10)
+                                if s_status == 200 and s_body:
+                                    sub_urls = re.findall(r'<loc>\s*(.*?)\s*</loc>', s_body, re.I)
+                                    total_urls += len(sub_urls)
+                            except Exception:
+                                pass
+
                     sitemap_data = {
                         'tipo': 'Sitemap Index' if is_index else 'Sitemap singola',
-                        'url_count': len(sitemap_urls),
+                        'sub_sitemap_count': len(sub_sitemaps) if is_index else 0,
+                        'sub_sitemap_names': [u.split('/')[-1] for u in sub_sitemaps] if is_index else [],
+                        'url_count_in_index': len(sitemap_urls),
+                        'total_urls_across_all_sitemaps': total_urls if is_index else len(sitemap_urls),
                         'domini_unici': list(unique_domains),
                         'lastmod_count': len(sitemap_lastmods),
                         'lastmod_recente': sitemap_lastmods[0] if sitemap_lastmods else 'N/A',
@@ -1493,9 +1515,10 @@ BODY (first 15000 chars):\n{(body_m.group(1) if body_m else '')[:15000]}"""
         content_limit = 20000
         user_msg = f"Audit del sito: {url}\n\nTipo analisi: {analysis_type}\n\n{discovery_block}{prompt}\n\nContenuto recuperato:\n```\n{content[:content_limit]}\n```"
 
-        # Use Haiku for deterministic/simple analyses, Sonnet for qualitative ones
-        model = MODEL_HAIKU if analysis_type in LIGHT_ANALYSIS_TYPES else MODEL_SONNET
-        result = call_claude(api_key, _get_osmani_base(), user_msg, model=model)
+        # Use Haiku for deterministic/simple analyses, Opus for qualitative ones
+        model = MODEL_HAIKU if analysis_type in LIGHT_ANALYSIS_TYPES else MODEL_OPUS
+        tokens = 6000 if analysis_type in LIGHT_ANALYSIS_TYPES else 8000
+        result = call_claude(api_key, _get_osmani_base(), user_msg, max_tokens=tokens, model=model)
         return (analysis_type, result)
     except Exception as e:
         return (analysis_type, f'ERRORE: {e}')
@@ -1527,25 +1550,34 @@ def measure_resources(html_content):
 
 
 def fetch_crux(url, api_key):
-    """Fetch Chrome UX Report (CrUX) field data for a URL."""
+    """Fetch Chrome UX Report (CrUX) field data for a URL. Falls back to origin-level if URL-level unavailable."""
     if not api_key:
         return None
-    try:
-        payload = json.dumps({
-            'url': url,
-            'formFactor': 'PHONE',
-            'metrics': ['largest_contentful_paint', 'interaction_to_next_paint',
-                        'cumulative_layout_shift', 'experimental_time_to_first_byte']
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            f'https://chromeuxreport.googleapis.com/v1/records:queryRecord?key={api_key}',
-            data=payload,
-            headers={'Content-Type': 'application/json'}
-        )
-        resp = urllib.request.urlopen(req, timeout=15, context=CTX_SECURE)
-        return json.loads(resp.read().decode('utf-8'))
-    except Exception:
-        return None
+    # Try URL-level first, then origin-level
+    parsed = urllib.parse.urlparse(url)
+    origin = f'{parsed.scheme}://{parsed.netloc}'
+    for query_params in [{'url': url}, {'origin': origin}]:
+        try:
+            payload = json.dumps({
+                **query_params,
+                'formFactor': 'PHONE',
+                'metrics': ['largest_contentful_paint', 'interaction_to_next_paint',
+                            'cumulative_layout_shift', 'experimental_time_to_first_byte']
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                f'https://chromeuxreport.googleapis.com/v1/records:queryRecord?key={api_key}',
+                data=payload,
+                headers={'Content-Type': 'application/json'}
+            )
+            resp = urllib.request.urlopen(req, timeout=15, context=CTX_SECURE)
+            data = json.loads(resp.read().decode('utf-8'))
+            if data.get('record', {}).get('metrics'):
+                level = 'URL' if 'url' in query_params else 'origin'
+                log('📊', f'CrUX {level}-level data disponibili', C.DIM)
+                return data
+        except Exception:
+            continue
+    return None
 
 
 def validate_budgets(resources, crux_data, cfg=None):
@@ -2328,10 +2360,30 @@ def main():
     else:
         log('✅', 'Tutti i check di validazione passati', C.GREEN)
 
+    # ── PHASE 2.6: Post-Analysis Deduplication ──
+    findings_raw = parse_findings(ai_results)
+    # Deduplicate findings by normalized title similarity
+    seen_titles = {}
+    dedup_removed = 0
+    findings_deduped = []
+    for f in findings_raw:
+        # Normalize: lowercase, strip punctuation, collapse whitespace
+        norm = re.sub(r'[^\w\s]', '', f['title'].lower())
+        norm = re.sub(r'\s+', ' ', norm).strip()
+        # Check for exact or very similar titles (first 40 chars)
+        key = norm[:40]
+        if key in seen_titles:
+            dedup_removed += 1
+            continue
+        seen_titles[key] = True
+        findings_deduped.append(f)
+    if dedup_removed:
+        log('🔄', f'Deduplicazione: {dedup_removed} finding duplicati rimossi ({len(findings_raw)} → {len(findings_deduped)})', C.CYAN)
+
     # ── PHASE 3: Generate Report ──
     header('FASE 3 — Generazione Report HTML')
 
-    findings = parse_findings(ai_results)
+    findings = findings_deduped
     log('📊', f'{len(findings)} findings strutturati estratti', C.CYAN)
 
     scores = estimate_scores(findings, ai_results)
