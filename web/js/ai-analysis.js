@@ -1,6 +1,16 @@
 // AI Analysis - Claude API + Osmani Web Quality Skills Integration
 const AIAnalysis = {
 
+  // Model selection: Haiku for deterministic analyses, Sonnet for qualitative
+  LIGHT_ANALYSIS_TYPES: new Set(['robots', 'sitemap', 'security', 'datalayer']),
+  MODEL_HAIKU: 'claude-haiku-4-5-20251001',
+  MODEL_SONNET: 'claude-sonnet-4-20250514',
+  CONTENT_LIMIT: 20000,
+  MAX_TOKENS: 4000,
+
+  // Cache TTL: 24 hours
+  CACHE_TTL_MS: 24 * 60 * 60 * 1000,
+
   // Config loaded from osmani-config.json
   _config: null,
 
@@ -536,6 +546,16 @@ Per ogni issue: severita, impatto su ROAS/CPC, fix specifico.`
     // Select prompt
     const prompt = this.PROMPTS[type] || this.PROMPTS.seo;
 
+    // Check cache first
+    const cacheKey = `audit_cache_${type}_${url}`;
+    const cached = this._getCache(cacheKey);
+    if (cached) {
+      return { analysis: cached, rawContent: content, type, fromCache: true };
+    }
+
+    // Use Haiku for simple/deterministic analyses, Sonnet for qualitative
+    const model = this.LIGHT_ANALYSIS_TYPES.has(type) ? this.MODEL_HAIKU : this.MODEL_SONNET;
+
     // Call Claude API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -546,12 +566,12 @@ Per ogni issue: severita, impatto su ROAS/CPC, fix specifico.`
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 12000,
+        model,
+        max_tokens: this.MAX_TOKENS,
         system: this.OSMANI_BASE,
         messages: [{
           role: 'user',
-          content: `Audit del sito: ${url}\n\nTipo analisi: ${type}\n\n${prompt}\n\nContenuto recuperato:\n\`\`\`\n${content.substring(0, 50000)}\n\`\`\``
+          content: `Audit del sito: ${url}\n\nTipo analisi: ${type}\n\n${prompt}\n\nContenuto recuperato:\n\`\`\`\n${content.substring(0, this.CONTENT_LIMIT)}\n\`\`\``
         }]
       })
     });
@@ -562,11 +582,36 @@ Per ogni issue: severita, impatto su ROAS/CPC, fix specifico.`
     }
 
     const data = await response.json();
+    const analysisText = data.content[0].text;
+
+    // Cache result
+    this._setCache(cacheKey, analysisText);
+
     return {
-      analysis: data.content[0].text,
+      analysis: analysisText,
       rawContent: content,
       type
     };
+  },
+
+  // Cache helpers (localStorage, 24h TTL)
+  _getCache(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts > this.CACHE_TTL_MS) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return data;
+    } catch { return null; }
+  },
+
+  _setCache(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
+    } catch { /* localStorage full, ignore */ }
   },
 
   // Run all audits in parallel

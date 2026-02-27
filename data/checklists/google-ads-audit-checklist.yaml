@@ -2453,3 +2453,811 @@ pre_audit_questions:
     question: "Consent Mode v2 è implementato?"
     options: ["Sì, Advanced", "Sì, Basic", "No", "Non so"]
     purpose: "Impatta attribuzione conversioni per traffico EEA"
+
+# ============================================================================
+# ENRICHMENT: claude-ads 74 AUDIT CHECKS (Source: AgriciDaniel/claude-ads)
+# ============================================================================
+# Added: 2026-02-27
+# Source: claude-ads/skills/ads-google/ + ads/references/
+# Each check has: id, name, severity, category, pass/warning/fail criteria
+
+audit_checks:
+
+  # --------------------------------------------------------------------------
+  # CONVERSION TRACKING (25% weight, 11 checks)
+  # --------------------------------------------------------------------------
+  conversion_tracking_checks:
+    weight: 0.25
+    description: "Fondazione di tutta l'ottimizzazione — senza tracking corretto, Smart Bidding non funziona"
+
+    checks:
+      - id: "G42"
+        name: "Conversion actions defined"
+        severity: "critical"
+        pass: "≥1 primary conversion action configurata"
+        fail: "Nessuna conversion action attiva"
+        fix: "Configurare almeno una conversione primaria (Purchase o Lead)"
+        fix_time: "10 min"
+
+      - id: "G43"
+        name: "Enhanced Conversions attive"
+        severity: "critical"
+        pass: "Enhanced Conversions attive per conversioni primarie"
+        warning: "Abilitate ma non verificate"
+        fail: "Non abilitate"
+        fix: "Abilitare in Google Ads > Conversions > Settings"
+        fix_time: "5 min"
+        quick_win: true
+        impact: "Recupera ~10% conversioni perse in ambienti senza cookie"
+
+      - id: "G-CT1"
+        name: "No conteggio duplicato"
+        severity: "critical"
+        pass: "GA4 + Google Ads non contano la stessa conversione due volte"
+        fail: "Sia GA4 import che tag nativo contano la stessa azione"
+        fix: "Usare solo uno dei due metodi per ogni azione di conversione"
+
+      - id: "G-CT3"
+        name: "Google Tag firing"
+        severity: "critical"
+        pass: "gtag.js o GTM funzionante su tutte le pagine"
+        warning: "Attivo sulla maggior parte delle pagine (>90%)"
+        fail: "Tag mancante o rotto su pagine chiave"
+
+      - id: "G45"
+        name: "Consent Mode v2 (EU/EEA)"
+        severity: "critical"
+        pass: "Consent Mode v2 implementato con modalità Advanced"
+        warning: "Solo modalità Basic"
+        fail: "Non implementato (se serve EU/EEA)"
+        impact: "Senza: 90-95% calo metriche. Advanced recupera 30-50% conversioni perse"
+        note: "OBBLIGATORIO EU/EEA da Marzo 2024, enforcement July 2025"
+
+      - id: "G44"
+        name: "Server-side tracking"
+        severity: "high"
+        pass: "Server-side GTM o Google Ads API conversion import attivo"
+        warning: "Pianificato ma non deployato"
+        fail: "Nessun tracking server-side"
+
+      - id: "G47"
+        name: "Separazione micro vs macro"
+        severity: "high"
+        pass: "Solo macro conversioni (Purchase, Lead) impostate come 'Primary' per bidding"
+        warning: "Alcune micro-conversioni come Primary"
+        fail: "Tutti gli eventi incluso micro (AddToCart, TimeOnSite) come Primary"
+        fix: "Spostare micro-conversioni su Secondary in Conversions settings"
+
+      - id: "G49"
+        name: "Assegnazione valori conversione"
+        severity: "high"
+        pass: "Valori dinamici per ecom; value rules per lead gen"
+        warning: "Valori statici assegnati"
+        fail: "Nessun valore conversione"
+
+      - id: "G-CT2"
+        name: "GA4 collegato e funzionante"
+        severity: "high"
+        pass: "GA4 property collegata, dati fluiscono correttamente"
+        warning: "Collegata ma discrepanze nei dati"
+        fail: "Non collegata"
+
+      - id: "G46"
+        name: "Finestra conversione appropriata"
+        severity: "medium"
+        pass: "Finestra coerente con ciclo vendita (7d ecom, 30-90d B2B, 30d lead gen)"
+        warning: "Default 30d senza validazione"
+        fail: "Finestra non adatta al ciclo vendita"
+
+      - id: "G48"
+        name: "Modello di attribuzione"
+        severity: "medium"
+        pass: "Data-driven attribution (DDA) selezionata"
+        warning: "Last Click (intenzionale)"
+        fail: "Modello rule-based ancora attivo (deprecato Sep 2025)"
+        note: "DDA è ora OBBLIGATORIO default. Solo DDA e Last Click rimasti."
+
+  # --------------------------------------------------------------------------
+  # WASTED SPEND / NEGATIVES (20% weight, 8 checks)
+  # --------------------------------------------------------------------------
+  wasted_spend_checks:
+    weight: 0.20
+    description: "Perdite di budget dirette — termini irrilevanti, negative mancanti"
+
+    checks:
+      - id: "G13"
+        name: "Audit search terms recente"
+        severity: "critical"
+        pass: "Search terms revisionati negli ultimi 14 giorni"
+        warning: "Revisionati entro 30 giorni"
+        fail: "Non revisionati da >30 giorni"
+
+      - id: "G14"
+        name: "Negative keyword lists esistono"
+        severity: "critical"
+        pass: "≥3 liste tematiche (Competitor, Jobs, Free, Irrelevant)"
+        warning: "1-2 liste esistono"
+        fail: "Nessuna lista di negative keywords"
+        quick_win: true
+        fix_time: "10 min"
+
+      - id: "G16"
+        name: "Wasted spend su termini irrilevanti"
+        severity: "critical"
+        pass: "<5% del budget su search terms irrilevanti (ultimi 30d)"
+        warning: "5-15% su termini irrilevanti"
+        fail: ">15% su termini irrilevanti"
+
+      - id: "G17"
+        name: "Broad Match + Smart Bidding pairing"
+        severity: "critical"
+        pass: "Nessuna keyword Broad Match con Manual CPC"
+        fail: "Broad Match + Manual CPC attivo"
+        fix: "Passare a Smart Bidding o Exact Match"
+        quick_win: true
+        fix_time: "5 min"
+
+      - id: "G15"
+        name: "Account-level negatives applicate"
+        severity: "high"
+        pass: "Liste negative applicate a livello account o tutte le campagne"
+        warning: "Applicate solo ad alcune campagne"
+        fail: "Non applicate"
+
+      - id: "G18"
+        name: "Close variant pollution"
+        severity: "high"
+        pass: "Exact/Phrase match non triggera varianti irrilevanti"
+        warning: "Problemi minori con close variants"
+        fail: "Spesa significativa su close variants irrilevanti"
+
+      - id: "G-WS1"
+        name: "Zero-conversion keywords"
+        severity: "high"
+        pass: "Nessuna keyword con >100 click e 0 conversioni"
+        warning: "1-3 keywords con >100 click e 0 conversioni"
+        fail: ">3 keywords con >100 click e 0 conversioni"
+
+      - id: "G19"
+        name: "Search term visibility"
+        severity: "medium"
+        pass: ">60% della spesa search terms visibile (non nascosta)"
+        warning: "40-60% visibile"
+        fail: "<40% visibile"
+
+  # --------------------------------------------------------------------------
+  # ACCOUNT STRUCTURE (15% weight, 12 checks)
+  # --------------------------------------------------------------------------
+  account_structure_checks:
+    weight: 0.15
+    description: "Organizzazione campagne, naming, separazione brand/non-brand"
+
+    checks:
+      - id: "G05"
+        name: "Separazione Brand vs Non-Brand"
+        severity: "critical"
+        pass: "Brand e non-brand in campagne separate"
+        fail: "Brand e non-brand nella stessa campagna"
+        quick_win: true
+        fix_time: "10 min"
+
+      - id: "G03"
+        name: "Ad group a tema singolo"
+        severity: "high"
+        pass: "Ogni ad group target 1 tema keyword (≤10 keywords)"
+        warning: "11-20 keywords con tema coerente"
+        fail: "Ad groups con 20+ keywords non correlate"
+
+      - id: "G04"
+        name: "Campagne per obiettivo"
+        severity: "high"
+        pass: "≤5 campagne per stadio funnel/obiettivo"
+        warning: "6-8 campagne per obiettivo"
+        fail: ">8 campagne per obiettivo (frammentato)"
+
+      - id: "G07"
+        name: "Overlap Search + PMax"
+        severity: "high"
+        pass: "Esclusioni brand configurate in PMax quando esiste campagna Search brand"
+        warning: "Esclusioni brand parziali"
+        fail: "Nessuna esclusione brand in PMax con campagna brand Search attiva"
+
+      - id: "G08"
+        name: "Budget allocation matches priority"
+        severity: "high"
+        pass: "Campagne top-performing non limitate dal budget"
+        warning: "Limiti di budget minori sui top performers"
+        fail: "Top performers severamente limitati dal budget"
+
+      - id: "G11"
+        name: "Geographic targeting accuracy"
+        severity: "high"
+        pass: "'People in' (non 'People in or interested in') per local"
+        fail: "'People in or interested in' per business locale"
+        quick_win: true
+        fix_time: "2 min"
+
+      - id: "G12"
+        name: "Network settings"
+        severity: "high"
+        pass: "Search Partners e Display Network disabilitati per Search (salvo scelta)"
+        warning: "Search Partners ON (monitorato)"
+        fail: "Display Network ON per campagna Search"
+        quick_win: true
+        fix_time: "2 min"
+
+      - id: "G01"
+        name: "Campaign naming convention"
+        severity: "medium"
+        pass: "Pattern consistente (es. [Brand]_[Type]_[Geo]_[Target])"
+        warning: "Parzialmente consistente"
+        fail: "Nessuna naming convention"
+
+      - id: "G02"
+        name: "Ad group naming convention"
+        severity: "medium"
+        pass: "Corrisponde al pattern naming campagna"
+        warning: "Parzialmente consistente"
+        fail: "Nessuna naming convention"
+
+      - id: "G06"
+        name: "PMax presente per account idonei"
+        severity: "medium"
+        pass: "PMax attivo per account con storico conversioni"
+        warning: "PMax testato ma in pausa"
+        fail: "PMax mai testato nonostante idoneità"
+
+      - id: "G09"
+        name: "Budget giornaliero vs spesa"
+        severity: "medium"
+        pass: "Nessuna campagna raggiunge il cap budget prima delle 18:00"
+        warning: "1-2 campagne raggiungono il cap presto"
+        fail: "Più campagne cappate prima di mezzogiorno"
+
+      - id: "G10"
+        name: "Ad schedule configurato"
+        severity: "medium"
+        pass: "Schedule impostato se il business ha orari operativi"
+        fail: "Nessuno schedule nonostante orari business chiari"
+
+  # --------------------------------------------------------------------------
+  # KEYWORDS & QUALITY SCORE (15% weight, 8 checks)
+  # --------------------------------------------------------------------------
+  keywords_quality_score_checks:
+    weight: 0.15
+    description: "Quality Score impatta direttamente CPC e ad rank"
+
+    checks:
+      - id: "G21"
+        name: "Keywords con QS critico"
+        severity: "critical"
+        pass: "<10% keywords con QS ≤3"
+        warning: "10-25% con QS ≤3"
+        fail: ">25% con QS ≤4"
+
+      - id: "G20"
+        name: "Quality Score medio"
+        severity: "high"
+        pass: "QS medio pesato per impressioni ≥7"
+        warning: "QS 5-6"
+        fail: "QS ≤4"
+        benchmark: "QS alto = sconto CPC 50%; QS basso = penalità CPC 400%"
+
+      - id: "G22"
+        name: "Expected CTR component"
+        severity: "high"
+        pass: "<20% keywords con 'Below Average' expected CTR"
+        warning: "20-35% Below Average"
+        fail: ">35% Below Average"
+
+      - id: "G23"
+        name: "Ad relevance component"
+        severity: "high"
+        pass: "<20% keywords con 'Below Average' ad relevance"
+        warning: "20-35% Below Average"
+        fail: ">35% Below Average"
+
+      - id: "G24"
+        name: "Landing page experience"
+        severity: "high"
+        pass: "<15% keywords con 'Below Average' landing page exp."
+        warning: "15-30% Below Average"
+        fail: ">30% Below Average"
+
+      - id: "G-KW2"
+        name: "Keyword-to-ad relevance"
+        severity: "high"
+        pass: "Headlines contengono varianti keyword primarie"
+        warning: "Inclusione keyword parziale"
+        fail: "Nessuna variante keyword nelle headline"
+
+      - id: "G25"
+        name: "Top keyword QS"
+        severity: "medium"
+        pass: "Top 20 keywords per spesa hanno tutte QS ≥7"
+        warning: "Alcune top keywords a QS 5-6"
+        fail: "Top keywords con QS ≤4"
+
+      - id: "G-KW1"
+        name: "Zero-impression keywords"
+        severity: "medium"
+        pass: "Nessuna keyword con 0 impressioni negli ultimi 30 giorni"
+        warning: "<10% zero-impression"
+        fail: ">10% keywords con 0 impressioni"
+
+  # --------------------------------------------------------------------------
+  # ADS & ASSETS (15% weight, 17 checks)
+  # --------------------------------------------------------------------------
+  ads_assets_checks:
+    weight: 0.15
+    description: "RSA strength, PMax asset completeness, extensions"
+
+    checks:
+      - id: "G31"
+        name: "PMax asset group density"
+        severity: "critical"
+        pass: "≥20 immagini, ≥5 loghi, ≥5 video per gruppo"
+        warning: "5-19 immagini, 1-4 loghi, o 1-4 video"
+        fail: "<5 immagini O 0 loghi O 0 video"
+
+      - id: "G26"
+        name: "RSA per ad group"
+        severity: "high"
+        pass: "≥1 RSA per ad group (≥2 consigliato)"
+        warning: "1 RSA per ad group"
+        fail: "Ad groups senza RSA"
+
+      - id: "G27"
+        name: "RSA headline count"
+        severity: "high"
+        pass: "≥8 headline uniche per RSA (ideale: 12-15)"
+        warning: "3-7 headlines"
+        fail: "<3 headlines"
+
+      - id: "G29"
+        name: "RSA Ad Strength"
+        severity: "high"
+        pass: "Tutti i RSA 'Good' o 'Excellent'"
+        warning: "Alcuni 'Average'"
+        fail: "Qualsiasi RSA con 'Poor' Ad Strength"
+
+      - id: "G32"
+        name: "PMax video assets presenti"
+        severity: "high"
+        pass: "Video nativi in tutti i formati (16:9, 1:1, 9:16)"
+        warning: "Solo 1-2 formati"
+        fail: "Nessun video nativo (solo auto-generato)"
+
+      - id: "G34"
+        name: "PMax final URL expansion"
+        severity: "high"
+        pass: "Configurato intenzionalmente (ON per discovery, OFF per controllo)"
+        fail: "Default ON senza revisione"
+
+      - id: "G35"
+        name: "Ad copy relevance to keywords"
+        severity: "high"
+        pass: "Headlines contengono varianti keyword primarie"
+        warning: "Inclusione keyword parziale"
+        fail: "Nessuna rilevanza keyword nelle headlines"
+
+      - id: "G-AD2"
+        name: "CTR vs industry benchmark"
+        severity: "high"
+        pass: "CTR ≥ media industria"
+        warning: "CTR 50-100% della media industria"
+        fail: "CTR <50% della media industria"
+
+      - id: "G-PM1"
+        name: "Audience signals configurati"
+        severity: "high"
+        pass: "Custom audience signals per asset group"
+        warning: "Solo segnali generici"
+        fail: "Nessun audience signal"
+
+      - id: "G-PM2"
+        name: "PMax Ad Strength"
+        severity: "high"
+        pass: "'Good' o 'Excellent'"
+        warning: "'Average'"
+        fail: "'Poor'"
+
+      - id: "G-PM3"
+        name: "Brand cannibalization"
+        severity: "high"
+        pass: "<15% conversioni PMax da termini brand"
+        warning: "15-30% da termini brand"
+        fail: ">30% da termini brand"
+
+      - id: "G-PM5"
+        name: "Negative keywords in PMax"
+        severity: "high"
+        pass: "Brand + negative irrilevanti applicati (fino a 10.000)"
+        warning: "Alcune negative applicate"
+        fail: "Nessuna negative keyword in PMax"
+
+      - id: "G28"
+        name: "RSA description count"
+        severity: "medium"
+        pass: "≥3 descrizioni per RSA (ideale: 4)"
+        warning: "2 descrizioni"
+        fail: "<2 descrizioni"
+
+      - id: "G30"
+        name: "RSA pinning strategy"
+        severity: "medium"
+        pass: "Pinning strategico (1-2 posizioni, 2-3 varianti ciascuna)"
+        warning: "Over-pinned (tutte le posizioni)"
+        fail: "—"
+
+      - id: "G33"
+        name: "PMax asset group count"
+        severity: "medium"
+        pass: "≥2 asset groups per PMax (segmentati per intento)"
+        warning: "1 asset group"
+
+      - id: "G-AD1"
+        name: "Ad freshness"
+        severity: "medium"
+        pass: "Nuovo ad copy testato negli ultimi 90 giorni"
+        fail: "Nessun nuovo ad in >90 giorni"
+
+      - id: "G-PM4"
+        name: "Search themes"
+        severity: "medium"
+        pass: "Search themes configurati (fino a 50 per asset group)"
+        warning: "<5 search themes"
+        fail: "Nessun search theme"
+
+  # --------------------------------------------------------------------------
+  # SETTINGS & TARGETING (10% weight, 18 checks)
+  # --------------------------------------------------------------------------
+  settings_targeting_checks:
+    weight: 0.10
+    description: "Bidding, estensioni, audiences, landing pages"
+
+    checks:
+      - id: "G36"
+        name: "Smart bidding strategy attiva"
+        severity: "high"
+        pass: "Tutte le campagne con ≥15 conv/30d usano automated bidding"
+        warning: "Parzialmente automatizzato"
+        fail: "Manual CPC su campagne con dati sufficienti"
+
+      - id: "G37"
+        name: "Target CPA/ROAS ragionevole"
+        severity: "high"
+        pass: "Target entro 20% della performance storica"
+        warning: "Target 20-50% diverso dallo storico"
+        fail: "Target CPA <50% del CPA effettivo"
+
+      - id: "G38"
+        name: "Learning phase status"
+        severity: "high"
+        pass: "<25% campagne in 'Learning' o 'Learning Limited'"
+        warning: "25-40% in learning"
+        fail: ">40% in learning"
+
+      - id: "G39"
+        name: "Budget constrained campaigns"
+        severity: "high"
+        pass: "Top performers mostrano 'Eligible' non 'Limited by Budget'"
+        warning: "Limitazione budget minore"
+        fail: "Top performers severamente limitati dal budget"
+
+      - id: "G50"
+        name: "Sitelink extensions"
+        severity: "high"
+        pass: "≥4 sitelinks per campagna"
+        warning: "1-3 sitelinks"
+        fail: "Nessun sitelink"
+        quick_win: true
+        fix_time: "10 min"
+
+      - id: "G56"
+        name: "Audience segments applicati"
+        severity: "high"
+        pass: "Remarketing + in-market audiences in modalità Observation"
+        warning: "Alcune audiences applicate"
+        fail: "Nessun audience signal"
+
+      - id: "G57"
+        name: "Customer Match lists"
+        severity: "high"
+        pass: "Lista Customer Match caricata, aggiornata <30 giorni"
+        warning: "Lista >30 giorni"
+        fail: "Nessuna Customer Match list"
+        note: "Richiede 90d storico + $50K lifetime spend per accesso completo. Max membership 540d (dal 7 Apr 2025)"
+
+      - id: "G58"
+        name: "Placement exclusions"
+        severity: "high"
+        pass: "Esclusioni placement a livello account (giochi, app, siti MFA)"
+        warning: "Solo a livello campagna"
+        fail: "Nessuna esclusione placement"
+
+      - id: "G59"
+        name: "Landing page mobile speed"
+        severity: "high"
+        pass: "Mobile LCP <2.5s (ideale <2.0s)"
+        warning: "LCP 2.5-4.0s"
+        fail: "LCP >4.0s"
+
+      - id: "G60"
+        name: "Landing page relevance"
+        severity: "high"
+        pass: "Landing page H1/title corrisponde al tema dell'ad group"
+        warning: "Rilevanza parziale"
+        fail: "Nessuna rilevanza con l'ad group"
+
+      - id: "G40"
+        name: "Manual CPC justification"
+        severity: "medium"
+        pass: "Manual CPC solo su campagne con <15 conv/mese"
+        warning: "Manual CPC con 15-30 conv/mese"
+        fail: "Manual CPC con >30 conv/mese"
+
+      - id: "G41"
+        name: "Portfolio bid strategies"
+        severity: "medium"
+        pass: "Campagne a basso volume raggruppate in portfoli"
+        fail: "Più campagne <15 conv che girano indipendentemente"
+
+      - id: "G51"
+        name: "Callout extensions"
+        severity: "medium"
+        pass: "≥4 callouts per campagna"
+        warning: "1-3 callouts"
+        fail: "Nessun callout"
+
+      - id: "G52"
+        name: "Structured snippets"
+        severity: "medium"
+        pass: "≥1 set structured snippet"
+        fail: "Nessuno structured snippet"
+
+      - id: "G53"
+        name: "Image extensions"
+        severity: "medium"
+        pass: "Image extensions attive per campagne Search"
+        fail: "Nessuna image extension"
+
+      - id: "G54"
+        name: "Call extensions (se applicabile)"
+        severity: "medium"
+        pass: "Call extensions con call tracking per business telefonici"
+        warning: "Call extension senza tracking"
+        fail: "Nessuna call extension per business telefonico"
+
+      - id: "G55"
+        name: "Lead form extensions"
+        severity: "medium"
+        pass: "Lead form testato per account lead gen"
+        fail: "Non testato"
+
+      - id: "G61"
+        name: "Landing page schema markup"
+        severity: "medium"
+        pass: "Schema Product/FAQ/Service presente"
+        fail: "Nessun schema markup"
+
+  # --------------------------------------------------------------------------
+  # QUALITY GATES (cross-check rules)
+  # --------------------------------------------------------------------------
+  quality_gates:
+    description: "Regole automatiche per identificare problemi critici immediati"
+
+    rules:
+      - id: "QG-01"
+        name: "3x Kill Rule"
+        description: "Qualsiasi campagna/ad group con CPA >3x target → segnalare per pausa"
+        severity: "critical"
+        action: "Pausa immediata"
+
+      - id: "QG-02"
+        name: "Budget sufficiency"
+        description: "Budget giornaliero deve essere sufficiente per learning phase"
+        thresholds:
+          google_search: "$20/giorno minimo"
+          google_pmax: "$50/giorno minimo"
+        severity: "high"
+
+      - id: "QG-03"
+        name: "Broad Match rule"
+        description: "Broad Match SOLO con Smart Bidding — MAI con Manual CPC"
+        severity: "critical"
+
+      - id: "QG-04"
+        name: "Learning phase protection"
+        description: "Non modificare campagne durante learning phase (nessun cambio budget >20%, targeting o bidding)"
+        severity: "high"
+
+      - id: "QG-05"
+        name: "Zero conversions spend"
+        description: "Campagna con spesa ≥$100 o ≥50 click senza conversioni → segnalare per pausa"
+        severity: "critical"
+
+  # --------------------------------------------------------------------------
+  # BIDDING STRATEGY DECISION ENGINE
+  # --------------------------------------------------------------------------
+  bidding_decision_engine:
+    description: "Albero decisionale per strategia di bidding basato su volume conversioni"
+
+    tiers:
+      - conversions_per_month: "<15"
+        strategy: "Maximize Clicks"
+        max_cpc_formula: "Target_CPA / (CVR × 1.5)"
+        learning_period: "3-5 giorni"
+        next_step: "Quando raggiunge 15+ conversioni → passare a Maximize Conversions"
+
+      - conversions_per_month: "15-29"
+        strategy: "Maximize Conversions (uncapped)"
+        learning_period: "7-14 giorni"
+        next_step: "Quando CPA SD < 20% su 14d → passare a Target CPA"
+
+      - conversions_per_month: "30+"
+        strategy: "Target CPA"
+        requires: "30+ conversioni (Google dice 15, ma 30+ per performance affidabile, 50+ ideale)"
+        set_at: "1.1x-1.2x CPA storico"
+        adjustment: "Max 10% cambio ogni 14 giorni. Mai abbassare >15% in una volta"
+
+      - conversions_per_month: "50+"
+        strategy: "Target ROAS"
+        requires: "Valori di conversione dinamici + 50+ conversioni"
+        set_at: "ROAS storico esatto"
+        formula: "Bid = P(conv) × Value × 1/tROAS"
+
+      - campaign_type: "Brand Protection"
+        strategy: "Target Impression Share"
+        target: "95-100% su keyword brand"
+        note: "Non richiede dati conversione"
+
+  # --------------------------------------------------------------------------
+  # INDUSTRY BENCHMARKS 2026
+  # --------------------------------------------------------------------------
+  benchmarks_2026:
+    source: "claude-ads, WordStream, Triple Whale 2025-2026"
+
+    all_industries:
+      ctr: 6.66
+      cpc: 5.26
+      cvr: 7.52
+      cpl: 70
+
+    by_industry:
+      ecommerce:
+        cpa: 23.74
+        roas: 3.68
+        cpc: 1.15
+        ctr: 4.13
+        cvr: 2.81
+      saas_b2b:
+        cpc_range: [4.50, 8.00]
+        cvr: 1.65
+        cpl_range: [100, 200]
+        ctr: 4.28
+      local_services:
+        cpc_range: [7.85, 15.00]
+        ctr_range: [5.50, 6.37]
+        cvr_range: [7.33, 15.0]
+        cpl: 90.92
+      healthcare:
+        cpc_min: 40
+        ctr: 4.90
+        cvr: 3.10
+      legal:
+        cpc_range: [8.58, 9.21]
+        ctr_range: [5.20, 5.97]
+        cvr_range: [4.60, 5.09]
+      finance:
+        cpc_range: [3.46, 3.77]
+        ctr_range: [4.65, 8.33]
+        cvr_range: [2.55, 3.50]
+
+    landing_page:
+      mobile_traffic_pct: 82.9
+      cvr_1s_vs_5s_multiplier: 3
+      median_cvr: 6.6
+      top_10_pct_cvr: 20
+      qs_high_cpc_discount_pct: 50
+      qs_low_cpc_penalty_pct: 400
+
+  # --------------------------------------------------------------------------
+  # INDUSTRY TEMPLATES
+  # --------------------------------------------------------------------------
+  industry_templates:
+    ecommerce:
+      primary_campaigns: ["Brand Search", "Non-Brand Search", "Shopping", "PMax"]
+      bidding: "tROAS (quando ≥50 conv/mese)"
+      key_checks: ["G42", "G43", "G45", "G05", "G07", "G31"]
+      roas_target: 3.68
+      budget_allocation:
+        search_brand: 10
+        search_nonbrand: 30
+        shopping: 30
+        pmax: 30
+      notes: "Feed Merchant Center obbligatorio per Shopping/PMax"
+
+    saas_b2b:
+      primary_campaigns: ["Brand Search", "Non-Brand Search", "Competitor Search"]
+      bidding: "tCPA (quando ≥30 conv/mese)"
+      key_checks: ["G42", "G43", "G44", "G47", "G49"]
+      cpl_target_range: [100, 200]
+      budget_allocation:
+        search_brand: 15
+        search_nonbrand: 50
+        competitor: 15
+        remarketing: 20
+      notes: "Offline Conversion Import critico per misurare SQL/pipeline"
+
+    local_service:
+      primary_campaigns: ["Local Search", "Brand Search", "Google LSA"]
+      bidding: "Maximize Conversions (poi tCPA quando dati sufficienti)"
+      key_checks: ["G42", "G11", "G50", "G54", "G60"]
+      cpl_target: 90
+      budget_allocation:
+        local_search: 50
+        brand: 10
+        lsa: 40
+      notes: "Call tracking obbligatorio. Geographic targeting 'People in' essenziale"
+
+  # --------------------------------------------------------------------------
+  # CREATIVE SPECIFICATIONS
+  # --------------------------------------------------------------------------
+  creative_specs:
+    rsa:
+      headlines: { min: 3, max: 15, char_limit: 30, recommended: "8-10, ideale 12-15" }
+      descriptions: { min: 2, max: 4, char_limit: 90, recommended: "3-4" }
+      display_paths: { max: 2, char_limit: 15 }
+      final_url: "obbligatoria"
+
+    pmax_assets:
+      images: { landscape: "1200×628 (1.91:1)", square: "1200×1200 (1:1)", portrait: "960×1200 (4:5)", max_total: 20 }
+      logos: { landscape: "1200×300 (4:1)", square: "1200×1200 (1:1)", max_total: 5 }
+      videos: { landscape: "1920×1080 (16:9)", square: "1080×1080 (1:1)", vertical: "1080×1920 (9:16)", max_total: 5 }
+      headlines: { char_limit: 30, max: 5 }
+      long_headlines: { char_limit: 90, max: 5 }
+      descriptions: { char_limit: 90, max: 5 }
+
+  # --------------------------------------------------------------------------
+  # QUICK WINS (Critical/High + <15 min fix)
+  # --------------------------------------------------------------------------
+  quick_wins:
+    description: "Check critici o alti risolvibili in meno di 15 minuti"
+    items:
+      - check: "G43"
+        fix: "Abilitare Enhanced Conversions in Google Ads conversion settings"
+        time: "5 min"
+      - check: "G11"
+        fix: "Cambiare a 'People in' per targeting geografico"
+        time: "2 min"
+      - check: "G14"
+        fix: "Creare liste negative keyword tematiche iniziali"
+        time: "10 min"
+      - check: "G17"
+        fix: "Passare a Smart Bidding o Exact Match"
+        time: "5 min"
+      - check: "G12"
+        fix: "Disabilitare Display Network su campagne Search"
+        time: "2 min"
+      - check: "G05"
+        fix: "Separare keyword brand in campagna dedicata"
+        time: "10 min"
+      - check: "G50"
+        fix: "Aggiungere 4+ sitelinks alle campagne"
+        time: "10 min"
+
+  # --------------------------------------------------------------------------
+  # SCORING ALGORITHM
+  # --------------------------------------------------------------------------
+  health_score_algorithm:
+    formula: "S_total = Σ(C_pass × W_sev × W_cat) / Σ(C_total × W_sev × W_cat) × 100"
+    pass_value: 1.0
+    warning_value: 0.5
+    fail_value: 0.0
+    na_handling: "Escluso dal totale possibile"
+    severity_multipliers:
+      critical: 5.0
+      high: 3.0
+      medium: 1.5
+      low: 0.5

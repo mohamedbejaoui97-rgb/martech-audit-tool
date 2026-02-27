@@ -1,0 +1,168 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-02-27",
+    "schema_org_version": "29.4",
+    "sources": ["claude-seo (AgriciDaniel)", "schema.org"]
+  },
+  "deprecated_types": {
+    "HowTo": {"status": "removed", "since": "September 2023", "note": "Rich results fully removed"},
+    "SpecialAnnouncement": {"status": "deprecated", "since": "July 2025", "note": "COVID-era schema"},
+    "CourseInfo": {"status": "retired", "since": "June 2025", "note": "Merged into Course"},
+    "EstimatedSalary": {"status": "retired", "since": "June 2025"},
+    "LearningVideo": {"status": "retired", "since": "June 2025", "note": "Use VideoObject"},
+    "ClaimReview": {"status": "retired", "since": "June 2025"},
+    "VehicleListing": {"status": "retired", "since": "June 2025"},
+    "PracticeProblem": {"status": "retired", "since": "Late 2025"},
+    "Dataset": {"status": "retired", "since": "Late 2025"}
+  },
+  "restricted_types": {
+    "FAQPage": {"restriction": "Only government and healthcare authority sites", "since": "August 2023"}
+  },
+  "recent_additions": {
+    "ProductGroup": {"added": "2025", "note": "E-commerce variants with variesBy, hasVariant"},
+    "ProfilePage": {"added": "2025", "note": "Author/creator profiles for E-E-A-T"},
+    "Certification": {"added": "April 2025", "note": "Replaced EnergyConsumptionDetails"},
+    "OfferShippingDetails": {"added": "2025", "note": "Shipping rate, handling time, transit time"},
+    "LoyaltyProgram": {"added": "June 2025", "note": "Member pricing structured data"},
+    "DiscussionForumPosting": {"added": "2024", "note": "Forum/community content"}
+  },
+  "templates": {
+    "Organization": {
+      "required": ["name", "url", "logo"],
+      "recommended": ["contactPoint", "sameAs", "description"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "[Company Name]",
+        "url": "[Website URL]",
+        "logo": "[Logo URL]",
+        "contactPoint": {"@type": "ContactPoint", "telephone": "[Phone]", "contactType": "customer service"},
+        "sameAs": ["[Facebook URL]", "[LinkedIn URL]", "[Twitter URL]"]
+      }
+    },
+    "LocalBusiness": {
+      "required": ["name", "address", "telephone"],
+      "recommended": ["openingHours", "geo", "areaServed", "priceRange"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": "[Business Name]",
+        "address": {"@type": "PostalAddress", "streetAddress": "[Street]", "addressLocality": "[City]", "addressRegion": "[State]", "postalCode": "[ZIP]", "addressCountry": "[Country]"},
+        "telephone": "[Phone]",
+        "openingHours": "Mo-Fr 09:00-17:00",
+        "geo": {"@type": "GeoCoordinates", "latitude": "[Lat]", "longitude": "[Long]"},
+        "areaServed": ["[City 1]", "[City 2]"],
+        "priceRange": "$$"
+      }
+    },
+    "Product": {
+      "required": ["name", "image", "description", "offers"],
+      "recommended": ["sku", "brand", "aggregateRating", "review"],
+      "note": "Must be in server-rendered HTML for Merchant Center eligibility",
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "[Product Name]",
+        "image": ["[Image URL]"],
+        "description": "[Description]",
+        "sku": "[SKU]",
+        "brand": {"@type": "Brand", "name": "[Brand]"},
+        "offers": {"@type": "Offer", "price": "[Price]", "priceCurrency": "[Currency]", "availability": "https://schema.org/InStock", "url": "[Product URL]"},
+        "aggregateRating": {"@type": "AggregateRating", "ratingValue": "[Rating]", "reviewCount": "[Count]"}
+      }
+    },
+    "ProductGroup": {
+      "required": ["name", "productGroupID", "variesBy", "hasVariant"],
+      "note": "For products with variants (size, color). New in 2025.",
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "ProductGroup",
+        "name": "[Product Name]",
+        "productGroupID": "[group-id]",
+        "variesBy": ["https://schema.org/size", "https://schema.org/color"],
+        "hasVariant": [{"@type": "Product", "name": "[Variant]", "sku": "[SKU]", "color": "[Color]", "size": "[Size]", "offers": {"@type": "Offer", "price": "[Price]", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}]
+      }
+    },
+    "Article": {
+      "required": ["headline", "author", "datePublished", "image"],
+      "recommended": ["dateModified", "publisher", "description"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "[Title]",
+        "author": {"@type": "Person", "name": "[Author]"},
+        "datePublished": "[YYYY-MM-DD]",
+        "dateModified": "[YYYY-MM-DD]",
+        "image": "[Image URL]",
+        "publisher": {"@type": "Organization", "name": "[Publisher]", "logo": {"@type": "ImageObject", "url": "[Logo URL]"}}
+      }
+    },
+    "BreadcrumbList": {
+      "required": ["itemListElement"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {"@type": "ListItem", "position": 1, "name": "Home", "item": "[Home URL]"},
+          {"@type": "ListItem", "position": 2, "name": "[Category]", "item": "[Category URL]"},
+          {"@type": "ListItem", "position": 3, "name": "[Page]"}
+        ]
+      }
+    },
+    "WebSite": {
+      "required": ["name", "url"],
+      "recommended": ["potentialAction"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "[Site Name]",
+        "url": "[Site URL]",
+        "potentialAction": {"@type": "SearchAction", "target": {"@type": "EntryPoint", "urlTemplate": "[Site URL]/search?q={search_term_string}"}, "query-input": "required name=search_term_string"}
+      }
+    },
+    "VideoObject": {
+      "required": ["name", "description", "thumbnailUrl", "uploadDate"],
+      "recommended": ["duration", "contentUrl", "embedUrl"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        "name": "[Title]",
+        "description": "[Description]",
+        "thumbnailUrl": "[Thumbnail URL]",
+        "uploadDate": "[YYYY-MM-DD]",
+        "duration": "[ISO 8601, e.g. PT1H30M]",
+        "contentUrl": "[Video URL]",
+        "embedUrl": "[Embed URL]"
+      }
+    },
+    "ProfilePage": {
+      "required": ["mainEntity"],
+      "note": "For author/team pages. Enhances E-E-A-T. New in 2025.",
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "ProfilePage",
+        "mainEntity": {"@type": "Person", "name": "[Name]", "url": "[Profile URL]", "description": "[Bio]", "sameAs": ["[Twitter]", "[LinkedIn]"]}
+      }
+    },
+    "Certification": {
+      "note": "Replaced EnergyConsumptionDetails April 2025.",
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "[Product]",
+        "hasCertification": {"@type": "Certification", "certificationIdentification": "[Cert Name]", "issuedBy": {"@type": "Organization", "name": "[Issuer]"}}
+      }
+    },
+    "Event": {
+      "required": ["name", "startDate", "location"],
+      "template": {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": "[Event Name]",
+        "startDate": "[YYYY-MM-DDTHH:MM:SS]",
+        "location": {"@type": "Place", "name": "[Venue]", "address": {"@type": "PostalAddress", "addressLocality": "[City]"}}
+      }
+    }
+  }
+}

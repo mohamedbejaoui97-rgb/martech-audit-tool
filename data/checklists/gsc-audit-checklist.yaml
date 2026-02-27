@@ -2052,3 +2052,371 @@ scoring:
       result: "Max grade D"
     - condition: "Tutti CWV Poor su mobile"
       result: "Max grade C"
+
+# ============================================================================
+# ENRICHMENT: SEO + GEO + E-E-A-T FRAMEWORKS
+# (Sources: claude-seo, seo-geo-claude-skills, gsc-skills)
+# ============================================================================
+# Added: 2026-02-27
+
+# --------------------------------------------------------------------------
+# BRAND VS NON-BRAND ANALYSIS FRAMEWORK
+# --------------------------------------------------------------------------
+brand_analysis:
+  description: "Framework per analisi brand vs non-brand da dati GSC"
+
+  healthy_benchmarks:
+    brand_traffic_pct:
+      target: [20, 40]
+      warning: [40, 60]
+      critical_above: 60
+    brand_ctr: { healthy_above: 40 }
+    non_brand_ctr:
+      healthy: [5, 15]
+      warning: [2, 5]
+      critical_below: 2
+    non_brand_avg_position:
+      healthy_below: 5
+      warning: [5, 10]
+      critical_above: 10
+
+  health_indicators:
+    positive:
+      - "Non-brand cresce più veloce di brand (SEO funziona)"
+      - "Brand CTR >40%"
+      - "Non-brand CTR in miglioramento nel tempo"
+      - "Portfolio keyword non-brand diversificato"
+    warning:
+      - "Brand >70% dei click (over-reliance)"
+      - "Non-brand in calo mentre brand cresce"
+      - "Brand CTR in calo"
+      - "Bassa diversità keyword non-brand"
+
+# --------------------------------------------------------------------------
+# SEO OPPORTUNITY SCORING
+# --------------------------------------------------------------------------
+opportunity_scoring:
+  description: "Framework di scoring per prioritizzare opportunità SEO"
+
+  quick_wins:
+    criteria: "TUTTI devono essere soddisfatti"
+    rules:
+      position: [4, 10]
+      impressions_min: 500
+      ctr: "Sotto la media per quella posizione"
+    actions: ["On-page optimization", "Internal linking", "Content refresh"]
+
+  striking_distance:
+    criteria: "TUTTI devono essere soddisfatti"
+    rules:
+      position: [11, 20]
+      impressions_min: 200
+      page: "Esiste ed è indicizzata"
+    actions: ["Content expansion", "Backlink building", "Technical improvements"]
+
+  high_volume_underperformers:
+    criteria: "Tutti i seguenti"
+    rules:
+      impressions_min: 1000
+      position_above: 5
+      ctr_below: 2
+    actions: ["Title/meta optimization", "Featured snippet optimization", "Content restructure"]
+
+  ctr_benchmarks_by_position:
+    - { position: 1, expected: [25, 35], below_average: 20 }
+    - { position: 2, expected: [12, 18], below_average: 10 }
+    - { position: 3, expected: [8, 12], below_average: 6 }
+    - { position: "4-5", expected: [5, 8], below_average: 4 }
+    - { position: "6-10", expected: [2, 5], below_average: 2 }
+    - { position: "11-20", expected: [0.5, 2], below_average: 0.5 }
+
+  cannibalization_detection:
+    method: "Raggruppare query per similarità semantica, verificare se pagine diverse rankano per lo stesso cluster"
+    action: "Consolidare contenuto o usare canonical"
+
+# --------------------------------------------------------------------------
+# CONTENT OPPORTUNITY ANALYSIS
+# --------------------------------------------------------------------------
+content_opportunities:
+
+  gap_types:
+    - type: "Query clusters senza contenuto dedicato"
+      signal: "Multiple query correlate, nessuna pagina comprensiva"
+      threshold: "Potenziale impressioni combinato >1.000/mese"
+
+    - type: "Long-tail expansion"
+      signal: "Head term in posizione 1-5, long-tail correlati >10"
+      action: "Creare contenuti di supporto con internal links a pillar"
+
+    - type: "Question-based content"
+      signal: "Query con how/what/why/when/where/which/can/does/is"
+      action: "Verificare se la pagina rankante risponde effettivamente alla domanda"
+
+    - type: "Comparison/Alternative content"
+      signal: "Keywords con vs/versus/alternative/compared to/best/top/review"
+      action: "Creare pagine comparazione dedicate"
+
+  content_prioritization:
+    total_cluster_impressions: { weight: 40, scoring: ">5000=10, >1000=7, >500=5, >100=3" }
+    competition: { weight: 30, scoring: "avg pos <20=10, <30=7, <50=5" }
+    query_count_in_cluster: { weight: 20, scoring: ">10=10, >5=7, >3=5" }
+    commercial_intent: { weight: 10, scoring: "buy/price/best=10, how-to=5, info=3" }
+
+  intent_classification:
+    commercial: ["buy", "price", "cost", "purchase", "order", "deal", "discount", "best", "top", "review"]
+    informational: ["how to", "what is", "guide", "tutorial", "learn", "examples", "definition"]
+    navigational: ["brand names", "specific product names", "login", "support"]
+    local: ["near me", "in [city]", "local", "directions"]
+
+  funnel_stages:
+    tofu: { signals: ["what is", "how to", "guide", "101"], priority: "Content marketing" }
+    mofu: { signals: ["best", "vs", "comparison", "alternative", "review"], priority: "HIGH - conversion" }
+    bofu: { signals: ["pricing", "free trial", "demo", "[brand]", "login"], priority: "Highest intent" }
+
+# --------------------------------------------------------------------------
+# E-E-A-T FRAMEWORK (September 2025 QRG Update)
+# --------------------------------------------------------------------------
+eeat_framework:
+  description: "Google's Quality Rater Guidelines — E-E-A-T assessment"
+
+  experience:
+    signals:
+      - "Ricerca originale, case studies, risultati before/after"
+      - "Aneddoti personali, documentazione processi"
+      - "Dati unici, insights proprietari"
+      - "Foto/video da esperienza diretta"
+
+  expertise:
+    signals:
+      - "Credenziali autore, certificazioni, bio"
+      - "Background professionale rilevante al topic"
+      - "Profondità tecnica appropriata per l'audience"
+      - "Claims accurati e ben documentati"
+
+  authoritativeness:
+    signals:
+      - "Citazioni esterne, backlinks da fonti autorevoli"
+      - "Menzioni brand, riconoscimenti industria"
+      - "Pubblicato su outlet riconosciuti"
+      - "Citato da altri esperti"
+
+  trustworthiness:
+    signals:
+      - "Informazioni contatto, indirizzo fisico"
+      - "Privacy policy, terms of service"
+      - "Testimonial clienti, recensioni"
+      - "Date di pubblicazione, correzioni trasparenti"
+      - "Sito sicuro (HTTPS)"
+
+  content_word_count_minimums:
+    homepage: 500
+    service_page: 800
+    blog_post: 1500
+    product_page: "300+ (400+ per prodotti complessi)"
+    location_page: "500-600"
+    note: "Word count NON è ranking factor diretto — è floor per copertura topicale"
+
+  ai_content_assessment:
+    acceptable:
+      - "Dimostra genuino E-E-A-T"
+      - "Fornisce valore unico"
+      - "Ha supervisione e editing umano"
+      - "Contiene insights originali"
+    low_quality_markers:
+      - "Fraseologia generica, mancanza di specificità"
+      - "Nessun insight originale"
+      - "Struttura ripetitiva tra pagine"
+      - "Nessuna attribuzione autore"
+      - "Inaccuratezze fattuali"
+
+# --------------------------------------------------------------------------
+# GEO — GENERATIVE ENGINE OPTIMIZATION
+# --------------------------------------------------------------------------
+geo_framework:
+  description: "Ottimizzazione per risposte AI (Google AI Overviews, ChatGPT, Perplexity)"
+
+  key_stats:
+    ai_overviews_users: "1.5B utenti/mese, 200+ paesi"
+    ai_overviews_coverage: "50%+ delle query"
+    chatgpt_users: "900M utenti attivi settimanali"
+    perplexity_queries: "500M+ query mensili"
+    brand_mentions_vs_backlinks: "3x più correlati con visibilità AI (Ahrefs Dec 2025)"
+
+  scoring_criteria:
+    citability:
+      weight: 25
+      optimal_passage_length: "134-167 parole"
+      rules:
+        - "Frasi chiare e quotabili con fatti/statistiche specifiche"
+        - "Blocchi risposta autocontenuti (estraibili senza contesto)"
+        - "Risposta diretta nelle prime 40-60 parole della sezione"
+        - "Claims attribuiti con fonti specifiche"
+        - "Definizioni che seguono pattern 'X è...' o 'X si riferisce a...'"
+
+    structural_readability:
+      weight: 20
+      key_stat: "92% citazioni AI Overview da pagine top-10; 47% da posizione sotto 5"
+      rules:
+        - "Gerarchia heading pulita H1→H2→H3"
+        - "Heading basati su domande (match pattern query)"
+        - "Paragrafi brevi (2-4 frasi)"
+        - "Tabelle per dati comparativi"
+        - "Sezioni FAQ con formato Q&A chiaro"
+
+    multi_modal:
+      weight: 15
+      key_stat: "Contenuti multi-modali: 156% higher selection rates"
+      checks: ["Testo + immagini rilevanti", "Video content", "Infografiche", "Strumenti interattivi"]
+
+    authority_brand:
+      weight: 20
+      checks:
+        - "Autore con credenziali"
+        - "Data pubblicazione e ultimo aggiornamento"
+        - "Citazioni a fonti primarie"
+        - "Presenza entity: Wikipedia, Wikidata, Reddit, YouTube, LinkedIn"
+
+    technical_accessibility:
+      weight: 20
+      critical: "AI crawlers NON eseguono JavaScript — SSR è critico"
+      checks: ["AI crawler access in robots.txt", "llms.txt file presence", "Server-side rendering"]
+
+  platform_optimization:
+    google_ai_overviews: { sources: "Top-10 ranking pages (92%)", focus: "SEO tradizionale + passage optimization" }
+    chatgpt: { sources: "Wikipedia (47.9%), Reddit (11.3%)", focus: "Entity presence, fonti autorevoli" }
+    perplexity: { sources: "Reddit (46.7%), Wikipedia", focus: "Community validation, discussioni" }
+    bing_copilot: { sources: "Bing index, siti autorevoli", focus: "Bing SEO, IndexNow" }
+
+# --------------------------------------------------------------------------
+# SCHEMA DEPRECATION AWARENESS (Feb 2026)
+# --------------------------------------------------------------------------
+schema_status:
+  deprecated:
+    - { type: "HowTo", status: "Rimosso", since: "September 2023" }
+    - { type: "FAQ", status: "Ristretto", since: "August 2023", note: "Solo government + healthcare authority" }
+    - { type: "SpecialAnnouncement", status: "Deprecato", since: "July 2025" }
+    - { type: "CourseInfo", status: "Ritirato", since: "June 2025" }
+    - { type: "ClaimReview", status: "Ritirato", since: "June 2025" }
+    - { type: "Dataset", status: "Ritirato", since: "Late 2025" }
+  new:
+    - { type: "ProductGroup", added: "2025", note: "Varianti prodotto con variesBy, hasVariant" }
+    - { type: "ProfilePage", added: "2025", note: "Profili autore/creator per E-E-A-T" }
+    - { type: "Certification", added: "April 2025", note: "Sostituisce EnergyConsumptionDetails" }
+    - { type: "OfferShippingDetails", added: "2025", note: "Shipping rate, handling time" }
+    - { type: "DiscussionForumPosting", added: "2024", note: "Forum/community content" }
+
+# --------------------------------------------------------------------------
+# HREFLANG VALIDATION
+# --------------------------------------------------------------------------
+hreflang_validation:
+  checks:
+    - id: "HREF-01"
+      check: "Self-referencing tags"
+      severity: "critical"
+      rule: "Ogni pagina deve includere hreflang che punta a se stessa"
+    - id: "HREF-02"
+      check: "Return tags"
+      severity: "critical"
+      rule: "Se A→B con hreflang, B deve avere hreflang verso A (bidirezionale)"
+    - id: "HREF-03"
+      check: "x-default tag"
+      severity: "high"
+      rule: "Obbligatorio: designa pagina fallback per lingue/regioni non matchate"
+    - id: "HREF-04"
+      check: "Language code validation"
+      severity: "high"
+      rule: "ISO 639-1 two-letter (en, fr, de). Errori comuni: eng→en, jp→ja"
+    - id: "HREF-05"
+      check: "Region code validation"
+      severity: "high"
+      rule: "ISO 3166-1 Alpha-2 (en-US, en-GB). Errori comuni: en-uk→en-GB"
+    - id: "HREF-06"
+      check: "Canonical alignment"
+      severity: "high"
+      rule: "Hreflang solo su URL canonici. Se canonical punta altrove, hreflang ignorato"
+    - id: "HREF-07"
+      check: "Protocol consistency"
+      severity: "medium"
+      rule: "Tutti gli URL nello stesso set devono usare lo stesso protocollo (HTTPS)"
+
+# --------------------------------------------------------------------------
+# JAVASCRIPT RENDERING CONSIDERATIONS (December 2025)
+# --------------------------------------------------------------------------
+js_rendering_notes:
+  - "Conflitti canonical: se canonical in HTML raw diverso da versione JS, Google può usare ENTRAMBI"
+  - "noindex con JavaScript: se HTML raw ha noindex ma JS lo rimuove, Google PUÒ ancora onorare noindex"
+  - "Status code non-200: Google NON renderizza JavaScript su pagine con status non-200"
+  - "Structured data in JavaScript: markup iniettato via JS può avere processing ritardato"
+  - "Best practice: servire elementi SEO critici (canonical, meta robots, structured data, title, meta desc) nell'HTML server-rendered iniziale"
+
+# --------------------------------------------------------------------------
+# PROGRAMMATIC SEO QUALITY GATES
+# --------------------------------------------------------------------------
+programmatic_seo:
+  quality_gates:
+    - metric: "Unique content per page"
+      threshold: "<40%"
+      action: "Flag come thin content — rischio penalità"
+    - metric: "Word count per page"
+      threshold: "<300"
+      action: "Flag per review"
+    - metric: "Pages without content review"
+      threshold: ">100"
+      action: "WARNING — richiedere audit prima di pubblicare"
+    - metric: "Pages without justification"
+      threshold: ">500"
+      action: "HARD STOP — richiedere approvazione esplicita"
+
+  scaled_content_abuse:
+    note: "June 2025 manual actions, August 2025 SpamBrain update. 45% riduzione contenuti low-quality"
+    content_differentiation_min: "30-40% contenuto unico tra pagine"
+    human_review: "Minimo 5-10% sample review prima della pubblicazione"
+    progressive_rollout: "Pubblicare in batch di 50-100 pagine; monitorare 2-4 settimane"
+
+# --------------------------------------------------------------------------
+# ADDITIONAL AUDIT CHECKS (from gsc-skills + claude-seo)
+# --------------------------------------------------------------------------
+additional_checks:
+  crawlability:
+    - id: "CRAWL-01"
+      check: "AI crawler management in robots.txt"
+      severity: "medium"
+      crawlers:
+        - { name: "GPTBot", owner: "OpenAI", purpose: "Model training" }
+        - { name: "ChatGPT-User", owner: "OpenAI", purpose: "Real-time browsing" }
+        - { name: "ClaudeBot", owner: "Anthropic", purpose: "Model training" }
+        - { name: "PerplexityBot", owner: "Perplexity", purpose: "Search index" }
+        - { name: "Google-Extended", owner: "Google", purpose: "Gemini training (NON search)" }
+      note: "Bloccare Google-Extended NON impatta Google Search o AI Overviews"
+
+    - id: "CRAWL-02"
+      check: "llms.txt file"
+      severity: "low"
+      rule: "File /llms.txt alla root del dominio per guidare AI crawlers"
+
+    - id: "CRAWL-03"
+      check: "IndexNow protocol"
+      severity: "low"
+      rule: "Supportato da Bing, Yandex, Naver — non da Google"
+
+  image_optimization:
+    alt_text: { required: true, length: "10-125 chars", no_keyword_stuffing: true }
+    file_sizes:
+      thumbnails: { target: "<50KB", warning: ">100KB", critical: ">200KB" }
+      content: { target: "<100KB", warning: ">200KB", critical: ">500KB" }
+      hero: { target: "<200KB", warning: ">300KB", critical: ">700KB" }
+    formats: ["AVIF (92%+ support)", "WebP (97%+ support)", "JPEG/PNG fallback"]
+    lazy_loading: "loading='lazy' below-fold; fetchpriority='high' per LCP image"
+
+  internal_linking:
+    density: "3-5 internal links per 1000 parole"
+    anchor_text: "Descrittivo, variato — evitare ripetizione exact-match"
+    orphan_pages: "Nessuna pagina senza link interni in entrata"
+
+  mobile_first:
+    note: "Mobile-first indexing 100% completo — Google usa esclusivamente mobile Googlebot"
+    checks:
+      - "Responsive design con viewport meta tag"
+      - "Touch targets minimo 48x48px con 8px spacing"
+      - "Font size minimo 16px base"
+      - "Nessun horizontal scroll"

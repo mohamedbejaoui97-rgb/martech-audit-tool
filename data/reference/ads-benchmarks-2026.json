@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-02-27",
+    "sources": ["claude-ads (AgriciDaniel)", "Industry reports 2025-2026"]
+  },
+  "google_ads": {
+    "search": {
+      "all_industries": {"ctr": 6.66, "cpc": 5.26, "cvr": 7.52, "cpl": 70},
+      "ecommerce": {"cpa": 23.74, "roas": 3.68},
+      "saas": {"cpc_range": [4.50, 8.00], "cvr": 1.65, "cpl_range": [100, 200]},
+      "healthcare": {"cpc_min": 40},
+      "local_services": {"cpc_range": [7.85, 15.00]},
+      "legal": {"roas": 3.0},
+      "finance": {"roas": 3.5, "cpc_min": 40},
+      "local_service_roas": 5.0
+    },
+    "quality_score": {
+      "pass": 7, "warning_range": [5, 6], "fail_max": 4
+    },
+    "thresholds": {
+      "wasted_spend_max_pct": 10,
+      "invalid_clicks_max_pct": 5,
+      "ad_strength_min": "Good"
+    }
+  },
+  "meta_ads": {
+    "leads": {"ctr": 2.59, "cpc": 1.92, "cvr": 7.72, "cpl": 27.66},
+    "roas": {
+      "median": 2.19,
+      "retargeting": 3.61,
+      "advantage_plus_sales": 4.52
+    },
+    "cpm_by_industry": {
+      "arts": 5.82, "finance": 50.00, "healthcare": 36.82
+    },
+    "emq": {
+      "critical_below": 4.0, "warning_range": [4.0, 5.9], "acceptable_range": [6.0, 7.9], "excellent_min": 8.0,
+      "parameter_impact": {"email": 4.0, "phone": 3.0}
+    },
+    "frequency": {
+      "prospecting_max": 3.0, "retargeting_max": 8.0
+    },
+    "learning_phase": {
+      "conversions_needed": 50, "period_days": 7
+    }
+  },
+  "linkedin_ads": {
+    "cpc_global_avg": [5, 7], "cpc_median": 3.94,
+    "lead_gen_form_cvr": 13,
+    "lead_gen_vs_landing": 3.25,
+    "tla_cpc_range": [2.29, 4.14],
+    "standard_cpc": 13.23,
+    "message_ads": {"ctr": 3, "open_rate": 30},
+    "b2b_roas": 1.13,
+    "accelerate": {"cpa_reduction_pct": 42, "cpl_reduction_pct": 21},
+    "min_audience": 500,
+    "min_daily_budget": 50
+  },
+  "tiktok_ads": {
+    "cpm_range": [3.21, 10], "cpc_range": [0.20, 2.00],
+    "ctr_range": [0.5, 1.5], "cvr_range": [0.3, 1.0],
+    "spark_ads_ctr": 3,
+    "smart_plus_roas_range": [1.41, 1.67],
+    "smart_plus_adoption_pct": 42,
+    "shop_cvr_min": 10,
+    "standard_cvr_range": [0.46, 2.4],
+    "learning_phase": {"conversions_needed": 50, "period_days": 7},
+    "budget_min": {"campaign_daily": 50, "ad_group_daily": 20},
+    "safe_zone": {"x_range": [40, 940], "y_range": [150, 1470], "safe_area": "900x1320px"}
+  },
+  "microsoft_ads": {
+    "cpc_range": [1.20, 1.55],
+    "cpc_discount_vs_google_pct": [20, 35],
+    "ctr_range": [2.83, 3.1],
+    "copilot": {"ctr_lift_pct": 73, "cvr_lift_pct": 16, "purchase_likelihood_pct": 194},
+    "paid_click_advantage_pct": 25,
+    "us_share": {"all_devices": 8.78, "desktop_range": [16.75, 17.58]},
+    "user_demographics": {"top_25_hhi_pct": 50, "degree_pct": 34, "age_45_64_pct": 38},
+    "higher_roas_vs_google_pct": 37
+  },
+  "minimum_viable_budgets": {
+    "google_ads": 1000,
+    "meta_ads": [600, 800],
+    "linkedin_ads": 3000,
+    "tiktok_ads": 300,
+    "microsoft_ads_pct_of_google": [20, 30]
+  },
+  "landing_page": {
+    "mobile_traffic_pct": 82.9,
+    "cvr_1s_vs_5s_multiplier": 3,
+    "median_cvr": 6.6,
+    "top_10_pct_cvr": 20,
+    "qs_high_cpc_discount_pct": 50,
+    "qs_low_cpc_penalty_pct": 400
+  },
+  "budget_rules": {
+    "allocation": {"proven": 70, "growth": 20, "experiment": 10},
+    "scale_up_rule": {"condition": "CPA <target by >10%, not in learning", "increase_pct": 20, "wait_days": [3, 5]},
+    "kill_rule": {"condition": "spend >3x target CPA with 0 conversions", "action": "pause immediately"},
+    "saturation": {
+      "google_impression_share_max_pct": 80,
+      "meta_frequency_max": 4.0,
+      "tiktok_frequency_max": 3.0,
+      "linkedin_penetration_max_pct": 50
+    }
+  },
+  "platform_selection": {
+    "saas_b2b": {"google": [35, 45], "linkedin": [30, 40], "meta": [15, 25], "min_monthly": 5000},
+    "ecommerce_dtc": {"meta": [50, 68], "google_pmax": [23, 30], "tiktok": [5, 15], "min_monthly": 3000},
+    "local_service": {"google_lsa": 60, "meta": 30, "bing": 10, "min_monthly": 1500},
+    "b2b_enterprise": {"linkedin": [39, 60], "google": [20, 35], "abm_display": [15, 20], "min_monthly": 10000},
+    "healthcare": {"google": 55, "meta": 20, "microsoft": 10, "min_monthly": 4000},
+    "finance": {"google": [40, 50], "linkedin": [20, 30], "meta": 15, "min_monthly": 8000}
+  },
+  "scoring": {
+    "grades": {"A": [90, 100], "B": [75, 89], "C": [60, 74], "D": [40, 59], "F": [0, 39]},
+    "severity_weights": {"critical": 5.0, "high": 3.0, "medium": 1.5, "low": 0.5},
+    "category_weights_google": {
+      "conversion_tracking": 25, "wasted_spend": 20, "account_structure": 15,
+      "keywords_quality_score": 15, "ads_assets": 15, "settings_targeting": 10
+    },
+    "category_weights_meta": {
+      "pixel_capi_health": 30, "creative": 30, "account_structure": 20, "audience_targeting": 20
+    }
+  }
+}

@@ -1135,3 +1135,349 @@ json_parsing_reference:
       - "EQUALS, CONTAINS, STARTS_WITH, ENDS_WITH"
       - "MATCH_REGEX, GREATER, LESS"
       - "CSS_SELECTOR, URL_MATCHES"
+
+# ============================================================================
+# ENRICHMENT: CONSENT MODE V2 + ENHANCED CONVERSIONS + META CAPI + TRACKING
+# (Sources: claude-ads, claude-seo, web-quality-skills)
+# ============================================================================
+# Added: 2026-02-27
+
+# --------------------------------------------------------------------------
+# CONSENT MODE V2 — ADVANCED CHECKS
+# --------------------------------------------------------------------------
+consent_mode_v2_advanced:
+  description: "Consent Mode v2 obbligatorio EU/EEA da Marzo 2024, enforcement July 2025"
+
+  checks:
+    - id: "CM-01"
+      name: "Consent Mode v2 implementato"
+      severity: "critical"
+      pass: "Consent Mode v2 con Advanced mode"
+      warning: "Solo Basic mode"
+      fail: "Non implementato (se serve EU/EEA)"
+      impact: "Senza: 90-95% calo metriche. Advanced recupera 30-50% conversioni perse"
+
+    - id: "CM-02"
+      name: "Consent signals corretti"
+      severity: "critical"
+      required_signals:
+        - "ad_storage (Google Ads cookies)"
+        - "analytics_storage (GA4 cookies)"
+        - "ad_user_data (invio dati utente a Google per ads — NUOVO v2)"
+        - "ad_personalization (remarketing — NUOVO v2)"
+      pass: "Tutti e 4 i segnali configurati"
+      fail: "Mancano ad_user_data o ad_personalization (richiesti da v2)"
+
+    - id: "CM-03"
+      name: "Default consent state"
+      severity: "high"
+      pass: "Default 'denied' per tutti i segnali prima di scelta utente (GDPR)"
+      fail: "Default 'granted' senza consenso (viola GDPR)"
+      note: "Tag Consent Initialization deve sparare PRIMA di tutti gli altri tag"
+
+    - id: "CM-04"
+      name: "Consent update dopo scelta"
+      severity: "high"
+      pass: "gtag('consent', 'update', {...}) chiamato dopo scelta utente"
+      fail: "Nessun update dopo consenso/rifiuto"
+
+    - id: "CM-05"
+      name: "URL passthrough"
+      severity: "medium"
+      pass: "url_passthrough abilitato per preservare attribution cross-page"
+      note: "Aggiunge gclid/dclid ai link interni quando consenso negato"
+
+    - id: "CM-06"
+      name: "Ads data redaction"
+      severity: "medium"
+      pass: "ads_data_redaction configurato per rimuovere ad click IDs quando consenso negato"
+
+  global_acceptance_rate: "~31% utenti accettano tracking cookies globalmente"
+
+# --------------------------------------------------------------------------
+# ENHANCED CONVERSIONS — ADVANCED
+# --------------------------------------------------------------------------
+enhanced_conversions_advanced:
+  description: "Enhanced Conversions inviano dati first-party hashati SHA-256 per migliorare misurazione"
+
+  checks:
+    - id: "EC-01"
+      name: "Enhanced Conversions per Google Ads"
+      severity: "critical"
+      pass: "Enhanced Conversions attive e verificate per conversioni primarie"
+      warning: "Abilitate ma non verificate"
+      fail: "Non abilitate"
+      impact: "~10% più conversioni misurate"
+
+    - id: "EC-02"
+      name: "Dati utente inviati"
+      severity: "high"
+      required_fields:
+        - field: "email"
+          hash: "SHA-256"
+          impact: "Segnale match rate più alto"
+        - field: "phone_number"
+          hash: "SHA-256"
+          impact: "Secondo segnale più alto"
+        - field: "first_name"
+          hash: "SHA-256"
+        - field: "last_name"
+          hash: "SHA-256"
+        - field: "street_address"
+          hash: "SHA-256"
+      pass: "Almeno email hashata inviata"
+      warning: "Solo email senza phone"
+      fail: "Nessun dato utente inviato"
+
+    - id: "EC-03"
+      name: "Enhanced Conversions per lead gen"
+      severity: "high"
+      pass: "Enhanced Conversions for Leads configurate con GCLID storage"
+      note: "Necessario per tracciare conversioni offline (SQL, deal closed)"
+
+    - id: "EC-04"
+      name: "Implementazione via GTM"
+      severity: "medium"
+      gtm_implementation:
+        tag_type: "Google Ads Conversion Tracking"
+        setting: "Include user-provided data from your website"
+        data_source: "Data Layer o CSS selectors"
+      pass: "Tag configurato con source dati utente"
+      fail: "Enhanced Conversions abilitate in Google Ads ma non nel tag GTM"
+
+  # Enhanced Conversions per GA4
+  ga4_user_provided_data:
+    description: "User-provided data collection in GA4 via Google Tag"
+    setting: "User-provided data collection in Google Tag settings"
+    note: "Separato da Enhanced Conversions Google Ads — serve per GA4 audience matching"
+
+# --------------------------------------------------------------------------
+# META CONVERSIONS API (CAPI) VIA GTM
+# --------------------------------------------------------------------------
+meta_capi_via_gtm:
+  description: "Implementazione Meta CAPI attraverso GTM (client-side o server-side)"
+
+  checks:
+    - id: "CAPI-01"
+      name: "Meta CAPI configurata"
+      severity: "critical"
+      pass: "Eventi server-side inviati parallelamente al Pixel"
+      fail: "Solo Pixel browser-side (30-40% data loss post-iOS 14.5)"
+
+    - id: "CAPI-02"
+      name: "Event deduplication"
+      severity: "critical"
+      pass: "event_id identico tra Pixel e CAPI per stesso evento"
+      fail: "Nessun event_id (conteggio doppio)"
+      implementation:
+        pixel: "fbq('track', 'Purchase', {value: 50}, {eventID: 'unique-123'})"
+        capi: "Same event_id nella richiesta server-side"
+
+    - id: "CAPI-03"
+      name: "Customer information parameters"
+      severity: "high"
+      parameters:
+        - { name: "em", description: "Email (SHA-256 hashed)", emq_impact: "+4.0" }
+        - { name: "ph", description: "Phone (SHA-256 hashed)", emq_impact: "+3.0" }
+        - { name: "fn", description: "First name (SHA-256 hashed)" }
+        - { name: "ln", description: "Last name (SHA-256 hashed)" }
+        - { name: "external_id", description: "CRM/user ID", note: "Cross-device matching" }
+        - { name: "fbp", description: "Browser ID cookie (_fbp)" }
+        - { name: "fbc", description: "Click ID cookie (_fbc)" }
+      pass: "Almeno email + fbp + fbc inviati"
+      warning: "Solo fbp/fbc senza email"
+      fail: "Nessun customer information"
+
+    - id: "CAPI-04"
+      name: "EMQ (Event Match Quality)"
+      severity: "critical"
+      pass: "EMQ ≥8.0 per Purchase"
+      warning: "EMQ 6.0-7.9"
+      fail: "EMQ <6.0"
+      note: "87% advertisers hanno EMQ scarso"
+
+    - id: "CAPI-05"
+      name: "GTM Server-Side per CAPI"
+      severity: "medium"
+      pass: "GTM server-side container configurato per inviare eventi a Meta"
+      note: "Metodo più affidabile — bypassa ad blockers e ITP"
+      implementation:
+        container: "Server-side GTM container"
+        tag: "Meta Conversions API tag (community template)"
+        client: "GA4 client o custom client"
+
+# --------------------------------------------------------------------------
+# TIKTOK TRACKING VIA GTM
+# --------------------------------------------------------------------------
+tiktok_tracking:
+  description: "TikTok Pixel e Events API tramite GTM"
+
+  checks:
+    - id: "TT-01"
+      name: "TikTok Pixel installato"
+      severity: "high"
+      pass: "Pixel TikTok firing su tutte le pagine"
+      fail: "Pixel non installato"
+      conditional: "Solo se il cliente usa TikTok Ads"
+
+    - id: "TT-02"
+      name: "ttclid preservation"
+      severity: "high"
+      pass: "ttclid catturato e preservato per attribuzione"
+      fail: "ttclid perso (redirect, SPA navigation)"
+      note: "ttclid è il click ID di TikTok — equivalente di gclid per Google"
+
+    - id: "TT-03"
+      name: "TikTok Events API"
+      severity: "medium"
+      pass: "Server-side events inviati parallelamente al Pixel"
+      note: "Equivalente di Meta CAPI per TikTok"
+
+# --------------------------------------------------------------------------
+# MICROSOFT UET VIA GTM
+# --------------------------------------------------------------------------
+microsoft_tracking:
+  checks:
+    - id: "MS-01"
+      name: "UET tag installato"
+      severity: "high"
+      pass: "Universal Event Tracking tag firing su tutte le pagine"
+      conditional: "Solo se il cliente usa Microsoft Ads"
+
+    - id: "MS-02"
+      name: "msclkid preservation"
+      severity: "high"
+      pass: "msclkid catturato per attribuzione"
+      note: "Critico per auto-tagging Microsoft Ads"
+
+# --------------------------------------------------------------------------
+# CROSS-PLATFORM TRACKING CONSISTENCY
+# --------------------------------------------------------------------------
+cross_platform_tracking:
+  description: "Verificare coerenza tracking tra piattaforme"
+
+  checks:
+    - id: "XP-01"
+      name: "Click ID preservation"
+      severity: "critical"
+      check: "Tutti i click ID preservati: gclid (Google), fbclid (Meta), ttclid (TikTok), msclkid (Microsoft)"
+      common_issues:
+        - "Redirect che strippano parametri URL"
+        - "SPA navigation che perde parametri"
+        - "Server-side redirect senza passthrough"
+
+    - id: "XP-02"
+      name: "UTM consistency"
+      severity: "high"
+      pass: "UTM parameters coerenti su tutti i canali a pagamento"
+      naming_convention: "utm_source=[platform], utm_medium=cpc|paid_social, utm_campaign=[campaign_name]"
+
+    - id: "XP-03"
+      name: "Conversion event consistency"
+      severity: "high"
+      check: "Stesso evento conversione tracciato su tutte le piattaforme"
+      example: "Purchase deve triggare: GA4 purchase + Google Ads conversion + Meta Purchase + TikTok CompletePayment"
+
+    - id: "XP-04"
+      name: "Transaction ID deduplication"
+      severity: "critical"
+      pass: "Transaction ID (order_id) inviato a tutte le piattaforme per deduplicazione"
+      fail: "Nessun transaction ID — rischio conteggio doppio cross-platform"
+
+# --------------------------------------------------------------------------
+# GA4 ECOMMERCE EVENTS — ENHANCED CHECKS
+# --------------------------------------------------------------------------
+ga4_ecommerce_enhanced:
+  description: "Check avanzati per eventi ecommerce GA4"
+
+  checks:
+    - id: "GA4-EC01"
+      name: "Purchase event con tutti i parametri"
+      severity: "critical"
+      required: ["transaction_id", "value", "currency", "items"]
+      recommended: ["tax", "shipping", "coupon"]
+      fail_if: "value o currency mancanti — report revenue non funzionano"
+
+    - id: "GA4-EC02"
+      name: "Items array completo"
+      severity: "high"
+      required_per_item: ["item_id", "item_name"]
+      recommended_per_item: ["price", "quantity", "item_category", "item_brand"]
+      fail_if: "items array vuoto o mancante"
+
+    - id: "GA4-EC03"
+      name: "Funnel completo tracciato"
+      severity: "high"
+      required_events: ["view_item", "add_to_cart", "begin_checkout", "purchase"]
+      recommended_events: ["view_item_list", "select_item", "add_shipping_info", "add_payment_info"]
+      pass: "Tutti gli eventi required presenti con trigger nel container"
+      warning: "Solo purchase e add_to_cart"
+      fail: "Solo purchase o nessun evento funnel"
+
+    - id: "GA4-EC04"
+      name: "Currency consistency"
+      severity: "medium"
+      pass: "Stessa valuta (ISO 4217) su tutti gli eventi ecommerce"
+      fail: "Valute miste o currency mancante"
+
+    - id: "GA4-EC05"
+      name: "Refund tracking"
+      severity: "medium"
+      pass: "Evento refund configurato con transaction_id"
+      note: "Senza refund tracking, revenue GA4 è sovrastimato"
+
+# --------------------------------------------------------------------------
+# LANDING PAGE TRACKING CHECKS
+# --------------------------------------------------------------------------
+landing_page_tracking:
+  description: "Verifiche tracking specifiche per landing page ads"
+
+  checks:
+    - id: "LP-01"
+      name: "Thank you page/event fires"
+      severity: "critical"
+      pass: "Conversione tracciata su tutte le piattaforme al completamento"
+
+    - id: "LP-02"
+      name: "Form submission tracking"
+      severity: "critical"
+      pass: "Form submission triggera evento conversione"
+
+    - id: "LP-03"
+      name: "Phone call tracking"
+      severity: "high"
+      pass: "Call tracking configurato (se applicabile)"
+      conditional: "Solo per business che ricevono lead telefonici"
+
+    - id: "LP-04"
+      name: "Landing page speed"
+      severity: "high"
+      thresholds:
+        lcp: { pass: "<2.5s", warning: "2.5-4.0s", fail: ">4.0s" }
+        inp: { pass: "<100ms", warning: "100-200ms", fail: ">200ms" }
+        cls: { pass: "<0.1", warning: "0.1-0.25", fail: ">0.25" }
+      note: "1s delay = -7% conversioni. LCP <1s → CVR 3x vs 5s"
+
+# --------------------------------------------------------------------------
+# BUDGET & BIDDING RULES
+# --------------------------------------------------------------------------
+budget_bidding_reference:
+  allocation_rule: "70% proven, 20% scaling, 10% testing"
+
+  kill_rules:
+    - rule: "CPA >3x target con ≥7d dati e ≥20 click → pausa immediata"
+    - rule: "Spesa ≥$100 o ≥50 click senza conversioni → pausa e diagnosi"
+    - rule: "CTR <50% del benchmark → kill creative e testare nuovo"
+
+  scaling_rules:
+    - "Mai aumentare budget >20% per volta"
+    - "Attendere 3-5 giorni dopo ogni aumento"
+    - "Solo se CPA sotto target per 2+ settimane e ≥50 conv/settimana"
+
+  platform_minimums:
+    google_search: "$20/giorno"
+    google_pmax: "$50/giorno"
+    meta_per_adset: "$20/giorno"
+    linkedin: "$50/giorno"
+    tiktok_campaign: "$50/giorno"
+    tiktok_adgroup: "$20/giorno"

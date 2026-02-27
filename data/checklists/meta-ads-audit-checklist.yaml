@@ -2484,3 +2484,512 @@ pre_audit_questions:
     question: "Il dominio è verificato in Business Manager?"
     options: ["Sì", "No", "Non so"]
     purpose: "Obbligatorio per AEM e attribuzione post-iOS 14.5"
+
+# ============================================================================
+# ENRICHMENT: claude-ads 46 META AUDIT CHECKS (Source: AgriciDaniel/claude-ads)
+# ============================================================================
+# Added: 2026-02-27
+# Source: claude-ads/skills/ads-meta/ + ads/references/
+
+audit_checks:
+
+  # --------------------------------------------------------------------------
+  # PIXEL / CAPI HEALTH (30% weight, 10 checks)
+  # --------------------------------------------------------------------------
+  pixel_capi_health_checks:
+    weight: 0.30
+    description: "Fondazione tracking — Pixel + CAPI + deduplicazione + EMQ"
+
+    checks:
+      - id: "M01"
+        name: "Meta Pixel installato"
+        severity: "critical"
+        pass: "Pixel firing su tutte le pagine"
+        warning: "Firing sulla maggior parte (>90%)"
+        fail: "Pixel non firing"
+
+      - id: "M02"
+        name: "Conversions API (CAPI) attiva"
+        severity: "critical"
+        pass: "Eventi server-side inviati insieme al pixel"
+        warning: "CAPI pianificata ma non deployata"
+        fail: "Nessuna CAPI (30-40% data loss post-iOS 14.5)"
+        impact: "87% advertisers hanno EMQ scarso; CAPI migliora performance 20-40%"
+        quick_win: true
+        fix_time: "15 min (via CAPI Gateway)"
+
+      - id: "M03"
+        name: "Event deduplication"
+        severity: "critical"
+        pass: "event_id matching tra pixel e CAPI; ≥90% dedup rate"
+        warning: "event_id presente ma <90% dedup rate"
+        fail: "event_id mancante (conteggio doppio)"
+
+      - id: "M04"
+        name: "Event Match Quality (EMQ)"
+        severity: "critical"
+        pass: "EMQ ≥8.0 per evento Purchase"
+        warning: "EMQ 6.0-7.9"
+        fail: "EMQ <6.0"
+        emq_parameters:
+          email: "+4.0 punti (match rate più alto)"
+          phone: "+3.0 punti"
+          first_name: "Migliora accuratezza"
+          last_name: "Migliora accuratezza"
+          external_id: "Cross-device matching"
+          fbp: "Browser tracking"
+          fbc: "Click tracking"
+
+      - id: "M05"
+        name: "Domain verification"
+        severity: "high"
+        pass: "Dominio verificato in Business Manager"
+        fail: "Dominio non verificato"
+        quick_win: true
+        fix_time: "5 min"
+
+      - id: "M06"
+        name: "Aggregated Event Measurement (AEM)"
+        severity: "high"
+        pass: "Top 8 eventi configurati e prioritizzati correttamente"
+        warning: "Eventi configurati ma non prioritizzati"
+        fail: "AEM non configurato"
+
+      - id: "M07"
+        name: "Standard Events vs Custom"
+        severity: "high"
+        pass: "Uso di eventi standard (Purchase, AddToCart, Lead, ecc.)"
+        warning: "Mix standard e custom"
+        fail: "Eventi custom che rimpiazzano standard"
+
+      - id: "M08"
+        name: "CAPI Gateway"
+        severity: "medium"
+        pass: "CAPI Gateway deployato per server-side semplificato"
+        warning: "Integrazione CAPI diretta attiva"
+
+      - id: "M09"
+        name: "iOS Attribution Window"
+        severity: "high"
+        pass: "7-day click / 1-day view configurato"
+        warning: "Solo 1-day click"
+        fail: "Attribution non configurata"
+        quick_win: true
+        fix_time: "2 min"
+
+      - id: "M10"
+        name: "Data freshness"
+        severity: "medium"
+        pass: "Eventi firing in tempo reale (nessun lag >1h in Events Manager)"
+        warning: "Lag <4h"
+        fail: "Lag >4h o firing intermittente"
+
+  # --------------------------------------------------------------------------
+  # CREATIVE — DIVERSITY & FATIGUE (30% weight, 12 checks)
+  # --------------------------------------------------------------------------
+  creative_checks:
+    weight: 0.30
+    description: "Creative = 70% dei risultati (Meta). Diversità formati + fatigue detection"
+
+    checks:
+      - id: "M25"
+        name: "Creative format diversity"
+        severity: "critical"
+        pass: "≥3 formati attivi (static image, video, carousel)"
+        warning: "2 formati"
+        fail: "Solo 1 formato usato"
+        quick_win: true
+        fix_time: "15 min"
+
+      - id: "M28"
+        name: "Creative fatigue detection"
+        severity: "critical"
+        pass: "Nessun creative con CTR drop >20% negli ultimi 14 giorni"
+        warning: "CTR drop 10-20%"
+        fail: "CTR drop >20% + frequency >3 (fatigue confermata)"
+
+      - id: "M26"
+        name: "Creative volume per ad set"
+        severity: "high"
+        pass: "≥5 creatività per ad set (ideale: 5-8 per Andromeda)"
+        warning: "3-4 creatività"
+        fail: "<3 creatività per ad set"
+
+      - id: "M27"
+        name: "Video aspect ratios"
+        severity: "high"
+        pass: "9:16 vertical video presente per Reels/Stories"
+        warning: "Solo 1:1 o 4:5 video"
+        fail: "Nessun video asset"
+
+      - id: "M29"
+        name: "Hook rate (video)"
+        severity: "high"
+        pass: "Video ads: <50% skip rate nei primi 3 secondi"
+        warning: "50-70% skip rate"
+        fail: ">70% skip rate nei primi 3s"
+
+      - id: "M31"
+        name: "UGC / Social-native content"
+        severity: "high"
+        pass: "≥30% creative assets sono UGC o social-native"
+        warning: "10-30% UGC content"
+        fail: "<10% UGC (tutto corporate/polished)"
+
+      - id: "M-CR1"
+        name: "Creative freshness"
+        severity: "high"
+        pass: "Nuova creatività testata negli ultimi 30 giorni"
+        warning: "Nuova creatività 30-60 giorni fa"
+        fail: "Nessuna nuova creatività in >60 giorni"
+
+      - id: "M-CR2"
+        name: "Frequency — Prospecting"
+        severity: "high"
+        pass: "Ad set frequency <3.0 negli ultimi 7 giorni"
+        warning: "Frequency 3.0-5.0"
+        fail: "Frequency >5.0 (audience esaurita)"
+
+      - id: "M-CR4"
+        name: "CTR benchmark"
+        severity: "high"
+        pass: "CTR ≥1.0%"
+        warning: "CTR 0.5-1.0%"
+        fail: "CTR <0.5%"
+
+      - id: "M30"
+        name: "Social proof utilization"
+        severity: "medium"
+        pass: "Top post organici boostati come partnership/Spark ads"
+        warning: "Qualche boosting organico"
+        fail: "Nessun contenuto organico leveraged"
+
+      - id: "M32"
+        name: "Advantage+ Creative"
+        severity: "medium"
+        pass: "Enhancements Advantage+ abilitati (test vs control)"
+        fail: "Non testato"
+
+      - id: "M-CR3"
+        name: "Frequency — Retargeting"
+        severity: "medium"
+        pass: "Ad set frequency <8.0 negli ultimi 7 giorni"
+        warning: "Frequency 8.0-12.0"
+        fail: "Frequency >12.0"
+
+  # --------------------------------------------------------------------------
+  # ACCOUNT STRUCTURE (20% weight, 18 checks)
+  # --------------------------------------------------------------------------
+  account_structure_checks:
+    weight: 0.20
+    description: "Struttura campagne, learning phase, Advantage+, bidding"
+
+    checks:
+      - id: "M11"
+        name: "Campaign count"
+        severity: "high"
+        pass: "≤5 campagne attive per paese/stadio funnel"
+        warning: "6-8 campagne per segmento"
+        fail: ">8 campagne (over-fragmented)"
+
+      - id: "M12"
+        name: "CBO vs ABO appropriateness"
+        severity: "high"
+        pass: "CBO per >$500/day; ABO per testing <$100/day"
+        warning: "Mismatch ma funzionale"
+        fail: "CBO su <$100/day O ABO su >$500/day"
+
+      - id: "M13"
+        name: "Learning phase status"
+        severity: "critical"
+        pass: "<30% ad set in 'Learning Limited'"
+        warning: "30-50% Learning Limited"
+        fail: ">50% ad set 'Learning Limited'"
+        exit_criteria: "50 conversioni per settimana per ad set"
+
+      - id: "M14"
+        name: "Learning phase resets"
+        severity: "high"
+        pass: "Nessun edit non necessario durante learning phase"
+        warning: "1-2 reset minori"
+        fail: "Reset frequenti da edit durante learning"
+        reset_triggers: ["Cambio budget >20%", "Qualsiasi cambio targeting", "Edit creative (anche testo)", "Cambio bid strategy", "Pausa >7 giorni"]
+
+      - id: "M15"
+        name: "Advantage+ Sales Campaign"
+        severity: "medium"
+        pass: "ASC attivo per ecommerce con catalogo"
+        warning: "ASC testato ma in pausa"
+        fail: "Non testato nonostante catalogo idoneo"
+        benchmark: "ROAS ASC 4.52:1 vs 2.19:1 standard"
+
+      - id: "M16"
+        name: "Ad set consolidation"
+        severity: "high"
+        pass: "Nessun ad set overlapping che targettizza la stessa audience"
+        warning: "Overlap minore (<20%)"
+        fail: "Overlap audience significativo (>30%)"
+
+      - id: "M17"
+        name: "Budget distribution"
+        severity: "high"
+        pass: "Tutti gli ad set ricevono ≥$10/giorno"
+        warning: "$5-$10/giorno"
+        fail: "<$5/giorno"
+
+      - id: "M18"
+        name: "Campaign objective alignment"
+        severity: "high"
+        pass: "Obiettivo corrisponde al goal business reale"
+        fail: "Obiettivo sbagliato (es. Traffic per Sales)"
+
+      - id: "M33"
+        name: "Advantage+ Placements"
+        severity: "medium"
+        pass: "Advantage+ Placements abilitato (salvo necessità esclusione)"
+        warning: "Placements manuali (giustificati)"
+        fail: "Placements manuali che limitano delivery senza motivo"
+
+      - id: "M34"
+        name: "Placement performance review"
+        severity: "medium"
+        pass: "Breakdown revisionato mensilmente; underperformers esclusi"
+        warning: "Revisionato trimestralmente"
+        fail: "Mai revisionato"
+
+      - id: "M35"
+        name: "Attribution setting"
+        severity: "high"
+        pass: "7-day click / 1-day view attribution"
+        warning: "Solo 1-day click"
+        fail: "Attribution non configurata"
+        quick_win: true
+        fix_time: "2 min"
+
+      - id: "M36"
+        name: "Bid strategy appropriateness"
+        severity: "high"
+        pass: "Cost Cap per protezione margini; Lowest Cost per volume"
+        fail: "Bid Cap impostato sotto CPA storico"
+
+      - id: "M37"
+        name: "Frequency cap monitoring (campaign)"
+        severity: "high"
+        pass: "Campaign-level prospecting frequency <4.0 (7 giorni)"
+        warning: "Frequency 4.0-6.0"
+        fail: "Frequency >6.0"
+
+      - id: "M38"
+        name: "Breakdown reporting"
+        severity: "medium"
+        pass: "Age, gender, placement, platform revisionati mensilmente"
+        warning: "Revisionati trimestralmente"
+        fail: "Mai revisionati"
+
+      - id: "M39"
+        name: "UTM parameters"
+        severity: "medium"
+        pass: "UTM su tutti gli URL ads per GA4 attribution"
+        warning: "UTM su alcuni ads"
+        fail: "Nessun UTM"
+        quick_win: true
+        fix_time: "5 min"
+
+      - id: "M40"
+        name: "A/B testing active"
+        severity: "medium"
+        pass: "Almeno 1 A/B test attivo (Experiments)"
+        warning: "Test pianificato"
+        fail: "Nessuna infrastruttura di testing"
+
+      - id: "M-ST1"
+        name: "Budget adequacy"
+        severity: "high"
+        pass: "Budget giornaliero ≥5× target CPA per ad set"
+        warning: "Budget 2-5× CPA"
+        fail: "Budget <2× target CPA"
+
+      - id: "M-ST2"
+        name: "Budget utilization"
+        severity: "medium"
+        pass: ">80% budget giornaliero utilizzato"
+        warning: "60-80% utilizzo"
+        fail: "<60% utilizzo"
+
+  # --------------------------------------------------------------------------
+  # AUDIENCE & TARGETING (20% weight, 6 checks)
+  # --------------------------------------------------------------------------
+  audience_targeting_checks:
+    weight: 0.20
+    description: "Overlap, freshness, lookalike quality, exclusions, first-party data"
+
+    checks:
+      - id: "M19"
+        name: "Audience overlap"
+        severity: "high"
+        pass: "<20% overlap tra ad set attivi"
+        warning: "20-40% overlap"
+        fail: ">40% overlap tra ad set"
+
+      - id: "M20"
+        name: "Custom audience freshness"
+        severity: "high"
+        pass: "Website Custom Audiences aggiornate entro 180 giorni"
+        warning: "180-365 giorni"
+        fail: ">365 giorni o non create"
+
+      - id: "M21"
+        name: "Lookalike source quality"
+        severity: "medium"
+        pass: "Lookalike source ≥1.000 utenti da eventi high-value"
+        warning: "500-1.000 utenti"
+        fail: "<500 utenti o source low-value"
+
+      - id: "M22"
+        name: "Advantage+ Audience testing"
+        severity: "medium"
+        pass: "Advantage+ Audience testato vs manuale"
+        fail: "Non testato"
+
+      - id: "M23"
+        name: "Exclusion audiences"
+        severity: "high"
+        pass: "Purchasers/converters esclusi da prospecting"
+        warning: "Esclusioni parziali"
+        fail: "Nessuna esclusione purchaser da prospecting"
+        quick_win: true
+        fix_time: "10 min"
+
+      - id: "M24"
+        name: "First-party data utilization"
+        severity: "high"
+        pass: "Customer list caricata per Custom Audience + Lookalike"
+        warning: "Lista caricata ma non aggiornata"
+        fail: "Nessun dato first-party caricato"
+
+  # --------------------------------------------------------------------------
+  # QUALITY GATES
+  # --------------------------------------------------------------------------
+  quality_gates:
+    rules:
+      - id: "MQG-01"
+        name: "3x Kill Rule"
+        description: "CPA >3x target → segnalare per pausa"
+        severity: "critical"
+      - id: "MQG-02"
+        name: "Creative fatigue kill"
+        description: "CTR drop >20% + frequency >5 → kill creative"
+        severity: "critical"
+      - id: "MQG-03"
+        name: "Learning phase protection"
+        description: "Non modificare ad set durante learning (nessun cambio budget >20%)"
+        severity: "high"
+      - id: "MQG-04"
+        name: "Zero conversion spend"
+        description: "Spesa ≥$100 o ≥50 click senza conversioni → segnalare per pausa"
+        severity: "critical"
+
+  # --------------------------------------------------------------------------
+  # BENCHMARKS 2026
+  # --------------------------------------------------------------------------
+  benchmarks_2026:
+    source: "claude-ads, WordStream 2025-2026"
+
+    by_objective:
+      traffic: { ctr: 1.71, cpc: 0.70 }
+      leads: { ctr: 2.59, cpc: 1.92, cvr: 7.72, cpl: 27.66 }
+
+    roas:
+      all_industries_median: 2.19
+      retargeting: 3.61
+      advantage_plus_sales: 4.52
+
+    cpm_by_industry:
+      arts_entertainment: 5.82
+      ecommerce: 12.50
+      local_services: 18.00
+      healthcare: 28.00
+      b2b_saas: 35.00
+      legal: 45.00
+      finance: 50.00
+
+    creative_fatigue:
+      prospecting_frequency_warning: 3
+      prospecting_frequency_fail: 5
+      retargeting_frequency_warning: 8
+      retargeting_frequency_fail: 12
+      tof_creative_lifespan_weeks: "3-4"
+      bof_creative_lifespan_weeks: "6-7"
+
+  # --------------------------------------------------------------------------
+  # SPECIAL AD CATEGORIES COMPLIANCE
+  # --------------------------------------------------------------------------
+  special_ad_categories:
+    categories:
+      - name: "Housing"
+        restrictions: "No ZIP code, age 18-65+ only, no lookalike"
+      - name: "Employment"
+        restrictions: "Same as Housing"
+      - name: "Credit"
+        restrictions: "Same as Housing"
+      - name: "Financial Products"
+        restrictions: "New Jan 2025 — enforced come Special Category"
+    note: "Detailed Targeting Exclusions rimossi: nuovi ad set Mar 2025, boosted Jun 2025, campagne esistenti Jan 2026"
+
+  # --------------------------------------------------------------------------
+  # SCORING ALGORITHM
+  # --------------------------------------------------------------------------
+  health_score_algorithm:
+    formula: "S_total = Σ(C_pass × W_sev × W_cat) / Σ(C_total × W_sev × W_cat) × 100"
+    pass_value: 1.0
+    warning_value: 0.5
+    fail_value: 0.0
+    severity_multipliers:
+      critical: 5.0
+      high: 3.0
+      medium: 1.5
+      low: 0.5
+
+  # --------------------------------------------------------------------------
+  # QUICK WINS
+  # --------------------------------------------------------------------------
+  quick_wins:
+    items:
+      - check: "M02"
+        fix: "Deployare CAPI via Gateway (setup semplificato)"
+        time: "15 min"
+      - check: "M05"
+        fix: "Verificare dominio in Business Manager"
+        time: "5 min"
+      - check: "M09"
+        fix: "Impostare 7-day click / 1-day view in ad set settings"
+        time: "2 min"
+      - check: "M23"
+        fix: "Creare Custom Audience di purchasers, escludere da prospecting"
+        time: "10 min"
+      - check: "M25"
+        fix: "Aggiungere video o carousel ad ad set con solo immagine"
+        time: "15 min"
+      - check: "M39"
+        fix: "Aggiungere UTM template a livello campagna"
+        time: "5 min"
+      - check: "M35"
+        fix: "Passare a 7-day click / 1-day view attribution"
+        time: "2 min"
+
+  # --------------------------------------------------------------------------
+  # CREATIVE SPECIFICATIONS
+  # --------------------------------------------------------------------------
+  creative_specs:
+    image:
+      feed: { ratio: "4:5", size: "1080×1350", max_mb: 30 }
+      feed_square: { ratio: "1:1", size: "1080×1080", max_mb: 30 }
+      stories_reels: { ratio: "9:16", size: "1080×1920", max_mb: 30 }
+    video:
+      feed: { ratio: "4:5 (preferred) or 1:1", max_duration: "241 min", max_gb: 4 }
+      stories: { ratio: "9:16", max_duration: "120s", max_gb: 4 }
+      reels: { ratio: "9:16", max_duration: "90s (rec 15-30s)", max_gb: 4 }
+    text:
+      primary_text: { recommended: 125, max: 2200 }
+      headline: { recommended: "27-40 chars" }
+      reels_primary: { max: 72 }
