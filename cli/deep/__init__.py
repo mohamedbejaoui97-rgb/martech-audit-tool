@@ -111,7 +111,13 @@ def run_deep_mode(url, args):
                 try:
                     module = importlib.import_module(f"deep.{module_name}")
                     wizard_fn = getattr(module, func_name)
-                    result = wizard_fn(business_profile, discovery_block)
+                    # Pass accumulated data for cross-platform checks (gads, meta)
+                    import inspect
+                    sig = inspect.signature(wizard_fn)
+                    if len(sig.parameters) >= 3:
+                        result = wizard_fn(business_profile, discovery_block, deep_wizard_block)
+                    else:
+                        result = wizard_fn(business_profile, discovery_block)
                     if result:
                         deep_wizard_block[f"{platform}_data"] = result
                         collected_data[f"{platform}_data"] = result
