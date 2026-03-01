@@ -130,17 +130,78 @@ def run_deep_mode(url, args):
                 save_state(collected_data)
                 print(f"\n  [{completed}/{wizard_count}] Wizard completati\n")
 
-        # ── Trust Score ──
-        # TODO: trust_score.calculate_trust_score(deep_wizard_block)
+        # ── Trust Score (Epic 8) ──
+        from deep.trust_score import (
+            calculate_trust_score,
+            calculate_gap_to_revenue,
+            build_consent_impact_chain,
+            compare_attribution_windows,
+            identify_leverage_nodes,
+        )
+        trust_result = calculate_trust_score(deep_wizard_block)
+        gap_revenue = calculate_gap_to_revenue(deep_wizard_block)
+        consent_chain = build_consent_impact_chain(deep_wizard_block)
+        attr_comparison = compare_attribution_windows(deep_wizard_block)
+        leverage_nodes = identify_leverage_nodes(gap_revenue)
 
-        # ── Act 2 (existing, from cli-audit.py) ──
-        # TODO: run existing L2 analyses
+        deep_wizard_block["trust_score"] = trust_result
+        deep_wizard_block["gap_to_revenue"] = gap_revenue
+        deep_wizard_block["consent_impact_chain"] = consent_chain
+        deep_wizard_block["attribution_comparison"] = attr_comparison
+        deep_wizard_block["leverage_nodes"] = leverage_nodes
+        save_state(collected_data)
 
-        # ── Act 3: Synthesis ──
-        # TODO: synthesis.run_synthesis(...)
+        print(f"\n  ✅ Trust Score: {trust_result.get('score', 0)}/100 "
+              f"({trust_result.get('grade', 'N/A')}) — {trust_result.get('coverage_label', '')}")
+        if gap_revenue.get("total_impact_label"):
+            print(f"  ℹ Gap-to-Revenue: {gap_revenue['total_impact_label']}")
 
-        # ── Report Generation ──
-        # TODO: report_deep.generate_deep_report(...)
+        # ── Act 2: L2 AI Analyses (existing, from cli-audit.py) ──
+        l2_results = {}
+        try:
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            if api_key:
+                analysis_types = ['performance', 'cwv', 'seo', 'seo_deep', 'accessibility',
+                                  'security', 'robots', 'sitemap', 'datalayer', 'cro', 'advertising']
+                google_key = os.environ.get("GOOGLE_API_KEY", "")
+                homepage_html = extra_htmls.get("homepage", "") if isinstance(extra_htmls, dict) else ""
+
+                print(f"\n  🚀 Avvio {len(analysis_types)} analisi L2 in parallelo...")
+                l2_start = time.time()
+
+                from concurrent.futures import ThreadPoolExecutor
+                run_analysis = cli_audit.run_analysis
+
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    futures = {
+                        executor.submit(run_analysis, atype, url, api_key, google_key,
+                                        homepage_html, extra_htmls, discovery_block): atype
+                        for atype in analysis_types
+                    }
+                    for future in futures:
+                        try:
+                            atype, result = future.result(timeout=180)
+                            l2_results[atype] = result
+                        except Exception as e:
+                            l2_results[futures[future]] = f"Errore: {e}"
+
+                l2_elapsed = time.time() - l2_start
+                print(f"  ✓ {len(l2_results)} analisi L2 completate in {l2_elapsed:.1f}s")
+            else:
+                print("  ⚠ ANTHROPIC_API_KEY non configurata — analisi L2 saltate")
+        except Exception as e:
+            print(f"  ⚠ Errore analisi L2: {e}")
+
+        # ── Act 3: Synthesis (Epic 9 — Story 9.1) ──
+        from deep.synthesis import run_synthesis
+        synthesis_result = run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result)
+
+        # ── Report Generation (Epic 9 — Story 9.2) ──
+        from deep.report_deep import generate_deep_report
+        report_path = generate_deep_report(
+            synthesis_result, deep_wizard_block, trust_result,
+            l2_results=l2_results,
+        )
 
         # ── Cleanup ──
         delete_state()
