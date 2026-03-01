@@ -213,77 +213,101 @@ class TestCollectConversionActions(unittest.TestCase):
 class TestRunWizardGads(unittest.TestCase):
 
     @patch('builtins.input')
-    def test_happy_path_one_action(self, mock_input):
+    def test_summary_mode_happy_path(self, mock_input):
         mock_input.side_effect = [
-            "2",                              # num actions
-            "Purchase", "1", "1", "1", "1",   # action 1
-            "Lead", "2", "2", "1", "2",       # action 2
-            "1",                              # CM: Excellent
-            "2",                              # EC: Needs attention
-            "1",                              # Attribution: Data-driven
+            "3",      # num actions
+            "2",      # primary
+            "1",      # secondary
+            "1",      # EC: Excellent
+            "1",      # CM: Excellent
+            "1",      # Attribution: Data-driven
+            "1",      # Conversions active: Sì
+            "1",      # GA4 match: Sì
+            "1",      # Detail mode: No (sommario)
+            "",        # anomalies (skip)
+            "",        # operator notes (skip)
+            "n",       # evidence screenshots
         ]
         result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
 
         self.assertIsInstance(result, dict)
-        self.assertEqual(len(result["conversion_actions"]), 2)
+        self.assertEqual(result["summary"]["total"], 3)
+        self.assertEqual(result["summary"]["primary"], 2)
         self.assertEqual(result["consent_mode_status"], "Excellent")
-        self.assertEqual(result["enhanced_conversions_status"], "Needs attention")
-        self.assertEqual(result["attribution_model"], "Data-driven")
         self.assertIn("cross_checks", result)
+        self.assertFalse(result["detail_mode"])
 
     @patch('builtins.input')
     def test_zero_actions(self, mock_input):
-        mock_input.side_effect = ["0"]
+        mock_input.side_effect = [
+            "0",   # num actions
+            "",    # operator notes (skip)
+            "n",   # evidence
+        ]
         result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["conversion_actions"], [])
         self.assertEqual(result["consent_mode_status"], "")
 
     @patch('builtins.input')
-    def test_with_gtm_cross_check(self, mock_input):
+    def test_detail_mode_with_actions(self, mock_input):
         mock_input.side_effect = [
-            "1",
-            "Purchase", "1", "1", "1", "1",
-            "1", "1", "1",
-        ]
-        result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY, GTM_BLOCK_WITH_PURCHASE)
-        gtm = result["cross_checks"]["gtm_cross_check"]
-        self.assertTrue(gtm["available"])
-        self.assertEqual(len(gtm["discrepancies"]), 0)
-
-    @patch('builtins.input')
-    def test_without_deep_wizard_block(self, mock_input):
-        mock_input.side_effect = [
-            "1",
-            "Purchase", "1", "1", "1", "1",
-            "1", "1", "1",
+            "1",      # num actions
+            "1",      # primary
+            "0",      # secondary
+            "1",      # EC
+            "1",      # CM
+            "1",      # Attribution
+            "1",      # Conversions active: Sì
+            "1",      # GA4 match: Sì
+            "2",      # Detail mode: Sì (dettaglio)
+            "Purchase", "1", "1", "1", "1",  # action detail
+            "",        # anomalies
+            "",        # operator notes
+            "n",       # evidence
         ]
         result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
-        gtm = result["cross_checks"]["gtm_cross_check"]
-        self.assertFalse(gtm["available"])
+        self.assertTrue(result["detail_mode"])
+        self.assertEqual(len(result["conversion_actions"]), 1)
 
     @patch('builtins.input')
-    def test_primary_conflict_detected(self, mock_input):
+    def test_ga4_gap_critical_flag(self, mock_input):
         mock_input.side_effect = [
-            "2",
-            "Purchase", "1", "1", "1", "1",   # primary
-            "Lead", "1", "1", "1", "2",       # also primary
-            "1", "1", "1",
+            "2",      # num actions
+            "1",      # primary
+            "1",      # secondary
+            "1",      # EC
+            "1",      # CM
+            "1",      # Attribution
+            "2",      # Conversions active: No
+            "7",      # inactive days
+            "1",      # GA4 match: Sì → critical gap
+            "1",      # Detail: No
+            "",        # anomalies
+            "",        # operator notes
+            "n",       # evidence
         ]
         result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
-        self.assertTrue(result["cross_checks"]["primary_conflicts"]["has_conflict"])
+        self.assertTrue(result["ga4_gap_critical"])
 
     @patch('builtins.input')
-    def test_lead_gen_funnel_events(self, mock_input):
+    def test_operator_notes_and_anomalies(self, mock_input):
         mock_input.side_effect = [
-            "1",
-            "Purchase", "1", "1", "1", "1",
-            "1", "1", "1",
+            "1",      # num actions
+            "1",      # primary
+            "0",      # secondary
+            "1",      # EC
+            "1",      # CM
+            "1",      # Attribution
+            "1",      # Active: Sì
+            "1",      # GA4: Sì
+            "1",      # Detail: No
+            "CPC troppo alto",  # anomalies
+            "Notare il gap",    # operator notes
+            "n",                # evidence
         ]
-        result = run_wizard_gads(BPROF_LEAD_GEN, EMPTY_DISCOVERY)
-        missing = result["cross_checks"]["missing_funnel_events"]
-        self.assertIn("generate_lead", missing["bottom"])
-        # purchase should NOT be in missing for lead_gen
-        self.assertNotIn("purchase", missing.get("bottom", []))
+        result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
+        self.assertEqual(result["anomalies_detected"], "CPC troppo alto")
+        self.assertEqual(result["operator_notes"], "Notare il gap")
 
 
 if __name__ == '__main__':

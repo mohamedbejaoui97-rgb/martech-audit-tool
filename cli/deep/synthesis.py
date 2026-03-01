@@ -123,8 +123,45 @@ def _build_user_message(deep_wizard_block, discovery_block, l2_results, trust_re
             sections.append(f"\n--- {key.upper()} ---")
             sections.append(json.dumps(data, ensure_ascii=False, indent=2))
 
+    # Collect all operator notes and anomalies for high-priority synthesis
+    operator_notes = []
+    anomalies = []
+    for key in wizard_keys:
+        wdata = deep_wizard_block.get(key, {})
+        if wdata.get("operator_notes"):
+            operator_notes.append(f"{key}: {wdata['operator_notes']}")
+        if wdata.get("anomalies_detected"):
+            anomalies.append(f"{key}: {wdata['anomalies_detected']}")
+
+    if anomalies:
+        sections.append("\n=== ANOMALIE RILEVATE DALL'OPERATORE (PRIORITÀ ALTA) ===")
+        for a in anomalies:
+            sections.append(a)
+
+    if operator_notes:
+        sections.append("\n=== NOTE OPERATORE ===")
+        for n in operator_notes:
+            sections.append(n)
+
     sections.append("\n=== TRUST SCORE ===")
     sections.append(json.dumps(trust_result, ensure_ascii=False, indent=2))
+
+    # Robots.txt data for proactive analysis (Change 11)
+    gsc_data = deep_wizard_block.get("gsc_data", {})
+    robots_txt = gsc_data.get("robots_txt", {})
+    if robots_txt and robots_txt.get("raw_content"):
+        sections.append("\n=== ROBOTS.TXT (Auto-fetched) ===")
+        sections.append(robots_txt["raw_content"][:5000])
+        bp = deep_wizard_block.get("business_profile", {})
+        btype = bp.get("business_type", "ecommerce")
+        sections.append(f"\n[ISTRUZIONE OPUS] Analizza il robots.txt: è corretto per un {btype}? "
+                        "Ci sono regole mancanti o problematiche? Verifica best practice.")
+
+    # Sitemap cross-check data
+    sitemap_check = gsc_data.get("sitemap_cross_check", {})
+    if sitemap_check:
+        sections.append("\n=== SITEMAP CROSS-CHECK ===")
+        sections.append(json.dumps(sitemap_check, ensure_ascii=False, indent=2))
 
     sections.append("\n=== L2 AI ANALYSES (11 Claude Analyses) ===")
     if isinstance(l2_results, dict):
@@ -136,6 +173,16 @@ def _build_user_message(deep_wizard_block, discovery_block, l2_results, trust_re
                 sections.append(json.dumps(result, ensure_ascii=False, indent=2)[:5000])
     elif isinstance(l2_results, str):
         sections.append(l2_results[:50000])
+
+    # Proactive analysis instruction (Change 12)
+    sections.append("\n=== ISTRUZIONI DI ANALISI ===")
+    sections.append(
+        "IMPORTANTE: Per ogni dato ricevuto, non limitarti a riportarlo. "
+        "Analizza proattivamente: è corretto? Cosa manca? Cosa è incoerente con gli altri dati? "
+        "Segnala problemi che l'operatore potrebbe non aver notato. "
+        "Cerca pattern cross-platform: un problema in una piattaforma causa effetti a cascata? "
+        "Le anomalie rilevate dall'operatore hanno PRIORITÀ ALTA nella tua analisi."
+    )
 
     return "\n".join(sections)
 

@@ -5,6 +5,7 @@ All user-facing text in Italian, code in English.
 """
 
 import os
+import shutil
 
 
 def _ask_input(prompt, validation_fn=None, warning_fn=None, help_text=None,
@@ -40,6 +41,12 @@ def _ask_input(prompt, validation_fn=None, warning_fn=None, help_text=None,
             raw = input(f"  → {prompt}: ").strip()
         except (EOFError, KeyboardInterrupt):
             return "" if not coerce_fn else None
+
+        # Auto-strip common formatting artifacts (%, trailing commas)
+        raw = raw.rstrip('%').strip()
+        # Replace comma decimal separator with dot for numeric inputs
+        if coerce_fn and ',' in raw and '.' not in raw:
+            raw = raw.replace(',', '.')
 
         if not raw and not allow_empty:
             print("  ⚠ Input richiesto. Riprova.")
@@ -158,6 +165,91 @@ def _ask_select(prompt, options, allow_multiple=False, help_text=None):
             return [] if allow_multiple else ""
 
 
+def _ask_operator_notes():
+    """Collect optional free-text operator notes (max 2000 chars).
+
+    Returns:
+        str or "" if skipped
+    """
+    print("\n  ── Note libere operatore (opzionale, max 2000 caratteri) ──")
+    try:
+        raw = input("  → Note (Invio per saltare): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return ""
+    if not raw:
+        return ""
+    if len(raw) > 2000:
+        raw = raw[:2000]
+        print("  ℹ Note troncate a 2000 caratteri.")
+    return raw
+
+
+def _ask_evidence_screenshots(wizard_name):
+    """Collect optional evidence screenshots for a wizard.
+
+    Copies images to output/evidence/{wizard_name}/.
+    Accepts multiple files until user stops.
+
+    Args:
+        wizard_name: str, e.g. "iubenda", "gtm", "gads", "meta", "gsc"
+
+    Returns:
+        list of saved file paths, or []
+    """
+    ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
+
+    try:
+        choice = input("\n  → Vuoi allegare screenshot come prova? (s/n): ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return []
+
+    if choice != 's':
+        return []
+
+    # Setup evidence directory
+    cli_dir = os.path.dirname(os.path.abspath(__file__))
+    tool_dir = os.path.dirname(os.path.dirname(cli_dir))
+    evidence_dir = os.path.join(tool_dir, "output", "evidence", wizard_name)
+    os.makedirs(evidence_dir, exist_ok=True)
+
+    saved_paths = []
+    print("  ℹ Inserisci i percorsi delle immagini, uno per volta. 'fine' per terminare.")
+
+    while True:
+        try:
+            raw = input("  → Percorso immagine (o 'fine'): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if not raw or raw.lower() in ('fine', 'done', 'stop', 'no'):
+            break
+
+        path = raw.strip('"').strip("'")
+        path = os.path.expanduser(path)
+
+        if not os.path.isfile(path):
+            print(f"  ⚠ File non trovato: {path}")
+            continue
+
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            print(f"  ⚠ Formato non supportato: {ext}. Accettati: {', '.join(ALLOWED_EXTENSIONS)}")
+            continue
+
+        try:
+            dest = os.path.join(evidence_dir, f"evidence_{len(saved_paths)+1}{ext}")
+            shutil.copy2(path, dest)
+            saved_paths.append(dest)
+            print(f"  ✓ Screenshot salvato: {os.path.basename(dest)}")
+        except Exception as e:
+            print(f"  ⚠ Errore copia file: {e}")
+
+    if saved_paths:
+        print(f"  ✓ {len(saved_paths)} screenshot allegati")
+
+    return saved_paths
+
+
 def _ask_file_path(prompt, validation_fn=None, help_text=None):
     """Standard file path input for wizards (FR44, NFR18).
 
@@ -186,7 +278,8 @@ def _ask_file_path(prompt, validation_fn=None, help_text=None):
         except (EOFError, KeyboardInterrupt):
             return None, None
 
-        if raw.lower() == 'skip':
+        SKIP_SYNONYMS = {'skip', 'no', 'non disponibile', 'non ce l\'ho', 'n/a', 'nessuno'}
+        if raw.lower() in SKIP_SYNONYMS:
             print("  ○ Wizard saltato.")
             return None, None
 
@@ -204,7 +297,7 @@ def _ask_file_path(prompt, validation_fn=None, help_text=None):
                 retry = input("  → Riprovare o 'skip' per saltare? ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 return None, None
-            if retry == 'skip':
+            if retry in SKIP_SYNONYMS:
                 print("  ○ Wizard saltato.")
                 return None, None
             continue

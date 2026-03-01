@@ -9,7 +9,7 @@ NFRs: NFR1, NFR13, NFR18.
 import json
 import time
 
-from deep.input_helpers import _ask_file_path, _ask_select
+from deep.input_helpers import _ask_file_path, _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -392,14 +392,54 @@ def run_wizard_gtm(business_profile, discovery_block):
     print(f"{'='*50}\n")
 
     try:
+        # ── 0. Pre-question: does client use GTM? ──
+        gtm_usage = _ask_select(
+            "Il cliente usa GTM per il tracking?",
+            ["Sì", "No", "Parzialmente"],
+            help_text="Se il cliente non usa GTM o usa un altro tag manager"
+        )
+
+        if gtm_usage == "No":
+            reason = _ask_input(
+                "Motivo per cui il cliente non usa GTM",
+                allow_empty=False,
+                help_text="Es. usa altro tag manager, tracking diretto, ecc."
+            )
+            notes = _ask_operator_notes()
+            screenshots = _ask_evidence_screenshots("gtm")
+            result = {"gtm_usage": "no", "gtm_skip_reason": reason}
+            if notes:
+                result["operator_notes"] = notes
+            if screenshots:
+                result["evidence_screenshots"] = screenshots
+            return result
+
+        gtm_partial_notes = ""
+        if gtm_usage == "Parzialmente":
+            gtm_partial_notes = _ask_input(
+                "Descrivi come viene usato GTM parzialmente",
+                allow_empty=False,
+            )
+
         # ── 1. File upload (FR12, FR44) ──
+        file_optional = gtm_usage == "Parzialmente"
         filepath, content = _ask_file_path(
             "Percorso del file JSON export container GTM",
             validation_fn=_validate_gtm_json,
-            help_text="Esporta da GTM: Admin > Export Container > Scarica JSON"
+            help_text="Esporta da GTM: Admin > Export Container > Scarica JSON" +
+                      (" (opzionale, puoi saltare)" if file_optional else "")
         )
 
         if filepath is None or content is None:
+            if gtm_usage == "Parzialmente":
+                notes = _ask_operator_notes()
+                screenshots = _ask_evidence_screenshots("gtm")
+                result = {"gtm_usage": "partial", "gtm_partial_notes": gtm_partial_notes}
+                if notes:
+                    result["operator_notes"] = notes
+                if screenshots:
+                    result["evidence_screenshots"] = screenshots
+                return result
             return {}
 
         # ── 2. Parse container (FR13, NFR1) ──
@@ -422,8 +462,12 @@ def run_wizard_gtm(business_profile, discovery_block):
         # ── Show immediate results (FR16) ──
         _show_results(parsed, gap)
 
+        # ── Operator notes ──
+        notes = _ask_operator_notes()
+
         # ── Build return dict ──
-        return {
+        result = {
+            "gtm_usage": "yes" if gtm_usage == "Sì" else "partial",
             "container_raw": parsed.get("container_version", {}),
             "tag_count": parsed["tag_count"],
             "trigger_count": parsed["trigger_count"],
@@ -433,6 +477,16 @@ def run_wizard_gtm(business_profile, discovery_block):
             "parse_time_seconds": round(parse_time, 3),
             "gap_analysis": gap,
         }
+        if gtm_partial_notes:
+            result["gtm_partial_notes"] = gtm_partial_notes
+        if notes:
+            result["operator_notes"] = notes
+
+        screenshots = _ask_evidence_screenshots("gtm")
+        if screenshots:
+            result["evidence_screenshots"] = screenshots
+
+        return result
 
     except Exception as e:
         print(f"  ⚠ Errore nel wizard GTM: {e}")

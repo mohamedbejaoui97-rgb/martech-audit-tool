@@ -245,18 +245,34 @@ class TestAnalyzeTrends(unittest.TestCase):
 
 # ─── Full Wizard Integration Tests ─────────────────────────────────────────
 
+MOCK_ROBOTS = {
+    "raw_content": "User-agent: *\nDisallow: /admin\nSitemap: https://example.com/sitemap.xml",
+    "sitemap_urls": ["https://example.com/sitemap.xml"],
+    "disallow_rules": [{"user_agent": "*", "path": "/admin"}],
+    "user_agents": ["*"],
+    "fetch_error": None,
+}
+
+
 class TestRunWizardGsc(unittest.TestCase):
 
+    @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gsc.fetch_robots_txt', return_value=MOCK_ROBOTS)
     @patch('deep.wizard_gsc._ask_file_path')
     @patch('builtins.input')
-    def test_happy_path_with_csvs(self, mock_input, mock_file):
+    def test_happy_path_with_csvs(self, mock_input, mock_file, mock_robots, mock_ev):
         mock_input.side_effect = [
             "1",    # sitemap: OK
             "340",  # pages indexed
             "412",  # pages submitted
             "1,3",  # indexing issues: Crawled not indexed, Noindex
+            "",     # robots sitemap confirm (auto)
+            "https://example.com/sitemap.xml",  # gsc sitemap urls
+            "1",    # gsc sitemap status: Operazione riuscita
+            "",     # gsc last read
+            "",     # anomalies
+            "",     # operator notes
         ]
-        # Two file uploads: performance CSV, pages CSV
         mock_file.side_effect = [
             ("/tmp/perf.csv", CSV_EN_COMMA),
             ("/tmp/pages.csv", CSV_PAGES_EN),
@@ -271,11 +287,19 @@ class TestRunWizardGsc(unittest.TestCase):
         self.assertIsInstance(result["indexing_issues"], list)
         self.assertIn("trend_analysis", result)
         self.assertIn("opportunities", result)
+        self.assertIn("robots_txt", result)
+        self.assertIn("sitemap_cross_check", result)
 
+    @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gsc.fetch_robots_txt', return_value=MOCK_ROBOTS)
     @patch('deep.wizard_gsc._ask_file_path')
     @patch('builtins.input')
-    def test_skip_csvs(self, mock_input, mock_file):
-        mock_input.side_effect = ["1", "100", "100", "1"]
+    def test_skip_csvs(self, mock_input, mock_file, mock_robots, mock_ev):
+        mock_input.side_effect = [
+            "1", "100", "100", "1",  # sitemap, indexed, submitted, issues
+            "", "", "1", "",         # robots confirm, gsc sitemaps, status, last read
+            "", "",                  # anomalies, notes
+        ]
         mock_file.side_effect = [(None, None), (None, None)]
 
         result = run_wizard_gsc(BPROF, EMPTY_DISC)
@@ -283,24 +307,54 @@ class TestRunWizardGsc(unittest.TestCase):
         self.assertEqual(result["_performance_row_count"], 0)
         self.assertEqual(result["_pages_row_count"], 0)
 
+    @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gsc.fetch_robots_txt', return_value=MOCK_ROBOTS)
     @patch('deep.wizard_gsc._ask_file_path')
     @patch('builtins.input')
-    def test_sitemap_errors(self, mock_input, mock_file):
-        mock_input.side_effect = ["2", "50", "100", "1"]  # sitemap=Errori
+    def test_sitemap_errors(self, mock_input, mock_file, mock_robots, mock_ev):
+        mock_input.side_effect = [
+            "2", "50", "100", "1",   # sitemap=Errori
+            "", "", "1", "",         # robots, gsc sitemaps, status, last read
+            "", "",                  # anomalies, notes
+        ]
         mock_file.side_effect = [(None, None), (None, None)]
 
         result = run_wizard_gsc(BPROF, EMPTY_DISC)
         self.assertEqual(result["sitemap_status"], "errors")
 
+    @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gsc.fetch_robots_txt', return_value=MOCK_ROBOTS)
     @patch('deep.wizard_gsc._ask_file_path')
     @patch('builtins.input')
-    def test_only_performance_csv(self, mock_input, mock_file):
-        mock_input.side_effect = ["1", "200", "250", "1"]
+    def test_only_performance_csv(self, mock_input, mock_file, mock_robots, mock_ev):
+        mock_input.side_effect = [
+            "1", "200", "250", "1",  # sitemap, indexed, submitted, issues
+            "", "", "1", "",         # robots, gsc sitemaps, status, last read
+            "", "",                  # anomalies, notes
+        ]
         mock_file.side_effect = [("/tmp/perf.csv", CSV_EN_COMMA), (None, None)]
 
         result = run_wizard_gsc(BPROF, EMPTY_DISC)
         self.assertGreater(result["_performance_row_count"], 0)
         self.assertEqual(result["_pages_row_count"], 0)
+
+    @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gsc.fetch_robots_txt', return_value=MOCK_ROBOTS)
+    @patch('deep.wizard_gsc._ask_file_path')
+    @patch('builtins.input')
+    def test_sitemap_mismatch_critical(self, mock_input, mock_file, mock_robots, mock_ev):
+        mock_input.side_effect = [
+            "1", "100", "100", "1",
+            "",                                         # confirm robots sitemap
+            "https://example.com/other-sitemap.xml",    # different GSC sitemap
+            "2",                                        # status: Impossibile recuperare
+            "",                                         # last read
+            "", "",                                     # anomalies, notes
+        ]
+        mock_file.side_effect = [(None, None), (None, None)]
+
+        result = run_wizard_gsc(BPROF, EMPTY_DISC)
+        self.assertTrue(result["sitemap_cross_check"]["is_critical"])
 
 
 if __name__ == '__main__':

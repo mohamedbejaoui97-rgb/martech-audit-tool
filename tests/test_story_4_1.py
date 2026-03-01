@@ -309,8 +309,11 @@ class TestGapAnalysis(unittest.TestCase):
 
 class TestRunWizardGtm(unittest.TestCase):
 
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
-    def test_wizard_happy_path(self, mock_file):
+    @patch('deep.wizard_gtm._ask_select', return_value="Sì")
+    def test_wizard_happy_path(self, mock_select, mock_file, mock_notes, mock_ev):
         tags = [_make_tag("Conversion Linker", "cvt_c"),
                 _make_tag("GA4 Event", "gaawc", consent=True)]
         content = _make_container(tags=tags)
@@ -321,35 +324,68 @@ class TestRunWizardGtm(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result["tag_count"], 2)
         self.assertIn("gap_analysis", result)
+        self.assertEqual(result["gtm_usage"], "yes")
 
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
-    def test_wizard_skip_returns_empty(self, mock_file):
+    @patch('deep.wizard_gtm._ask_select', return_value="Sì")
+    def test_wizard_skip_returns_empty(self, mock_select, mock_file, mock_notes, mock_ev):
         mock_file.return_value = (None, None)
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result, {})
 
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
-    def test_wizard_malformed_json_returns_empty(self, mock_file):
+    @patch('deep.wizard_gtm._ask_select', return_value="Sì")
+    def test_wizard_malformed_json_returns_empty(self, mock_select, mock_file, mock_notes, mock_ev):
         mock_file.return_value = ("/tmp/bad.json", "not json")
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result, {})
 
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
-    def test_wizard_returns_parse_time(self, mock_file):
+    @patch('deep.wizard_gtm._ask_select', return_value="Sì")
+    def test_wizard_returns_parse_time(self, mock_select, mock_file, mock_notes, mock_ev):
         content = _make_container(tags=[_make_tag("T1")])
         mock_file.return_value = ("/tmp/c.json", content)
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertIn("parse_time_seconds", result)
         self.assertIsInstance(result["parse_time_seconds"], float)
 
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
-    def test_wizard_lead_gen_business_type(self, mock_file):
+    @patch('deep.wizard_gtm._ask_select', return_value="Sì")
+    def test_wizard_lead_gen_business_type(self, mock_select, mock_file, mock_notes, mock_ev):
         content = _make_container(tags=[_make_tag("Form Submit", "html")])
         mock_file.return_value = ("/tmp/c.json", content)
         result = run_wizard_gtm(BUSINESS_LEAD_GEN, EMPTY_DISCOVERY)
         missing = result["gap_analysis"]["missing_recommended"]
         # Should NOT check for ecommerce events
         self.assertNotIn("purchase", missing)
+
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="test notes")
+    @patch('deep.wizard_gtm._ask_input', return_value="Usa Tealium")
+    @patch('deep.wizard_gtm._ask_select', return_value="No")
+    def test_wizard_no_gtm(self, mock_select, mock_input, mock_notes, mock_ev):
+        result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
+        self.assertEqual(result["gtm_usage"], "no")
+        self.assertEqual(result["gtm_skip_reason"], "Usa Tealium")
+        self.assertEqual(result["operator_notes"], "test notes")
+
+    @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
+    @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_file_path', return_value=(None, None))
+    @patch('deep.wizard_gtm._ask_input', return_value="Solo analytics via GTM")
+    @patch('deep.wizard_gtm._ask_select', return_value="Parzialmente")
+    def test_wizard_partial_gtm_skip_file(self, mock_select, mock_input, mock_file, mock_notes, mock_ev):
+        result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
+        self.assertEqual(result["gtm_usage"], "partial")
+        self.assertIn("gtm_partial_notes", result)
 
 
 if __name__ == '__main__':

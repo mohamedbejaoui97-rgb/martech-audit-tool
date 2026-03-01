@@ -5,7 +5,7 @@ Calculates Triage Score and cross-checks with L0 auto_discover() data.
 FRs: FR6, FR7, FR8, FR9, FR10, FR11.
 """
 
-from deep.input_helpers import _ask_input, _ask_select
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -116,14 +116,21 @@ def _calculate_triage_score(rejection_rate, consent_mode_v2):
 
 # ─── L0 CROSS-CHECK (FR10) ────────────────────────────────────────────────
 
-def _cross_check_l0(banner_services, discovery_block):
+def _cross_check_l0(banner_services, discovery_block, platforms=None):
     """Cross-check banner services against L0 auto_discover() data.
+
+    Args:
+        banner_services: List of services declared in Iubenda banner
+        discovery_block: L0 auto_discover() output
+        platforms: List of selected platforms from Step Zero (for GTM-aware messaging)
 
     Returns list of mismatch dicts with type, service, detail.
     """
     mismatches = []
     if not discovery_block:
         return mismatches
+
+    has_gtm = platforms and "gtm" in platforms
 
     # Flatten discovery_block to a searchable string for simple matching
     discovery_str = str(discovery_block).lower()
@@ -133,10 +140,14 @@ def _cross_check_l0(banner_services, discovery_block):
         found_in_l0 = any(key in discovery_str for key in l0_keys)
 
         if not found_in_l0:
+            if has_gtm:
+                detail = f"{service} dichiarato nel banner ma non rilevato sul sito — Probabilmente caricato via GTM — verificare nel container"
+            else:
+                detail = f"{service} dichiarato nel banner ma non rilevato sul sito"
             mismatches.append({
                 "type": "in_banner_not_detected",
                 "service": service,
-                "detail": f"{service} dichiarato nel banner ma non rilevato sul sito"
+                "detail": detail
             })
 
     # Check for technologies detected on site but NOT in banner
@@ -245,11 +256,31 @@ def run_wizard_iubenda(business_profile, discovery_block):
         data["triage_detail"] = detail
 
         # ── 5. L0 cross-check (FR10) ──
-        mismatches = _cross_check_l0(banner_services, discovery_block)
+        platforms = business_profile.get("platforms", [])
+        mismatches = _cross_check_l0(banner_services, discovery_block, platforms=platforms)
         data["l0_mismatches"] = mismatches
 
         # ── Show immediate results (FR11) ──
         _show_results(data)
+
+        # ── 6. Anomalies + Operator notes ──
+        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
+        try:
+            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            anomalies = ""
+        if anomalies and len(anomalies) > 2000:
+            anomalies = anomalies[:2000]
+        if anomalies:
+            data["anomalies_detected"] = anomalies
+
+        notes = _ask_operator_notes()
+        if notes:
+            data["operator_notes"] = notes
+
+        screenshots = _ask_evidence_screenshots("iubenda")
+        if screenshots:
+            data["evidence_screenshots"] = screenshots
 
     except Exception as e:
         print(f"  ⚠ Errore nel wizard Iubenda: {e}")

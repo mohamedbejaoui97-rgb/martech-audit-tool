@@ -196,7 +196,14 @@ class TestPromptBuilder(unittest.TestCase):
         # Find the SEO section content
         seo_start = msg.find("--- SEO ---")
         self.assertNotEqual(seo_start, -1)
-        seo_content = msg[seo_start + 11:]
+        # Extract only the SEO section (up to next === or --- marker)
+        after_seo = msg[seo_start + 11:]
+        next_marker = len(after_seo)
+        for marker in ["===", "---"]:
+            idx = after_seo.find(marker)
+            if idx > 0 and idx < next_marker:
+                next_marker = idx
+        seo_content = after_seo[:next_marker]
         self.assertLessEqual(len(seo_content.strip()), 5100)  # with some margin
 
 

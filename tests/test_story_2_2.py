@@ -481,5 +481,97 @@ class TestRealScenarios(unittest.TestCase):
         self.assertEqual(result, "Data-driven")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  _ask_file_path — SKIP SYNONYMS (Change 6)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestAskFilePathSkipSynonyms(unittest.TestCase):
+    """AC: 'no', 'non disponibile', 'non ce l'ho' all skip like 'skip'."""
+
+    def test_skip_with_no(self):
+        with patch('builtins.input', return_value='no'):
+            path, content = _ask_file_path("File")
+        self.assertIsNone(path)
+
+    def test_skip_with_non_disponibile(self):
+        with patch('builtins.input', return_value='non disponibile'):
+            path, content = _ask_file_path("File")
+        self.assertIsNone(path)
+
+    def test_skip_with_non_ce_lho(self):
+        with patch('builtins.input', return_value="non ce l'ho"):
+            path, content = _ask_file_path("File")
+        self.assertIsNone(path)
+
+    def test_skip_with_na(self):
+        with patch('builtins.input', return_value='n/a'):
+            path, content = _ask_file_path("File")
+        self.assertIsNone(path)
+
+    def test_skip_with_nessuno(self):
+        with patch('builtins.input', return_value='nessuno'):
+            path, content = _ask_file_path("File")
+        self.assertIsNone(path)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  _ask_input — AUTO STRIP % AND COMMA (Change 2)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestAskInputAutoStrip(unittest.TestCase):
+    """AC: _ask_input strips % and converts comma to dot for numeric coerce."""
+
+    def test_strip_percent(self):
+        from deep.input_helpers import _ask_input
+        with patch('builtins.input', return_value='55%'):
+            result = _ask_input("Tasso", coerce_fn=float)
+        self.assertEqual(result, 55.0)
+
+    def test_comma_to_dot(self):
+        from deep.input_helpers import _ask_input
+        with patch('builtins.input', return_value='42,5'):
+            result = _ask_input("Tasso", coerce_fn=float)
+        self.assertEqual(result, 42.5)
+
+    def test_percent_and_comma(self):
+        from deep.input_helpers import _ask_input
+        with patch('builtins.input', return_value='42,5%'):
+            result = _ask_input("Tasso", coerce_fn=float)
+        self.assertEqual(result, 42.5)
+
+    def test_no_coerce_no_comma_replace(self):
+        """Without coerce_fn, comma is NOT replaced (text input)."""
+        from deep.input_helpers import _ask_input
+        with patch('builtins.input', return_value='hello, world'):
+            result = _ask_input("Nota")
+        self.assertEqual(result, 'hello, world')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  _ask_operator_notes
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestAskOperatorNotes(unittest.TestCase):
+
+    def test_returns_text(self):
+        from deep.input_helpers import _ask_operator_notes
+        with patch('builtins.input', return_value='Test note'):
+            result = _ask_operator_notes()
+        self.assertEqual(result, 'Test note')
+
+    def test_empty_returns_empty(self):
+        from deep.input_helpers import _ask_operator_notes
+        with patch('builtins.input', return_value=''):
+            result = _ask_operator_notes()
+        self.assertEqual(result, '')
+
+    def test_truncates_at_2000(self):
+        from deep.input_helpers import _ask_operator_notes
+        long_text = 'x' * 2500
+        with patch('builtins.input', return_value=long_text):
+            result = _ask_operator_notes()
+        self.assertEqual(len(result), 2000)
+
+
 if __name__ == '__main__':
     unittest.main()

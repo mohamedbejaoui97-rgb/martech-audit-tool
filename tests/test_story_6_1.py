@@ -213,6 +213,9 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "1", "1", "1", "1",  # 6 events all ok
             "7",                 # EMQ
             "1",                 # Attribution: 7d+1d
+            "",                  # anomalies
+            "",                  # operator notes
+            "n",                 # evidence
         ]
         result = run_wizard_meta(BPROF_ECOM, EMPTY_DISC)
 
@@ -232,6 +235,9 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "1", "1", "1",  # 5 lead gen events
             "5",                 # EMQ
             "2",                 # Attribution: 1d+1d
+            "",                  # anomalies
+            "",                  # operator notes
+            "n",                 # evidence
         ]
         result = run_wizard_meta(BPROF_LEAD, EMPTY_DISC)
         self.assertTrue(result["cross_checks"]["capi_critical"]["is_critical"])
@@ -244,6 +250,9 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "3", "1", "1", "1",  # AddToCart=missing
             "6",
             "1",
+            "",                  # anomalies
+            "",                  # operator notes
+            "n",                 # evidence
         ]
         result = run_wizard_meta(BPROF_ECOM, EMPTY_DISC, GTM_BLOCK)
         gtm = result["cross_checks"]["gtm_cross_check"]
@@ -257,6 +266,9 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "1", "1", "1", "1",
             "7",
             "1",
+            "",                  # anomalies
+            "",                  # operator notes
+            "n",                 # evidence
         ]
         result = run_wizard_meta(BPROF_ECOM, DISC_WITH_PIXEL)
         self.assertTrue(result["pixel_id_match_l0"])
@@ -269,9 +281,28 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "1", "1", "1", "1",
             "6,5",
             "1",
+            "",                  # anomalies
+            "",                  # operator notes
+            "n",                 # evidence
         ]
         result = run_wizard_meta(BPROF_ECOM, EMPTY_DISC)
         self.assertEqual(result["emq_score"], 6.5)
+
+    @patch('builtins.input')
+    def test_anomalies_and_notes(self, mock_input):
+        mock_input.side_effect = [
+            "123456789012345",
+            "2",
+            "1", "1", "1", "1", "1", "1",
+            "7",
+            "1",
+            "EMQ fluttuante",   # anomalies
+            "Controllare CAPI", # operator notes
+            "n",                # evidence
+        ]
+        result = run_wizard_meta(BPROF_ECOM, EMPTY_DISC)
+        self.assertEqual(result["anomalies_detected"], "EMQ fluttuante")
+        self.assertEqual(result["operator_notes"], "Controllare CAPI")
 
 
 if __name__ == '__main__':

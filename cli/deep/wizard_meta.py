@@ -5,7 +5,7 @@ and runs cross-checks against L0 discovery and GTM data.
 FRs: FR26, FR27, FR28, FR29, FR30, FR31, FR32.
 """
 
-from deep.input_helpers import _ask_input, _ask_select
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -307,6 +307,17 @@ def run_wizard_meta(business_profile, discovery_block, deep_wizard_block=None):
             "gtm_cross_check": _cross_check_gtm(events, deep_wizard_block),
         }
 
+        # ── Anomalies + Operator notes ──
+        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
+        try:
+            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            anomalies = ""
+        if anomalies and len(anomalies) > 2000:
+            anomalies = anomalies[:2000]
+
+        notes = _ask_operator_notes()
+
         data = {
             "pixel_id": pixel_id,
             "pixel_id_check_l0": pixel_check,
@@ -317,6 +328,14 @@ def run_wizard_meta(business_profile, discovery_block, deep_wizard_block=None):
             "attribution_window": attribution_window,
             "cross_checks": cross_checks,
         }
+        if anomalies:
+            data["anomalies_detected"] = anomalies
+        if notes:
+            data["operator_notes"] = notes
+
+        screenshots = _ask_evidence_screenshots("meta")
+        if screenshots:
+            data["evidence_screenshots"] = screenshots
 
         _show_results(data)
         return data

@@ -5,6 +5,7 @@ populates {{placeholder}} markers via str.replace().
 FRs: FR52-FR59.  NFRs: NFR10.
 """
 
+import base64
 import os
 import re
 import html
@@ -296,6 +297,59 @@ def _find_section(sections, *keywords):
     return ""
 
 
+# ─── EVIDENCE SCREENSHOTS (Change 10) ─────────────────────────────────────
+
+MIME_MAP = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+}
+
+
+def _build_evidence_html(deep_wizard_block):
+    """Build HTML sections with base64-embedded evidence screenshots."""
+    wizard_keys = {
+        "iubenda_data": "Iubenda",
+        "gtm_data": "GTM",
+        "gads_data": "Google Ads",
+        "meta_data": "Meta",
+        "gsc_data": "GSC",
+    }
+    parts = []
+
+    for key, label in wizard_keys.items():
+        wdata = deep_wizard_block.get(key, {})
+        screenshots = wdata.get("evidence_screenshots", [])
+        if not screenshots:
+            continue
+
+        parts.append(f'<div class="evidence-section">')
+        parts.append(f'<h4>Screenshot — {_esc(label)}</h4>')
+        parts.append('<div style="display:flex;flex-wrap:wrap;gap:12px">')
+
+        for path in screenshots:
+            if not os.path.isfile(path):
+                continue
+            ext = os.path.splitext(path)[1].lower()
+            mime = MIME_MAP.get(ext, "image/png")
+            try:
+                with open(path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                parts.append(
+                    f'<div style="max-width:400px">'
+                    f'<img src="data:{mime};base64,{b64}" '
+                    f'style="max-width:100%;border:1px solid #e5e7eb;border-radius:8px" '
+                    f'alt="Evidence {_esc(os.path.basename(path))}">'
+                    f'<p style="font-size:11px;color:#666;margin:4px 0">{_esc(os.path.basename(path))}</p>'
+                    f'</div>'
+                )
+            except Exception:
+                continue
+
+        parts.append('</div></div>')
+
+    return "\n".join(parts)
+
+
 # ─── PUBLIC API ─────────────────────────────────────────────────────────────
 
 def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
@@ -390,6 +444,7 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         "{{cost_l3}}": _esc(cost_l3),
         "{{platforms_list}}": _esc(", ".join(platforms)) if platforms else "N/A",
         "{{synthesis_model}}": _esc(synthesis_model),
+        "{{evidence_screenshots}}": _build_evidence_html(deep_wizard_block),
     }
 
     for placeholder, value in replacements.items():

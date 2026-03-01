@@ -8,9 +8,13 @@ NFRs: NFR2, NFR14, NFR15, NFR18.
 
 import csv
 import io
+import re
 import time
+import urllib.request
+import urllib.error
+import ssl
 
-from deep.input_helpers import _ask_input, _ask_select, _ask_file_path
+from deep.input_helpers import _ask_input, _ask_select, _ask_file_path, _ask_operator_notes, _ask_evidence_screenshots
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -247,6 +251,120 @@ def analyze_trends(rows):
     }
 
 
+SITEMAP_GSC_STATUS_OPTIONS = [
+    "Operazione riuscita",
+    "Impossibile recuperare",
+    "Ha problemi",
+    "Non letta",
+]
+
+
+# ─── ROBOTS.TXT ANALYSIS (Change 11) ────────────────────────────────────
+
+def fetch_robots_txt(url):
+    """Fetch and parse robots.txt from the target URL.
+
+    Returns:
+        dict with raw_content, sitemap_urls, disallow_rules, user_agents, fetch_error
+    """
+    domain = url.replace("https://", "").replace("http://", "").rstrip("/")
+    robots_url = f"https://{domain}/robots.txt"
+
+    result = {
+        "raw_content": "",
+        "sitemap_urls": [],
+        "disallow_rules": [],
+        "user_agents": [],
+        "fetch_error": None,
+    }
+
+    try:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(robots_url, headers={"User-Agent": "MarTech-Audit/1.0"})
+        resp = urllib.request.urlopen(req, timeout=15, context=ctx)
+        content = resp.read().decode("utf-8", errors="replace")
+        result["raw_content"] = content
+
+        current_agent = "*"
+        for line in content.split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            lower = line.lower()
+            if lower.startswith("sitemap:"):
+                sitemap_url = line.split(":", 1)[1].strip()
+                # Handle "Sitemap: http..." where split on : takes only the scheme
+                if sitemap_url.startswith("//") or not sitemap_url.startswith("http"):
+                    sitemap_url = line[len("sitemap:"):].strip()
+                    if ":" in line[8:]:
+                        sitemap_url = line[8:].strip()
+                result["sitemap_urls"].append(sitemap_url)
+            elif lower.startswith("user-agent:"):
+                current_agent = line.split(":", 1)[1].strip()
+                if current_agent not in result["user_agents"]:
+                    result["user_agents"].append(current_agent)
+            elif lower.startswith("disallow:"):
+                path = line.split(":", 1)[1].strip()
+                if path:
+                    result["disallow_rules"].append({
+                        "user_agent": current_agent,
+                        "path": path,
+                    })
+
+    except Exception as e:
+        result["fetch_error"] = str(e)
+
+    return result
+
+
+def _check_sitemap_consistency(robots_sitemaps, gsc_sitemaps, gsc_statuses, domain):
+    """Cross-check sitemap URLs and www consistency (Change 9).
+
+    Returns:
+        dict with mismatches list, www_consistent bool, critical flag
+    """
+    result = {
+        "mismatches": [],
+        "www_consistent": True,
+        "is_critical": False,
+    }
+
+    # Normalize URLs for comparison
+    def normalize(url):
+        return url.strip().rstrip("/").lower()
+
+    robots_norm = {normalize(u) for u in robots_sitemaps}
+    gsc_norm = {normalize(u) for u in gsc_sitemaps if u.strip()}
+
+    # Check robots vs GSC URL mismatch
+    if robots_norm and gsc_norm and robots_norm != gsc_norm:
+        only_robots = robots_norm - gsc_norm
+        only_gsc = gsc_norm - robots_norm
+        if only_robots:
+            result["mismatches"].append(f"Sitemap in robots.txt ma non in GSC: {', '.join(only_robots)}")
+        if only_gsc:
+            result["mismatches"].append(f"Sitemap in GSC ma non in robots.txt: {', '.join(only_gsc)}")
+        result["is_critical"] = True
+
+    # Check GSC status
+    bad_statuses = [s for s in gsc_statuses if s != "Operazione riuscita"]
+    if bad_statuses:
+        result["mismatches"].append(f"Sitemap con problemi in GSC: {', '.join(bad_statuses)}")
+        result["is_critical"] = True
+
+    # www vs non-www consistency
+    all_urls = list(robots_norm | gsc_norm)
+    has_www = any("://www." in u or u.startswith("www.") for u in all_urls)
+    has_non_www = any("://" in u and "://www." not in u for u in all_urls)
+    if has_www and has_non_www:
+        result["www_consistent"] = False
+        result["mismatches"].append("Mix www e non-www nelle URL sitemap — possibili problemi di canonicalizzazione")
+        result["is_critical"] = True
+
+    return result
+
+
 # ─── RESULTS DISPLAY ───────────────────────────────────────────────────────
 
 def _show_results(data):
@@ -289,6 +407,25 @@ def _show_results(data):
             print(f"     🔸 {opp['detail']} — {opp['page'][:50]}")
         if len(opportunities) > 5:
             print(f"     ... e altre {len(opportunities) - 5}")
+
+    # Sitemap cross-check results
+    sitemap_check = data.get("sitemap_cross_check", {})
+    if sitemap_check.get("is_critical"):
+        print(f"\n  ⛔ CRITICO: sitemap mismatch o irraggiungibile")
+        for m in sitemap_check.get("mismatches", []):
+            print(f"     🔸 {m}")
+    elif sitemap_check:
+        print(f"\n  ✅ Sitemap consistente tra robots.txt e GSC")
+
+    # Robots.txt info
+    robots = data.get("robots_txt", {})
+    if robots and not robots.get("fetch_error"):
+        print(f"\n  🤖 Robots.txt:")
+        print(f"     Sitemap dichiarate: {len(robots.get('sitemap_urls', []))}")
+        print(f"     Regole Disallow: {len(robots.get('disallow_rules', []))}")
+        print(f"     User-agent: {', '.join(robots.get('user_agents', [])[:5])}")
+    elif robots and robots.get("fetch_error"):
+        print(f"\n  ⚠ Robots.txt non raggiungibile: {robots['fetch_error']}")
 
     print(f"  {'─'*46}")
 
@@ -343,6 +480,65 @@ def run_wizard_gsc(business_profile, discovery_block):
             help_text="Nella sezione 'Perché le pagine non sono indicizzate'"
         )
 
+        # ── 2b. Sitemap cross-check (Change 9) ──
+        domain = business_profile.get("url", "").replace("https://", "").replace("http://", "").rstrip("/")
+
+        # Fetch robots.txt proactively (Change 11)
+        print("\n  🤖 Analisi robots.txt in corso...")
+        robots_data = fetch_robots_txt(business_profile.get("url", f"https://{domain}"))
+        if robots_data.get("fetch_error"):
+            print(f"  ⚠ robots.txt non raggiungibile: {robots_data['fetch_error']}")
+        else:
+            print(f"  ✓ robots.txt: {len(robots_data['sitemap_urls'])} sitemap, "
+                  f"{len(robots_data['disallow_rules'])} regole Disallow")
+
+        # Robots sitemap URL (auto-detected)
+        robots_sitemap_display = ", ".join(robots_data.get("sitemap_urls", [])) or "Non trovata"
+        print(f"\n  ℹ Sitemap nel robots.txt: {robots_sitemap_display}")
+
+        robots_sitemap_url = _ask_input(
+            "URL sitemap dichiarata nel robots.txt (conferma o correggi)",
+            allow_empty=True,
+            help_text=f"Auto-rilevato: {robots_sitemap_display}. Premi Invio per confermare."
+        )
+        if not robots_sitemap_url:
+            robots_sitemap_urls = robots_data.get("sitemap_urls", [])
+        else:
+            robots_sitemap_urls = [u.strip() for u in robots_sitemap_url.split("\n") if u.strip()]
+
+        # GSC sitemap URLs
+        gsc_sitemap_raw = _ask_input(
+            "URL sitemap pushate in GSC (una per riga, separate da virgola)",
+            allow_empty=True,
+            help_text="Vai su GSC > Sitemap. Elenca le URL inviate."
+        )
+        gsc_sitemap_urls = [u.strip() for u in gsc_sitemap_raw.replace("\n", ",").split(",") if u.strip()] if gsc_sitemap_raw else []
+
+        # GSC sitemap status
+        gsc_sitemap_statuses = _ask_select(
+            "Stato sitemap in GSC (seleziona tutti quelli applicabili):",
+            SITEMAP_GSC_STATUS_OPTIONS,
+            allow_multiple=True,
+            help_text="Per ogni sitemap inviata, qual è lo stato?"
+        )
+
+        # Last read date
+        gsc_last_read = _ask_input(
+            "Data ultima lettura GSC (es. 23/10/2025)",
+            allow_empty=True,
+            help_text="Visibile nella colonna 'Ultima lettura' della sezione Sitemap"
+        )
+
+        # Cross-check
+        sitemap_check = _check_sitemap_consistency(
+            robots_sitemap_urls, gsc_sitemap_urls, gsc_sitemap_statuses, domain
+        )
+
+        if sitemap_check.get("is_critical"):
+            print("  ⛔ CRITICO: sitemap mismatch o irraggiungibile")
+            for m in sitemap_check.get("mismatches", []):
+                print(f"     🔸 {m}")
+
         # ── 3. CSV rendimento upload (FR35, FR39) ──
         perf_rows = []
         perf_path, perf_content = _ask_file_path(
@@ -375,6 +571,19 @@ def run_wizard_gsc(business_profile, discovery_block):
         all_rows = perf_rows + pages_csv_rows
         trends = analyze_trends(all_rows)
 
+        # ── Anomalies + Operator notes ──
+        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
+        try:
+            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            anomalies = ""
+        if anomalies and len(anomalies) > 2000:
+            anomalies = anomalies[:2000]
+
+        notes = _ask_operator_notes()
+
+        screenshots = _ask_evidence_screenshots("gsc")
+
         data = {
             "sitemap_status": sitemap_status,
             "pages_indexed": pages_indexed,
@@ -384,7 +593,18 @@ def run_wizard_gsc(business_profile, discovery_block):
             "opportunities": trends.get("opportunities", []),
             "_performance_row_count": len(perf_rows),
             "_pages_row_count": len(pages_csv_rows),
+            "robots_txt": robots_data,
+            "sitemap_cross_check": sitemap_check,
+            "gsc_sitemap_urls": gsc_sitemap_urls,
+            "gsc_sitemap_statuses": gsc_sitemap_statuses,
+            "gsc_last_read": gsc_last_read,
         }
+        if anomalies:
+            data["anomalies_detected"] = anomalies
+        if notes:
+            data["operator_notes"] = notes
+        if screenshots:
+            data["evidence_screenshots"] = screenshots
 
         _show_results(data)
         return data

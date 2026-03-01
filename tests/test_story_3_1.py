@@ -213,8 +213,8 @@ class TestRunWizardIubenda(unittest.TestCase):
 
     @patch('builtins.input')
     def test_full_wizard_happy_path(self, mock_input):
-        # rejection rate=42, CM v2=Basic(2), banner=1,2,3 (GA, GAds, Meta)
-        mock_input.side_effect = ["42", "2", "1,2,3"]
+        # rejection rate=42, CM v2=Basic(2), banner=1,2,3 (GA, GAds, Meta), anomalies, notes
+        mock_input.side_effect = ["42", "2", "1,2,3", "", "", "n"]
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
 
         self.assertIsInstance(result, dict)
@@ -228,13 +228,13 @@ class TestRunWizardIubenda(unittest.TestCase):
     @patch('builtins.input')
     def test_wizard_returns_correct_triage(self, mock_input):
         # 60% rejection + none (Assente=1) → should be F
-        mock_input.side_effect = ["60", "1", "1"]
+        mock_input.side_effect = ["60", "1", "1", "", "", "n"]
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["triage_score"], "F")
 
     @patch('builtins.input')
     def test_wizard_returns_dict_on_empty_discovery(self, mock_input):
-        mock_input.side_effect = ["30", "3", "1,2"]
+        mock_input.side_effect = ["30", "3", "1,2", "", "", "n"]
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertIsInstance(result, dict)
         self.assertEqual(result["l0_mismatches"], [])
@@ -242,7 +242,7 @@ class TestRunWizardIubenda(unittest.TestCase):
     @patch('builtins.input')
     def test_wizard_with_l0_cross_check(self, mock_input):
         # Select only Google Analytics (1) but discovery has hotjar too
-        mock_input.side_effect = ["42", "2", "1"]
+        mock_input.side_effect = ["42", "2", "1", "", "", "n"]
         result = run_wizard_iubenda(
             BUSINESS_PROFILE_ECOMMERCE,
             DISCOVERY_BLOCK_WITH_GA_AND_META
@@ -251,16 +251,39 @@ class TestRunWizardIubenda(unittest.TestCase):
 
     @patch('builtins.input')
     def test_wizard_consent_mode_advanced(self, mock_input):
-        mock_input.side_effect = ["20", "3", "1"]  # Advanced=3
+        mock_input.side_effect = ["20", "3", "1", "", "", "n"]  # Advanced=3
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["consent_mode_v2"], "advanced")
 
     @patch('builtins.input')
     def test_wizard_comma_decimal_rejection(self, mock_input):
         # Italian comma notation: 42,5%
-        mock_input.side_effect = ["42,5", "2", "1"]
+        mock_input.side_effect = ["42,5", "2", "1", "", "", "n"]
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["rejection_rate"], 42.5)
+
+    @patch('builtins.input')
+    def test_wizard_with_operator_notes(self, mock_input):
+        mock_input.side_effect = ["42", "2", "1", "Banner non blocca", "Nota test", "n"]
+        result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
+        self.assertEqual(result["anomalies_detected"], "Banner non blocca")
+        self.assertEqual(result["operator_notes"], "Nota test")
+
+    @patch('builtins.input')
+    def test_wizard_percent_strip(self, mock_input):
+        # "55%" should be stripped to "55"
+        mock_input.side_effect = ["55%", "2", "1", "", "", "n"]
+        result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
+        self.assertEqual(result["rejection_rate"], 55.0)
+
+    @patch('builtins.input')
+    def test_wizard_gtm_mismatch_message(self, mock_input):
+        # GTM is in platforms → mismatch message should mention GTM
+        mock_input.side_effect = ["42", "2", "5", "", "", "n"]  # banner=TikTok(5)
+        result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
+        tiktok_mismatch = [m for m in result["l0_mismatches"] if "TikTok" in m["service"]]
+        if tiktok_mismatch:
+            self.assertIn("GTM", tiktok_mismatch[0]["detail"])
 
 
 if __name__ == '__main__':

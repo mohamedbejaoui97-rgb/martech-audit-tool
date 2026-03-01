@@ -5,7 +5,7 @@ and runs cross-checks against GTM data.
 FRs: FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25.
 """
 
-from deep.input_helpers import _ask_input, _ask_select
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -275,55 +275,135 @@ def run_wizard_gads(business_profile, discovery_block, deep_wizard_block=None):
 
         if num_actions == 0:
             print("  ℹ Nessuna conversion action configurata.")
-            return {
+            notes = _ask_operator_notes()
+            screenshots = _ask_evidence_screenshots("gads")
+            result = {
                 "conversion_actions": [],
                 "consent_mode_status": "",
                 "enhanced_conversions_status": "",
                 "attribution_model": "",
                 "cross_checks": {},
             }
+            if notes:
+                result["operator_notes"] = notes
+            if screenshots:
+                result["evidence_screenshots"] = screenshots
+            return result
 
-        # ── 2. Collect each conversion action (FR18) ──
-        actions = _collect_conversion_actions(num_actions)
-
-        # ── 3. Consent Mode diagnostics (FR19) ──
-        cm_status = _ask_select(
-            "Diagnostica Consent Mode:",
-            CONSENT_MODE_DIAG_OPTIONS,
-            help_text="Vai su Strumenti > Attribution, consent e dati proprietari. Cosa vedi accanto a 'Consent mode'?"
+        # ── 1b. Summary mode (default) vs Detail mode ──
+        num_primary = _ask_input(
+            "Quante conversioni PRIMARY?",
+            validation_fn=_validate_positive_int,
+            coerce_fn=int
+        )
+        num_secondary = _ask_input(
+            "Quante conversioni SECONDARY?",
+            validation_fn=_validate_positive_int,
+            coerce_fn=int
         )
 
-        # ── 4. Enhanced Conversions diagnostics (FR20) ──
+        # ── 2. Enhanced Conversions (s/n) ──
         ec_status = _ask_select(
             "Diagnostica Enhanced Conversions:",
             ENHANCED_CONV_DIAG_OPTIONS,
             help_text="Nella stessa pagina, sezione 'Conversioni migliorate'"
         )
 
-        # ── 5. Attribution model (FR21) ──
+        # ── 3. Consent Mode diagnostics (FR19) ──
+        cm_status = _ask_select(
+            "Diagnostica Consent Mode:",
+            CONSENT_MODE_DIAG_OPTIONS,
+            help_text="Vai su Strumenti > Attribution, consent e dati proprietari"
+        )
+
+        # ── 4. Attribution model (FR21) ──
         attr_model = _ask_select(
             "Modello di attribuzione principale:",
             ATTRIBUTION_MODEL_OPTIONS,
             help_text="Vai su Strumenti > Attribution > Modello"
         )
 
-        # ── 6. Cross-checks ──
+        # ── 5. Conversion activity status ──
+        conv_active = _ask_select(
+            "Le conversioni principali risultano attive (ultimi 7 giorni)?",
+            ["Sì", "No", "Alcune"]
+        )
+        inactive_days = None
+        if conv_active in ("No", "Alcune"):
+            inactive_days = _ask_input(
+                "Da quanto tempo sono inattive? (giorni approssimativi)",
+                coerce_fn=int,
+                validation_fn=_validate_positive_int
+            )
+
+        # ── 6. GA4 conversion gap check ──
+        ga4_match = _ask_select(
+            "GA4 registra gli stessi eventi di conversione?",
+            ["Sì", "No", "Non so"]
+        )
+        ga4_gap_critical = False
+        if ga4_match == "Sì" and conv_active in ("No", "Alcune"):
+            ga4_gap_critical = True
+            print("  ⛔ CRITICO: GA4-Google Ads conversion gap — tracking rotto o consent blocking")
+
+        # ── 7. Optional detail mode ──
+        actions = []
+        detail_mode = False
+        if num_actions > 0:
+            detail_choice = _ask_select(
+                "Vuoi inserire il dettaglio per ogni conversione?",
+                ["No (sommario)", "Sì (dettaglio)"]
+            )
+            if detail_choice == "Sì (dettaglio)":
+                detail_mode = True
+                actions = _collect_conversion_actions(num_actions)
+
+        # ── 8. Anomalies + Operator notes ──
+        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
+        try:
+            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            anomalies = ""
+        if anomalies and len(anomalies) > 2000:
+            anomalies = anomalies[:2000]
+
+        notes = _ask_operator_notes()
+
+        # ── 9. Cross-checks ──
         business_type = business_profile.get("business_type", "ecommerce")
 
         cross_checks = {
-            "primary_conflicts": _check_primary_conflicts(actions),
-            "gtm_cross_check": _cross_check_gtm(actions, deep_wizard_block),
-            "missing_funnel_events": _check_missing_funnel_events(actions, business_type),
-            "source_discrepancies": _check_source_discrepancies(actions),
+            "primary_conflicts": _check_primary_conflicts(actions) if actions else {"has_conflict": num_primary > 1, "count": num_primary, "names": [], "detail": f"{num_primary} conversioni primary" if num_primary > 1 else ""},
+            "gtm_cross_check": _cross_check_gtm(actions, deep_wizard_block) if actions else {"available": False, "discrepancies": []},
+            "missing_funnel_events": _check_missing_funnel_events(actions, business_type) if actions else {"upper": [], "mid": [], "bottom": []},
+            "source_discrepancies": _check_source_discrepancies(actions) if actions else [],
         }
 
         data = {
             "conversion_actions": actions,
+            "summary": {
+                "total": num_actions,
+                "primary": num_primary,
+                "secondary": num_secondary,
+            },
+            "detail_mode": detail_mode,
             "consent_mode_status": cm_status,
             "enhanced_conversions_status": ec_status,
             "attribution_model": attr_model,
+            "conversions_active": conv_active,
+            "inactive_days": inactive_days,
+            "ga4_match": ga4_match,
+            "ga4_gap_critical": ga4_gap_critical,
             "cross_checks": cross_checks,
         }
+        if anomalies:
+            data["anomalies_detected"] = anomalies
+        if notes:
+            data["operator_notes"] = notes
+
+        screenshots = _ask_evidence_screenshots("gads")
+        if screenshots:
+            data["evidence_screenshots"] = screenshots
 
         # ── Show results ──
         _show_results(data)
