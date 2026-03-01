@@ -2134,6 +2134,7 @@ def main():
     parser.add_argument('--output', default=None, help='Path file output HTML')
     parser.add_argument('--pages', default=None, help='URL aggiuntive da scansionare (separate da virgola)')
     parser.add_argument('--render', action='store_true', help='Usa Playwright per JS rendering (richiede: pip install playwright && playwright install chromium)')
+    parser.add_argument('--mode', choices=['quick', 'deep'], default='quick', help='Modalità audit: quick (default) o deep')
     args = parser.parse_args()
 
     domain = args.domain.strip().replace('https://', '').replace('http://', '').rstrip('/')
@@ -2150,6 +2151,12 @@ def main():
     print(f"{C.RESET}")
     print(f"  {C.DIM}MarTech Audit Tool — CLI Edition{C.RESET}")
     print(f"  {C.DIM}Dominio: {C.BOLD}{domain}{C.RESET}  |  {C.DIM}Cliente: {C.BOLD}{client_name}{C.RESET}\n")
+
+    # ── MODE GATE ──
+    if args.mode == 'deep':
+        from deep import run_deep_mode
+        run_deep_mode(url, args)
+        return
 
     # Load API keys: environment variables first, then .env file as fallback
     api_key = os.environ.get('CLAUDE_API_KEY', '')
