@@ -11,6 +11,7 @@ FRs: FR51, FR60.  NFRs: NFR4, NFR7, NFR11, NFR17, NFR21, NFR22.
 
 import json
 import os
+import re
 import time
 import urllib.request
 import urllib.error
@@ -70,7 +71,7 @@ def _load_legacy_config():
 # ─── API CALL ───────────────────────────────────────────────────────────────
 
 def _call_claude(api_key, system_prompt, user_message, model, max_tokens,
-                 temperature=0, timeout_s=120, max_retries=1):
+                 temperature=0, timeout_s=180, max_retries=2):
     """Call Claude API. Works for both Opus and Sonnet.
 
     Returns:
@@ -111,12 +112,12 @@ def _call_claude(api_key, system_prompt, user_message, model, max_tokens,
             raise RuntimeError(f"Claude API error {e.code}: {body[:500]}") from e
         except (json.JSONDecodeError, KeyError, IndexError) as e:
             raise RuntimeError(f"Claude API parse error: {e}") from e
-        except (urllib.error.URLError, TimeoutError) as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             if attempt < max_retries:
-                wait = (2 ** attempt) + 1
+                wait = (2 ** attempt) * 3 + 1
                 time.sleep(wait)
                 continue
-            raise RuntimeError(f"Claude API network error: {e}") from e
+            raise RuntimeError(f"Claude API timeout after {max_retries+1} attempts: {e}") from e
 
     raise RuntimeError("Claude API: max retries exceeded")
 
@@ -200,6 +201,197 @@ def _format_l2_result(result):
     return str(result)[:4000]
 
 
+# ─── PRE-PROCESSING: DEDUP + CONFLICT RESOLUTION (Epic B) ─────────────────
+
+# Topic mapping: wizard field → L2 keywords that cover same topic
+_TOPIC_MAP = {
+    "consent_mode_status": ["consent mode", "consent_mode", "modalità consenso"],
+    "consent_mode_v2": ["consent mode v2", "cm v2"],
+    "enhanced_conversions_status": ["enhanced conversions", "conversioni avanzate"],
+    "pixel_found": ["pixel", "meta pixel", "facebook pixel"],
+    "capi_status": ["capi", "conversions api", "server-side"],
+    "emq_score": ["event match quality", "emq"],
+    "tag_count": ["tag manager", "gtm container", "contenitore"],
+    "rejection_rate": ["rejection rate", "tasso di rifiuto", "consent rate"],
+    "conversions_total": ["conversioni", "conversion actions", "azioni di conversione"],
+    "conversions_active": ["conversioni attive", "active conversions"],
+    "ga4_gap_critical": ["ga4 gap", "discrepanza ga4"],
+}
+
+
+def _extract_l2_findings(l2_results):
+    """Extract structured findings from L2 outputs, discarding narrative filler (B1).
+
+    Returns: dict of {l2_type: [{"finding": str, "topic": str|None}]}
+    """
+    if not l2_results or not isinstance(l2_results, dict):
+        return {}
+
+    findings_by_type = {}
+    for atype, result in l2_results.items():
+        if not result or (isinstance(result, str) and result.startswith("Errore:")):
+            continue
+
+        text = result if isinstance(result, str) else result.get("text", result.get("analysis", str(result)))
+        findings = []
+        lines = text.split("\n")
+        for line in lines:
+            line_s = line.strip()
+            # Capture lines with actionable content: bullets, numbered, bold findings, severity markers
+            if not line_s:
+                continue
+            is_finding = (
+                line_s.startswith(("-", "*", "•")) or
+                re.match(r'^\d+\.', line_s) or
+                "**" in line_s or
+                any(kw in line_s.lower() for kw in ["critico", "critical", "problema", "issue",
+                    "raccomand", "recommend", "mancante", "missing", "errore", "error",
+                    "⚠", "❌", "✗", "warning", "attenzione"])
+            )
+            if is_finding:
+                # Detect which topic this finding relates to
+                topic = None
+                for field, keywords in _TOPIC_MAP.items():
+                    if any(kw in line_s.lower() for kw in keywords):
+                        topic = field
+                        break
+                findings.append({"finding": line_s[:300], "topic": topic})
+
+        # Cap per L2 type
+        findings_by_type[atype] = findings[:30]
+
+    return findings_by_type
+
+
+def _resolve_conflicts(wizard_data, l2_findings):
+    """Resolve conflicts between wizard data (PRIMARY) and L2 findings (B2).
+
+    Returns:
+        tuple: (conflicts_resolved: list, l2_new_only: dict)
+            conflicts_resolved: [{"topic", "wizard_says", "l2_says", "resolution"}]
+            l2_new_only: {l2_type: [findings not covered by wizard]}
+    """
+    conflicts = []
+    l2_new_only = {}
+
+    # Collect all wizard field values across platforms
+    wizard_fields = {}
+    for wk in WIZARD_KEYS:
+        wdata = wizard_data.get(wk, {})
+        if not wdata:
+            continue
+        for field, value in wdata.items():
+            if field in _TOPIC_MAP and value is not None and value != "":
+                wizard_fields[field] = {"value": value, "source": wk}
+
+    for l2_type, findings in l2_findings.items():
+        new_findings = []
+        for f in findings:
+            topic = f.get("topic")
+            if topic and topic in wizard_fields:
+                # Wizard has data on this topic → wizard wins
+                winfo = wizard_fields[topic]
+                conflicts.append({
+                    "topic": topic,
+                    "wizard_says": str(winfo["value"]),
+                    "wizard_source": winfo["source"].replace("_data", "").upper(),
+                    "l2_says": f["finding"][:150],
+                    "l2_source": l2_type,
+                    "resolution": "WIZARD_OVERRIDE",
+                })
+            else:
+                # L2 has info wizard doesn't cover
+                new_findings.append(f)
+
+        if new_findings:
+            l2_new_only[l2_type] = new_findings
+
+    return conflicts, l2_new_only
+
+
+def _build_director_briefing(wizard_data, conflicts, l2_new_only, trust_result):
+    """Build compact director briefing (~8-10K tokens) for Opus Phase 0 (B3).
+
+    Returns: str
+    """
+    parts = []
+
+    # Section 1: Wizard data (primary source) — anomalies + key findings + operator notes
+    parts.append("=== DATI WIZARD (FONTE PRIMARIA) ===")
+    for wk in WIZARD_KEYS:
+        wdata = wizard_data.get(wk, {})
+        if not wdata:
+            continue
+        platform = wk.replace("_data", "").upper()
+        summary = _format_wizard_summary(wk, wdata)
+        if summary:
+            parts.append(summary)
+        # Always include anomalies and notes in full
+        if wdata.get("anomalies_detected"):
+            parts.append(f"  ANOMALIA {platform}: {wdata['anomalies_detected']}")
+        if wdata.get("operator_notes"):
+            parts.append(f"  NOTE {platform}: {wdata['operator_notes']}")
+
+    # Section 2: Conflicts resolved
+    if conflicts:
+        parts.append("\n=== CONFLITTI RISOLTI (WIZARD VINCE SEMPRE) ===")
+        seen = set()
+        for c in conflicts:
+            key = c["topic"]
+            if key in seen:
+                continue
+            seen.add(key)
+            parts.append(
+                f"  {c['topic']}: WIZARD ({c['wizard_source']}) dice \"{c['wizard_says']}\" "
+                f"| L2 ({c['l2_source']}) dice \"{c['l2_says'][:80]}\" → WIZARD VINCE"
+            )
+
+    # Section 3: New info from L2 (not covered by wizard)
+    if l2_new_only:
+        parts.append("\n=== INFO NUOVE DA L2 (non coperte dal wizard) ===")
+        for l2_type, findings in l2_new_only.items():
+            parts.append(f"  [{l2_type.upper()}]")
+            for f in findings[:10]:  # cap per type
+                parts.append(f"    - {f['finding'][:200]}")
+
+    # Section 4: Trust Score + Gap-to-Revenue compact
+    parts.append("\n=== TRUST SCORE + GAP-TO-REVENUE ===")
+    ts = trust_result or {}
+    parts.append(f"Score: {ts.get('score', 'N/A')}/100 ({ts.get('grade', '?')})")
+    for p in ts.get("pillars", []):
+        parts.append(f"  {p.get('name', '?')}: {p.get('score', 0)}/100")
+    gr = wizard_data.get("gap_to_revenue", {})
+    issues = gr.get("issues", [])
+    if issues:
+        parts.append(f"Gap issues: {len(issues)}")
+        for gap in issues[:5]:
+            parts.append(f"  - {gap.get('platform','?')}: {gap.get('issue','?')} [{gap.get('severity','?')}]")
+
+    return "\n".join(parts)
+
+
+def _preprocess_data(deep_wizard_block, l2_results, trust_result):
+    """Pre-process wizard + L2 data: extract, deduplicate, resolve conflicts (Epic B).
+
+    Pure Python, zero API calls. Returns:
+        dict: {director_briefing, conflicts, l2_new_only, l2_findings}
+    """
+    l2_findings = _extract_l2_findings(l2_results)
+    conflicts, l2_new_only = _resolve_conflicts(deep_wizard_block, l2_findings)
+    briefing = _build_director_briefing(deep_wizard_block, conflicts, l2_new_only, trust_result)
+
+    n_conflicts = len(set(c["topic"] for c in conflicts))
+    n_new = sum(len(v) for v in l2_new_only.values())
+    print(f"  ℹ Pre-processing: {n_conflicts} conflitti risolti (wizard vince), {n_new} findings L2 nuovi")
+
+    return {
+        "director_briefing": briefing,
+        "conflicts": conflicts,
+        "l2_new_only": l2_new_only,
+        "l2_findings": l2_findings,
+    }
+
+
 # ─── DATA SLICER (Story 10.2) ──────────────────────────────────────────────
 
 def _collect_all_notes_and_anomalies(deep_wizard_block):
@@ -217,7 +409,8 @@ def _collect_all_notes_and_anomalies(deep_wizard_block):
 
 def _build_section_data(section_id, data_keys, deep_wizard_block,
                          discovery_block, l2_results, trust_result,
-                         phase1_results=None):
+                         phase1_results=None, editorial_plan=None,
+                         l2_new_only=None):
     """Build minimal data payload for a specific section (ADR-6).
 
     Returns: str ready for user message.
@@ -349,6 +542,19 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
             if rt and rt.get("raw_content"):
                 parts.append("=== ROBOTS.TXT ===")
                 parts.append(rt["raw_content"][:4000])
+
+        elif key == "editorial_plan":
+            if editorial_plan:
+                parts.append("=== PIANO EDITORIALE (dal Direttore Opus) ===")
+                parts.append(editorial_plan)
+
+        elif key == "l2_new_findings":
+            if l2_new_only:
+                parts.append("=== FINDINGS L2 NUOVI (non coperti dal wizard) ===")
+                for l2_type, findings in l2_new_only.items():
+                    parts.append(f"  [{l2_type.upper()}]")
+                    for f in findings[:8]:
+                        parts.append(f"    - {f['finding'][:200]}")
 
         elif key == "phase1_findings":
             if phase1_results:
@@ -526,10 +732,54 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
     phase2_ids = [sid for sid in phase2_ids if _should_run(sid)]
 
     total_sections = len(phase1_ids) + len(phase2_ids)
-    print(f"  ℹ {total_sections} sezioni da sintetizzare ({len(phase1_ids)} Phase 1 + {len(phase2_ids)} Phase 2)")
 
     section_results = {}
     start_total = time.time()
+
+    # ── Pre-processing: Dedup + Conflict Resolution (Epic B) ──
+    preprocess = _preprocess_data(deep_wizard_block, l2_results, trust_result)
+    director_briefing = preprocess["director_briefing"]
+    l2_new_only = preprocess["l2_new_only"]
+
+    # ── Phase 0: Opus Direttore (single call ~10K in → ~4K out) ──
+    editorial_plan = ""
+    _phase0_cost = {}
+    print("  🎯 Phase 0: Opus Direttore...")
+    try:
+        director_system = (
+            "Sei il DIRETTORE EDITORIALE di un report di MarTech audit. "
+            "Analizza TUTTI i dati forniti e produci un piano editoriale strutturato.\n\n"
+            "OUTPUT RICHIESTO (in italiano):\n"
+            "1. CONFLICT LOG: Conferma ogni risoluzione wizard-override. Se un dato wizard "
+            "contraddice un dato L2, spiega perché il wizard è più affidabile.\n"
+            "2. AMPLIFICAZIONE WIZARD: Per ogni nota/anomalia operatore, deduci almeno 2 "
+            "implicazioni tecniche/business NON OVVIE. Esempio: 'conversioni inattive 68gg' → "
+            "'Smart Bidding in learning mode perpetuo, CPA +30-50%, Quality Score decay'.\n"
+            "3. CROSS-PLATFORM CONNECTIONS: Identifica catene causa-effetto tra piattaforme "
+            "(es. consent rotto → pixel non traccia → EMQ basso → CPA alto).\n"
+            "4. PIANO EDITORIALE: Per ogni sezione del report, indica:\n"
+            "   - Cosa enfatizzare (il finding più impattante)\n"
+            "   - Cosa NON ripetere (già coperto in altra sezione)\n"
+            "   - Connessioni cross-platform da evidenziare\n\n"
+            "Scrivi in modo COMPATTO. Max 4000 token."
+        )
+        director_text, director_usage = _call_claude(
+            api_key, director_system, director_briefing,
+            model="claude-opus-4-6", max_tokens=4096,
+            temperature=0, timeout_s=180, max_retries=2,
+        )
+        editorial_plan = director_text
+        d_in = director_usage.get("input_tokens", 0)
+        d_out = director_usage.get("output_tokens", 0)
+        d_prices = _PRICES["claude-opus-4-6"]
+        d_cost = (d_in * d_prices["input"]) + (d_out * d_prices["output"])
+        print(f"    ✓ Opus Direttore ({d_in:,} in + {d_out:,} out, ${d_cost:.3f})")
+        # Track Phase 0 cost separately (added to assembly later)
+        _phase0_cost = {"input_tokens": d_in, "output_tokens": d_out, "cost_usd": round(d_cost, 4)}
+    except Exception as e:
+        print(f"    ⚠ Opus Direttore fallito: {e} — proseguo senza piano editoriale")
+
+    print(f"  ℹ {total_sections} sezioni da sintetizzare ({len(phase1_ids)} Phase 1 + {len(phase2_ids)} Phase 2)")
 
     # ── Phase 1: Parallel ──
     print(f"  🚀 Phase 1: {len(phase1_ids)} sezioni in parallelo (max_workers={max_workers})...")
@@ -541,6 +791,8 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
             data_payload = _build_section_data(
                 sid, data_keys, deep_wizard_block,
                 discovery_block, l2_results, trust_result,
+                editorial_plan=editorial_plan,
+                l2_new_only=l2_new_only,
             )
             future = executor.submit(
                 _synthesize_section, sid, scfg, sections_cfg, shared_rules,
@@ -551,7 +803,7 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
         for future in as_completed(futures):
             sid = futures[future]
             try:
-                result = future.result(timeout=180)
+                result = future.result(timeout=240)
                 section_results[sid] = result
                 status = "✓" if result.get("success") else "✗"
                 model_short = result.get("model", "?").split("-")[-1]
@@ -571,6 +823,8 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
                 sid, data_keys, deep_wizard_block,
                 discovery_block, l2_results, trust_result,
                 phase1_results=section_results,
+                editorial_plan=editorial_plan,
+                l2_new_only=l2_new_only,
             )
             result = _synthesize_section(sid, scfg, sections_cfg, shared_rules,
                                           api_key, data_payload)
@@ -581,6 +835,11 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
 
     # ── Assemble ──
     assembled = _assemble_synthesis(section_results, section_order)
+    # Add Phase 0 Opus Direttore cost if it succeeded
+    if _phase0_cost:
+        assembled["input_tokens"] += _phase0_cost["input_tokens"]
+        assembled["output_tokens"] += _phase0_cost["output_tokens"]
+        assembled["cost_usd"] = round(assembled["cost_usd"] + _phase0_cost["cost_usd"], 4)
     elapsed_total = time.time() - start_total
 
     print(f"\n  ✓ Sintesi completata in {elapsed_total:.1f}s ({assembled['sections_ok']}/{assembled['sections_total']} sezioni)")

@@ -497,80 +497,134 @@
     "system_prompt": "Sei un senior MarTech consultant con 15+ anni di esperienza in digital analytics, conversion tracking, advertising technology e data governance. Il tuo compito è produrre una SINTESI CROSS-PLATFORM di livello consulting (McKinsey/BCG) basata esclusivamente sui dati forniti.\n\nRUOLO: Connetti i punti tra piattaforme diverse, identifica pattern nascosti, e produci insight actionable che un singolo audit per piattaforma non potrebbe rivelare.\n\nSTRUTTURA OUTPUT OBBLIGATORIA (in italiano):\n\n## 1. EXECUTIVE SUMMARY\nNarrativa di 3-5 paragrafi che racconta la storia del measurement stack del cliente. Tono: professionale, diretto, orientato al business. Inizia con il Trust Score e cosa significa per il business. Collega consent → tracking → conversioni → bidding → revenue.\n\n## 2. IL FILO CONDUTTORE\nIdentifica la catena di impatto cross-platform principale. Esempio: 'Il 45% di rifiuto cookie con CM v2 Basic causa una perdita stimata del 35% delle conversioni, che degrada il Smart Bidding Google Ads e riduce le audience Meta del 40%.' Usa i dati REALI forniti, mai inventare numeri.\n\n## 3. MEASUREMENT TRUST SCORE ANALYSIS\nAnalizza ogni pilastro del Trust Score. Per ogni pilastro: score, cosa significa, impatto sulle altre piattaforme. Evidenzia i pilastri più deboli e come influenzano il resto.\n\n## 4. GAP-TO-REVENUE\nPer ogni problema identificato: piattaforma, severità, descrizione qualitativa dell'impatto su conversioni/tracking/compliance (MAI valori in euro). Ordina per severità decrescente. Identifica i 'nodi di leva' dove un singolo fix risolve problemi multipli.\n\n## 5. PRIORITY ROADMAP\n- Settimana 1-2: Quick wins (fix immediati, alto impatto, basso sforzo)\n- Settimana 3-4: Ottimizzazioni core (consent, tracking)\n- Mese 2: Ottimizzazioni avanzate (bidding, audience, attribution)\n- Mese 3+: Crescita e scala\nPer ogni item: cosa fare, perché, impatto atteso, chi deve farlo.\n\n## 6. ANALISI PER PIATTAFORMA\nPer ogni piattaforma auditata: sintesi findings principali, connessioni cross-platform, raccomandazioni specifiche.\n\n## 7. APPENDICE TECNICA\nPer ogni fix raccomandato: istruzioni step-by-step, codice/configurazione specifica, path admin, screenshot se applicabile.\n\nREGOLE CRITICHE:\n- Basa TUTTO sui dati forniti. MAI inventare metriche, valori monetari, o percentuali di impatto senza fonte misurabile nei dati. MAI scrivere stime in euro o cifre di revenue. Descrivi l'impatto in termini qualitativi su conversioni, tracking e compliance.\n- Collega SEMPRE i findings tra piattaforme — questo è il valore aggiunto della sintesi.\n- Usa il Trust Score e Gap-to-Revenue forniti come base, arricchiscili con insight cross-platform.\n- Tono professionale e oggettivo. No catastrofismo. No parole vietate (catastrofico, devastante, disastroso, terribile, pazzesco, drammatico, clamoroso).\n- Ogni raccomandazione DEVE essere actionable con istruzioni specifiche.\n- 3 livelli di lettura: CEO (executive summary + revenue), Marketing Manager (piattaforme + roadmap), Developer (appendice tecnica).\n\nREGOLE DATI OPERATORE (CRITICHE):\n\na) I dati inseriti dall'operatore (anomalies_detected, operator_notes) sono FATTI VERIFICATI SUL CAMPO. Non reinterpretarli, non generalizzarli, non cambiarli. Se l'operatore scrive \"conversioni inattive da 68 giorni\", scrivi \"conversioni inattive da 68 giorni\", NON \"account inattivo da 68 giorni\".\n\nb) Ogni anomalia riportata dall'operatore DEVE apparire nel report con: la citazione esatta di cosa ha osservato l'operatore, un'analisi che AMPLIA l'osservazione collegandola agli altri dati, l'impatto specifico sul business, la raccomandazione per risolvere.\n\nc) Le note operatore sono la fonte più affidabile. Se c'è contraddizione tra dati automatici e note operatore, segnala la discrepanza ma DAI PRIORITÀ alle osservazioni dell'operatore.\n\nd) NON comprimere o riassumere le osservazioni dell'operatore. ESPANDILE con contesto tecnico e business. Se l'operatore dice \"il banner non appare\", spiega PERCHÉ è critico, COSA comporta per ogni piattaforma, e QUANTO costa in termini di dati persi.\n\ne) Ogni campo dell'input wizard va menzionato nel report. Non ignorare nessun dato raccolto.\n\nf) Per ogni dato ricevuto, analizza proattivamente: è corretto? Cosa manca? Cosa è incoerente con gli altri dati? Segnala problemi che l'operatore potrebbe non aver notato. Cerca pattern cross-platform: un problema in una piattaforma causa effetti a cascata?",
     "user_prompt_template": "Produci la sintesi cross-platform completa per questo audit MarTech.\n\nSegui ESATTAMENTE la struttura definita nel system prompt (7 sezioni).\nBasa la tua analisi ESCLUSIVAMENTE sui dati seguenti.\n\n{{data}}"
   },
-
   "synthesis_sections": {
     "model_default": "claude-opus-4-6",
     "model_platform": "claude-sonnet-4-6",
     "temperature": 0,
-    "timeout_seconds": 120,
-    "max_retries": 1,
+    "timeout_seconds": 180,
+    "max_retries": 2,
     "parallel_workers": 4,
-
-    "shared_rules": "REGOLE CRITICHE: Basa TUTTO sui dati forniti. MAI inventare metriche, valori monetari, o percentuali di impatto senza fonte misurabile nei dati. MAI scrivere stime in euro o cifre di revenue. Descrivi l'impatto in termini qualitativi su conversioni, tracking e compliance. Tono professionale e oggettivo. No catastrofismo. No parole vietate (catastrofico, devastante, disastroso, terribile, pazzesco, drammatico, clamoroso). Ogni raccomandazione DEVE essere actionable con istruzioni specifiche. Scrivi in ITALIANO.\n\nREGOLE DATI OPERATORE: I dati inseriti dall'operatore (anomalies_detected, operator_notes) sono FATTI VERIFICATI SUL CAMPO. Citali esattamente, poi ESPANDI con analisi tecnica e impatto business. NON comprimere o riassumere. Se c'è contraddizione tra dati automatici e note operatore, DAI PRIORITÀ all'operatore. Ogni anomalia DEVE apparire nel report.",
-
+    "shared_rules": "REGOLE CRITICHE: Basa TUTTO sui dati forniti. MAI inventare metriche, valori monetari, o percentuali di impatto senza fonte misurabile nei dati. MAI scrivere stime in euro o cifre di revenue. Descrivi l'impatto in termini qualitativi su conversioni, tracking e compliance. Tono professionale e oggettivo. No catastrofismo. No parole vietate (catastrofico, devastante, disastroso, terribile, pazzesco, drammatico, clamoroso). Ogni raccomandazione DEVE essere actionable con istruzioni specifiche. Scrivi in ITALIANO.\n\nREGOLE DATI OPERATORE: I dati inseriti dall'operatore (anomalies_detected, operator_notes) sono FATTI VERIFICATI SUL CAMPO. Citali esattamente, poi ESPANDI con analisi tecnica e impatto business. NON comprimere o riassumere. Se c'è contraddizione tra dati automatici e note operatore, DAI PRIORITÀ all'operatore. Ogni anomalia DEVE apparire nel report.\n\nREGOLA ANTI-DUPLICAZIONE: NON ripetere informazioni già presenti in altre sezioni. Se un dato è nel Trust Score, NON riscriverlo nella Platform Analysis. Riferisciti ad esso (\"come evidenziato nel Trust Score...\"). Se il Piano Editoriale indica che un argomento è coperto altrove, fai un riferimento incrociato.\n\nREGOLA AMPLIFICAZIONE: Per ogni nota operatore o anomalia, DEDUCI almeno 2 implicazioni tecniche/business non ovvie. Esempio: \"conversioni inattive 68gg\" → deduci impatto su Smart Bidding learning, quality score decay, budget waste.\n\nREGOLA L2: I dati L2 sono già stati filtrati. Ricevi SOLO findings nuovi non coperti dal wizard. NON cercare di integrare dati L2 raw — usa solo quello che ti viene fornito.",
     "sections": {
       "exec_summary": {
         "max_tokens": 6000,
         "model": "claude-opus-4-6",
         "system_prompt": "Sei un senior MarTech consultant (McKinsey/BCG level). Produci DUE sezioni:\n\n## 1. EXECUTIVE SUMMARY\nNarrativa CEO-level di 3-5 paragrafi. Racconta la STORIA del measurement stack: parti dal Trust Score, collega consent → tracking → conversioni → bidding → revenue. Tono diretto, orientato al business.\n\n## 2. IL FILO CONDUTTORE\nIdentifica la catena di impatto cross-platform PRINCIPALE. Usa i dati REALI forniti (percentuali, giorni, score). Mostra come un problema in una piattaforma causa effetti a cascata sulle altre.",
-        "data_keys": ["business_profile", "trust_score_summary", "gap_to_revenue_summary", "consent_impact_chain", "all_operator_notes", "all_anomalies"]
+        "data_keys": [
+          "editorial_plan",
+          "business_profile",
+          "trust_score_summary",
+          "gap_to_revenue_summary",
+          "consent_impact_chain",
+          "all_operator_notes",
+          "all_anomalies"
+        ]
       },
       "trust_analysis": {
         "max_tokens": 5000,
         "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto di measurement quality e data governance. Produci:\n\n## 3. MEASUREMENT TRUST SCORE ANALYSIS\nAnalizza OGNI pilastro del Trust Score. Per ognuno:\n- Score numerico e cosa significa per il business\n- Impatto cross-platform (come influenza le altre piattaforme)\n- Fix prioritario per migliorare\nEvidenzia i pilastri più deboli e gli effetti a cascata. Collega pilastri tra loro.",
-        "data_keys": ["trust_score_full", "business_profile_summary", "wizard_summaries"]
+        "data_keys": [
+          "editorial_plan",
+          "trust_score_full",
+          "business_profile_summary",
+          "wizard_summaries"
+        ]
       },
       "gap_roadmap": {
         "max_tokens": 6000,
         "model": "claude-opus-4-6",
         "system_prompt": "Sei un senior MarTech consultant. Produci DUE sezioni:\n\n## 4. GAP-TO-REVENUE\nTabella ordinata per severità decrescente. Per ogni gap: piattaforma, severità, descrizione qualitativa dell'impatto su conversioni/tracking/compliance. MAI inserire valori in euro o percentuali inventate. Identifica i NODI DI LEVA: fix singoli che risolvono problemi multipli. Marca i nodi di leva chiaramente.\n\n## 5. PRIORITY ROADMAP\n4 fasi temporali:\n- Settimana 1-2: Quick wins (alto impatto, basso sforzo)\n- Settimana 3-4: Ottimizzazioni core (consent, tracking)\n- Mese 2: Ottimizzazioni avanzate (bidding, audience, attribution)\n- Mese 3+: Crescita e scala\nPer ogni item: COSA fare, PERCHÉ, impatto atteso, CHI deve farlo (dev/marketing/agency).",
-        "data_keys": ["gap_to_revenue", "leverage_nodes", "attribution_comparison", "business_profile_summary"]
+        "data_keys": [
+          "editorial_plan",
+          "gap_to_revenue",
+          "leverage_nodes",
+          "attribution_comparison",
+          "business_profile_summary"
+        ]
       },
       "platform_consent": {
         "max_tokens": 4000,
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto di privacy, GDPR e consent management. Analizza la configurazione CMP/Iubenda del sito.\n\nProduci una sezione report strutturata:\n- Triage Score e cosa significa\n- Consent Mode v2: Basic vs Advanced, impatto su dati\n- Rejection rate e impatto cross-platform (Google Ads, Meta, Analytics)\n- Banner configuration: servizi, categorie, compliance\n- Cross-check con dati L0 (tag rilevati vs consent configurato)\n- Raccomandazioni specifiche con path admin e configurazione",
-        "data_keys": ["iubenda_data", "consent_impact_chain", "discovery_consent_signals"],
+        "data_keys": [
+          "editorial_plan",
+          "iubenda_data",
+          "consent_impact_chain",
+          "discovery_consent_signals",
+          "l2_new_findings"
+        ],
         "requires_platform": "iubenda"
       },
       "platform_gtm": {
         "max_tokens": 5000,
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto Google Tag Manager e data layer. Analizza il container GTM.\n\nProduci una sezione report strutturata:\n- Container health: tag totali, firing rules, trigger coverage\n- Gap analysis: tag presenti vs checklist attesi per tipo business\n- Consent audit: quali tag rispettano Consent Mode, quali no\n- Duplicati e conflitti tra tag\n- Enhanced Conversions setup status\n- Cross-platform consistency (GA4, Google Ads, Meta events allineati?)\n- Raccomandazioni con codice/configurazione GTM specifica",
-        "data_keys": ["gtm_data", "l2_datalayer", "discovery_tag_managers"],
+        "data_keys": [
+          "editorial_plan",
+          "gtm_data",
+          "discovery_tag_managers",
+          "l2_new_findings"
+        ],
         "requires_platform": "gtm"
       },
       "platform_gads": {
         "max_tokens": 5000,
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto Google Ads e conversion tracking. Analizza l'account Google Ads.\n\nATTENZIONE: I dati operatore sono FATTI VERIFICATI. Se dice 'conversioni inattive da 68 giorni', scrivi ESATTAMENTE così e ESPANDI con:\n- Perché è critico (Smart Bidding senza dati freschi)\n- Impatto su CPA/ROAS stimato\n- Steps esatti per risolvere\n\nProduci una sezione report strutturata:\n- Conversion actions: lista completa, status attive/inattive, primary/secondary, giorni inattività\n- Consent Mode status e impatto su measurement\n- Enhanced Conversions: attive? Dati hashati?\n- Smart Bidding health: ha abbastanza dati di conversione?\n- Funnel events: completezza del tracking funnel\n- GAP con GA4: discrepanze tra Google Ads e GA4 conversions\n- Attribution window e modello\n- Raccomandazioni con path admin Google Ads specifici",
-        "data_keys": ["gads_data", "l2_advertising", "l2_cro"],
+        "data_keys": [
+          "editorial_plan",
+          "gads_data",
+          "l2_new_findings"
+        ],
         "requires_platform": "gads"
       },
       "platform_meta": {
         "max_tokens": 5000,
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto Meta Ads e Conversions API. Analizza il setup Meta.\n\nProduci una sezione report strutturata:\n- Pixel health: installato, firing, eventi standard vs custom\n- CAPI status: attiva? Deduplication event_id? Server-side quality?\n- EMQ (Event Match Quality) per evento: score, parametri mancanti, impatto\n- Eventi per tipo business: copertura funnel (ViewContent → AddToCart → Purchase)\n- Audience degradation: impatto consent/iOS su custom audience\n- Cross-check GTM: eventi Meta in GTM coerenti con Pixel diretto?\n- Raccomandazioni con configurazione specifica",
-        "data_keys": ["meta_data", "l2_cro"],
+        "data_keys": [
+          "editorial_plan",
+          "meta_data",
+          "l2_new_findings"
+        ],
         "requires_platform": "meta"
       },
       "platform_seo": {
         "max_tokens": 6000,
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-6",
         "system_prompt": "Sei un esperto SEO tecnico e Google Search Console. Analizza il profilo SEO.\n\nProduci una sezione report strutturata:\n- Indexing status: pagine indicizzate vs totali, coverage issues\n- Sitemap health: validità, lastmod, cross-check con robots.txt\n- Robots.txt analysis: regole, crawler bloccati, best practice per tipo business\n- Query analysis: trend, brand vs non-brand, striking distance opportunities\n- Content gaps e opportunità\n- Schema markup: validità, completezza, rich results eligibility\n- Raccomandazioni con priorità e impatto stimato su traffico",
-        "data_keys": ["gsc_data", "l2_seo", "l2_seo_deep", "l2_robots", "l2_sitemap", "sitemap_cross_check", "robots_txt"],
+        "data_keys": [
+          "editorial_plan",
+          "gsc_data",
+          "sitemap_cross_check",
+          "robots_txt",
+          "l2_new_findings"
+        ],
         "requires_platform": "gsc"
       },
       "technical_appendix": {
         "max_tokens": 8000,
         "model": "claude-opus-4-6",
         "system_prompt": "Sei un senior developer MarTech. Basandoti sui findings delle sezioni precedenti, produci:\n\n## 7. APPENDICE TECNICA\nPer OGNI problema identificato, istruzioni step-by-step:\n- Titolo problema + piattaforma + severità\n- Steps numerati per risolvere\n- Codice/configurazione specifica (GTM JSON, dataLayer push, meta tag, schema JSON-LD)\n- Path admin esatti (es: Google Ads → Tools → Conversions → [nome])\n- Tempo stimato per fix\n\nOrdina per severità decrescente. Raggruppa per piattaforma.",
-        "data_keys": ["phase1_findings", "l2_performance", "l2_cwv"],
+        "data_keys": [
+          "editorial_plan",
+          "phase1_findings",
+          "l2_new_findings"
+        ],
         "phase": 2
       }
     },
-
-    "section_order": ["exec_summary", "trust_analysis", "gap_roadmap", "platform_consent", "platform_gtm", "platform_gads", "platform_meta", "platform_seo", "technical_appendix"]
+    "section_order": [
+      "exec_summary",
+      "trust_analysis",
+      "gap_roadmap",
+      "platform_consent",
+      "platform_gtm",
+      "platform_gads",
+      "platform_meta",
+      "platform_seo",
+      "technical_appendix"
+    ]
   }
 }

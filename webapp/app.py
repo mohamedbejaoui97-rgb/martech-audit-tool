@@ -355,7 +355,7 @@ def _run_audit_sync(session_id: str, config: dict, wizard_data: dict):
             emit("l2", "running", f"Avvio {len(analysis_types)} analisi L2...", progress=0)
             completed = 0
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = {
                     executor.submit(
                         cli_audit.run_analysis, atype, url, api_key, google_key,

@@ -1273,10 +1273,10 @@ def call_claude(api_key, system_prompt, user_message, max_tokens=8000, model=Non
         'anthropic-version': '2023-06-01',
     })
 
-    max_retries = 3
+    max_retries = 4
     for attempt in range(max_retries):
         try:
-            resp = urllib.request.urlopen(req, timeout=120, context=CTX_SECURE)
+            resp = urllib.request.urlopen(req, timeout=180, context=CTX_SECURE)
             data = json.loads(resp.read().decode('utf-8'))
             if 'content' not in data or not data['content']:
                 raise ValueError(f"Unexpected API response structure: {list(data.keys())}")
@@ -1284,8 +1284,8 @@ def call_claude(api_key, system_prompt, user_message, max_tokens=8000, model=Non
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8', errors='replace') if e.fp else ''
             if e.code in (429, 500, 502, 503, 529) and attempt < max_retries - 1:
-                wait = (2 ** attempt) + (time.time() % 1)  # exponential backoff + jitter
-                log('⏳', f'Claude API {e.code}, retry {attempt+1}/{max_retries} in {wait:.1f}s...', C.YELLOW)
+                wait = (2 ** attempt) * 3 + (time.time() % 1)  # exponential backoff + jitter
+                log('⏳', f'Claude API {e.code}, retry {attempt+1}/{max_retries} in {wait:.0f}s...', C.YELLOW)
                 time.sleep(wait)
                 # Rebuild request (body consumed)
                 req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
@@ -1295,6 +1295,19 @@ def call_claude(api_key, system_prompt, user_message, max_tokens=8000, model=Non
                 })
                 continue
             raise RuntimeError(f"Claude API error {e.code}: {body[:500]}") from e
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if attempt < max_retries - 1:
+                wait = (2 ** attempt) * 3 + (time.time() % 1)
+                log('⏳', f'Timeout/network error, retry {attempt+1}/{max_retries} in {wait:.0f}s...', C.YELLOW)
+                time.sleep(wait)
+                # Rebuild request
+                req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
+                    'Content-Type': 'application/json',
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                })
+                continue
+            raise RuntimeError(f"Claude API timeout after {max_retries} attempts: {e}") from e
         except (json.JSONDecodeError, KeyError, IndexError) as e:
             raise RuntimeError(f"Claude API response parse error: {e}") from e
     raise RuntimeError("Claude API: max retries exceeded")
