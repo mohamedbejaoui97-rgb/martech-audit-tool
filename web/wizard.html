@@ -120,6 +120,11 @@ select { cursor:pointer; }
 /* Hidden step */
 .step-content { display:none; }
 .step-content.visible { display:block; }
+
+/* Spinner */
+.spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.btn-loading { pointer-events:none; opacity:.8; }
 </style>
 </head>
 <body>
@@ -626,8 +631,10 @@ const W = {
     const platforms = [...document.querySelectorAll('#step-start .checkbox-group input:checked')].map(el => el.value);
     if (!platforms.length) return this._showAlert('startAlert', 'Seleziona almeno una piattaforma', 'error');
 
-    document.getElementById('btnStart').disabled = true;
-    document.getElementById('btnStart').textContent = 'Discovery in corso...';
+    const btn = document.getElementById('btnStart');
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = '<span class="spinner"></span>Discovery in corso...';
     this._showAlert('startAlert', 'L0 Discovery in corso... (potrebbe richiedere 30-60s)', 'info');
 
     try {
@@ -651,15 +658,20 @@ const W = {
       platforms.forEach(p => this._enableStep(p));
       this._enableStep('run');
       this._markDone('start');
-      this._showAlert('startAlert', `Session creata: ${this.sessionId}`, 'success');
 
-      // Auto-navigate to first wizard
-      setTimeout(() => this.nextStep(), 500);
+      // Update button to success state
+      btn.innerHTML = '&#10003; Discovery completata';
+      btn.classList.remove('btn-loading');
+      this._showAlert('startAlert', '', 'info');
+      document.getElementById('startAlert').innerHTML = '';
+
+      // Auto-navigate to first wizard step
+      this.nextStep();
     } catch (e) {
       this._showAlert('startAlert', `Errore: ${e.message}`, 'error');
-    } finally {
-      document.getElementById('btnStart').disabled = false;
-      document.getElementById('btnStart').textContent = 'Avvia Discovery';
+      btn.disabled = false;
+      btn.classList.remove('btn-loading');
+      btn.textContent = 'Avvia Discovery';
     }
   },
 

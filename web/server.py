@@ -440,14 +440,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
+        # Strip query string for route matching
+        route = self.path.split('?')[0].rstrip('/')
         # Deep audit API endpoints
-        if self.path == '/api/deep/start':
+        if route == '/api/deep/start':
             return self._handle_deep_start()
-        if self.path.startswith('/api/deep/wizard/'):
+        if route.startswith('/api/deep/wizard/'):
             return self._handle_deep_wizard()
-        if self.path == '/api/deep/run':
+        if route == '/api/deep/run':
             return self._handle_deep_run()
-        if self.path == '/api/deep/evidence':
+        if route == '/api/deep/evidence':
             return self._handle_deep_evidence()
         self._send_error(404, 'Not found')
 
