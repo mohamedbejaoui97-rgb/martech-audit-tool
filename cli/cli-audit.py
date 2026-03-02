@@ -2172,7 +2172,7 @@ def main():
         return
 
     # Load API keys: environment variables first, then .env file as fallback
-    api_key = os.environ.get('CLAUDE_API_KEY', '')
+    api_key = os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('CLAUDE_API_KEY', '')
     google_key = os.environ.get('GOOGLE_API_KEY', '')
     if not api_key or not google_key:
         env_path = os.path.join(TOOL_DIR, 'credentials', '.env')
@@ -2180,7 +2180,7 @@ def main():
             with open(env_path) as f:
                 for line in f:
                     line = line.strip()
-                    if not api_key and line.startswith('CLAUDE_API_KEY='):
+                    if not api_key and (line.startswith('ANTHROPIC_API_KEY=') or line.startswith('CLAUDE_API_KEY=')):
                         api_key = line.split('=', 1)[1].strip()
                     elif not google_key and line.startswith('GOOGLE_API_KEY='):
                         google_key = line.split('=', 1)[1].strip()
