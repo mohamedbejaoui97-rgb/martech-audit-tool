@@ -545,7 +545,7 @@
       },
       "platform_consent": {
         "max_tokens": 4000,
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "system_prompt": "Sei un esperto di privacy, GDPR e consent management. Analizza la configurazione CMP/Iubenda del sito.\n\nProduci una sezione report strutturata:\n- Triage Score e cosa significa\n- Consent Mode v2: Basic vs Advanced, impatto su dati\n- Rejection rate e impatto cross-platform (Google Ads, Meta, Analytics)\n- Banner configuration: servizi, categorie, compliance\n- Cross-check con dati L0 (tag rilevati vs consent configurato)\n- Raccomandazioni specifiche con path admin e configurazione",
         "data_keys": [
           "editorial_plan",
@@ -558,7 +558,7 @@
       },
       "platform_gtm": {
         "max_tokens": 5000,
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "system_prompt": "Sei un esperto Google Tag Manager e data layer. Analizza il container GTM.\n\nProduci una sezione report strutturata:\n- Container health: tag totali, firing rules, trigger coverage\n- Gap analysis: tag presenti vs checklist attesi per tipo business\n- Consent audit: quali tag rispettano Consent Mode, quali no\n- Duplicati e conflitti tra tag\n- Enhanced Conversions setup status\n- Cross-platform consistency (GA4, Google Ads, Meta events allineati?)\n- Raccomandazioni con codice/configurazione GTM specifica",
         "data_keys": [
           "editorial_plan",
@@ -570,7 +570,7 @@
       },
       "platform_gads": {
         "max_tokens": 5000,
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "system_prompt": "Sei un esperto Google Ads e conversion tracking. Analizza l'account Google Ads.\n\nATTENZIONE: I dati operatore sono FATTI VERIFICATI. Se dice 'conversioni inattive da 68 giorni', scrivi ESATTAMENTE così e ESPANDI con:\n- Perché è critico (Smart Bidding senza dati freschi)\n- Impatto su CPA/ROAS stimato\n- Steps esatti per risolvere\n\nProduci una sezione report strutturata:\n- Conversion actions: lista completa, status attive/inattive, primary/secondary, giorni inattività\n- Consent Mode status e impatto su measurement\n- Enhanced Conversions: attive? Dati hashati?\n- Smart Bidding health: ha abbastanza dati di conversione?\n- Funnel events: completezza del tracking funnel\n- GAP con GA4: discrepanze tra Google Ads e GA4 conversions\n- Attribution window e modello\n- Raccomandazioni con path admin Google Ads specifici",
         "data_keys": [
           "editorial_plan",
@@ -581,7 +581,7 @@
       },
       "platform_meta": {
         "max_tokens": 5000,
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "system_prompt": "Sei un esperto Meta Ads e Conversions API. Analizza il setup Meta.\n\nProduci una sezione report strutturata:\n- Pixel health: installato, firing, eventi standard vs custom\n- CAPI status: attiva? Deduplication event_id? Server-side quality?\n- EMQ (Event Match Quality) per evento: score, parametri mancanti, impatto\n- Eventi per tipo business: copertura funnel (ViewContent → AddToCart → Purchase)\n- Audience degradation: impatto consent/iOS su custom audience\n- Cross-check GTM: eventi Meta in GTM coerenti con Pixel diretto?\n- Raccomandazioni con configurazione specifica",
         "data_keys": [
           "editorial_plan",
@@ -592,7 +592,7 @@
       },
       "platform_seo": {
         "max_tokens": 6000,
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "system_prompt": "Sei un esperto SEO tecnico e Google Search Console. Analizza il profilo SEO.\n\nProduci una sezione report strutturata:\n- Indexing status: pagine indicizzate vs totali, coverage issues\n- Sitemap health: validità, lastmod, cross-check con robots.txt\n- Robots.txt analysis: regole, crawler bloccati, best practice per tipo business\n- Query analysis: trend, brand vs non-brand, striking distance opportunities\n- Content gaps e opportunità\n- Schema markup: validità, completezza, rich results eligibility\n- Raccomandazioni con priorità e impatto stimato su traffico",
         "data_keys": [
           "editorial_plan",
