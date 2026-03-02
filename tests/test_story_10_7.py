@@ -792,8 +792,8 @@ class TestE2EReportGeneration(unittest.TestCase):
 
             # Trust Score data present even without synthesis
             self.assertIn("42", content)
-            # Error noted
-            self.assertIn("timed out", content)
+            # Rich fallback with anomalies shown
+            self.assertIn("Anomalie", content)
             # Wizard data fallback present
             self.assertIn("Iubenda", content)
             # No unresolved placeholders
@@ -815,9 +815,11 @@ class TestE2EReportGeneration(unittest.TestCase):
             with open(path, "r") as f:
                 content = f.read()
 
-            # L2 results should appear in appendix or platform sections
-            self.assertIn("LCP", content)
-            self.assertIn("Core Web Vitals", content)
+            # Report should contain synthesis sections, not raw L2 dump (Epic C)
+            self.assertIn("Trust Score", content)
+            self.assertIn("Chiostro", content)
+            # Raw L2 section headers should NOT appear
+            self.assertNotIn("Analisi L2 Complete", content)
         finally:
             mod.OUTPUT_DIR = orig
 
@@ -864,8 +866,9 @@ class TestE2ECostTracking(unittest.TestCase):
             REALISTIC_L2_RESULTS, REALISTIC_TRUST_FOR_SYNTHESIS,
         )
 
-        self.assertEqual(result["input_tokens"], 3000 * result["sections_ok"])
-        self.assertEqual(result["output_tokens"], 1000 * result["sections_ok"])
+        # sections_ok sections + 1 Phase 0 Opus Direttore call
+        self.assertEqual(result["input_tokens"], 3000 * (result["sections_ok"] + 1))
+        self.assertEqual(result["output_tokens"], 1000 * (result["sections_ok"] + 1))
 
 
 # ─── TEST: E2E PLATFORM FILTERING ─────────────────────────────────────────

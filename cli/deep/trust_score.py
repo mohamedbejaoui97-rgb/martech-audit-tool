@@ -289,7 +289,7 @@ def _collect_issues(deep_wizard_block):
     # Iubenda issues
     iub = deep_wizard_block.get("iubenda_data", {})
     if iub:
-        grade = iub.get("triage_score", "")
+        grade = iub.get("triage_score", "F")
         if grade in ("D", "F"):
             issues.append({
                 "platform": "Iubenda",
@@ -306,10 +306,19 @@ def _collect_issues(deep_wizard_block):
                 "is_leverage_node": True,
                 "affects": ["Google Ads", "Meta"],
             })
+        # Anomalies from operator are critical findings
+        if iub.get("anomalies_detected"):
+            issues.append({
+                "platform": "Iubenda",
+                "issue": iub["anomalies_detected"][:200],
+                "severity": "critical",
+                "is_leverage_node": True,
+                "affects": ["Google Ads", "Meta", "Analytics"],
+            })
         for m in iub.get("l0_mismatches", []):
             issues.append({
                 "platform": "Iubenda",
-                "issue": m["detail"],
+                "issue": m.get("detail", str(m)),
                 "severity": "medium",
                 "is_leverage_node": False,
                 "affects": [],
@@ -344,7 +353,7 @@ def _collect_issues(deep_wizard_block):
         if cross.get("primary_conflicts", {}).get("has_conflict"):
             issues.append({
                 "platform": "Google Ads",
-                "issue": cross["primary_conflicts"]["detail"],
+                "issue": cross["primary_conflicts"].get("detail", "Conflitto conversioni primarie"),
                 "severity": "high",
                 "is_leverage_node": False,
                 "affects": [],
@@ -365,6 +374,32 @@ def _collect_issues(deep_wizard_block):
                 "is_leverage_node": True,
                 "affects": ["GTM"],
             })
+        # Inactive conversions
+        if gads.get("conversions_active") in ("No", "Alcune"):
+            days = gads.get("inactive_days", "")
+            issues.append({
+                "platform": "Google Ads",
+                "issue": f"Conversioni inattive{f' da {days} giorni' if days else ''} — Smart Bidding senza dati freschi",
+                "severity": "critical",
+                "is_leverage_node": False,
+                "affects": [],
+            })
+        if gads.get("ga4_gap_critical"):
+            issues.append({
+                "platform": "Google Ads",
+                "issue": "Gap critico Google Ads ↔ GA4 — tracking rotto o disallineato",
+                "severity": "critical",
+                "is_leverage_node": False,
+                "affects": ["GA4"],
+            })
+        if gads.get("anomalies_detected"):
+            issues.append({
+                "platform": "Google Ads",
+                "issue": gads["anomalies_detected"][:200],
+                "severity": "high",
+                "is_leverage_node": False,
+                "affects": [],
+            })
 
     # Meta issues
     meta = deep_wizard_block.get("meta_data", {})
@@ -383,6 +418,53 @@ def _collect_issues(deep_wizard_block):
                 "platform": "Meta",
                 "issue": f"EMQ Score {meta.get('emq_score', 0)}/10 — insufficiente",
                 "severity": "high",
+                "is_leverage_node": False,
+                "affects": [],
+            })
+        if meta.get("capi_status") == "pixel_only":
+            issues.append({
+                "platform": "Meta",
+                "issue": "Solo Pixel, nessuna CAPI server-side — match rate ridotto",
+                "severity": "high",
+                "is_leverage_node": False,
+                "affects": [],
+            })
+        if meta.get("anomalies_detected"):
+            issues.append({
+                "platform": "Meta",
+                "issue": meta["anomalies_detected"][:200],
+                "severity": "high",
+                "is_leverage_node": False,
+                "affects": [],
+            })
+
+    # GTM anomalies
+    if gtm and gtm.get("anomalies_detected"):
+        issues.append({
+            "platform": "GTM",
+            "issue": gtm["anomalies_detected"][:200],
+            "severity": "high",
+            "is_leverage_node": False,
+            "affects": [],
+        })
+
+    # GSC issues
+    gsc = deep_wizard_block.get("gsc_data", {})
+    if gsc:
+        sitemap_check = gsc.get("sitemap_cross_check", {})
+        if sitemap_check.get("is_critical"):
+            issues.append({
+                "platform": "GSC",
+                "issue": "Mismatch critico sitemap/robots.txt",
+                "severity": "high",
+                "is_leverage_node": False,
+                "affects": [],
+            })
+        if gsc.get("anomalies_detected"):
+            issues.append({
+                "platform": "GSC",
+                "issue": gsc["anomalies_detected"][:200],
+                "severity": "medium",
                 "is_leverage_node": False,
                 "affects": [],
             })
@@ -423,8 +505,8 @@ def build_consent_impact_chain(deep_wizard_block):
         return None
 
     rejection = iub.get("rejection_rate", 0)
-    cm_v2 = iub.get("consent_mode_v2", "none")
-    grade = iub.get("triage_score", "A")
+    cm_v2 = iub.get("consent_mode_v2") or iub.get("consent_mode", "none")
+    grade = iub.get("triage_score", "F")
 
     if grade in ("A", "B"):
         return None  # No significant chain
@@ -447,6 +529,12 @@ def build_consent_impact_chain(deep_wizard_block):
             "step": 2,
             "title": "Consent Mode Basic",
             "detail": "Modellazione parziale — ping senza cookie ma senza dati granulari",
+        })
+    elif cm_v2 == "advanced":
+        chain.append({
+            "step": 2,
+            "title": "Consent Mode Advanced",
+            "detail": f"Modellazione attiva ma con {rejection:.0f}% rifiuto — {rejection:.0f}% dei dati è modellato, non osservato",
         })
 
     chain.append({

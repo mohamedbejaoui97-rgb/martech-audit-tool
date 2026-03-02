@@ -366,7 +366,7 @@ class TestGenerateReport(unittest.TestCase):
 
             # Should still have structural data
             self.assertIn("58", content)  # trust score
-            self.assertIn("API timeout", content)  # error noted
+            self.assertIn("Trust Score", content)  # rich fallback
             self.assertNotIn("{{", content)
         finally:
             mod.OUTPUT_DIR = orig

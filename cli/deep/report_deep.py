@@ -433,6 +433,32 @@ def _build_l2_for_platform(platform, l2_results):
     return "\n".join(parts)
 
 
+_FIELD_LABELS = {
+    "rejection_rate": ("Rejection Rate", "%"),
+    "consent_mode": ("Consent Mode v2", ""),
+    "consent_mode_v2": ("Consent Mode v2", ""),
+    "triage_score": ("Triage Score", ""),
+    "consent_mode_status": ("Consent Mode Status", ""),
+    "tag_count": ("Tag Totali", ""),
+    "conversions_total": ("Conversioni Totali", ""),
+    "conversions_active": ("Conversioni Attive", ""),
+    "inactive_days": ("Giorni Inattività", "gg"),
+    "enhanced_conversions_status": ("Enhanced Conversions", ""),
+    "attribution_model": ("Modello Attribuzione", ""),
+    "ga4_gap_critical": ("GA4 Gap Critico", ""),
+    "pixel_found": ("Pixel Trovato", ""),
+    "pixel_id": ("Pixel ID", ""),
+    "pixel_id_match_l0": ("Pixel Match L0", ""),
+    "capi_status": ("CAPI Status", ""),
+    "emq_score": ("EMQ Score", "/10"),
+    "sitemap_status": ("Sitemap Status", ""),
+    "pages_indexed": ("Pagine Indicizzate", ""),
+    "pages_submitted": ("Pagine Inviate", ""),
+    "health_score": ("Health Score", ""),
+    "uses_gtm": ("Usa GTM", ""),
+}
+
+
 def _build_platform_fallback(deep_wizard_block, l2_results):
     """Build platform analysis from wizard data + L2 when Opus section is empty (Fix 19)."""
     wizard_configs = {
@@ -453,14 +479,23 @@ def _build_platform_fallback(deep_wizard_block, l2_results):
         parts.append(f'<h3>{_esc(label)}</h3>')
         parts.append('<div class="platform-content">')
 
-        # Render key wizard findings
+        # Render key wizard findings with proper labels
         findings = []
         for field, value in wdata.items():
-            if field.startswith("_") or field in ("container_raw", "evidence_screenshots", "anomalies_detected", "operator_notes"):
+            if field.startswith("_") or field in ("container_raw", "evidence_screenshots",
+                                                    "anomalies_detected", "operator_notes",
+                                                    "cross_checks", "gap_analysis", "events",
+                                                    "opportunities", "sitemap_cross_check",
+                                                    "robots_txt", "l0_mismatches"):
                 continue
             if isinstance(value, (dict, list)):
                 continue
-            findings.append(f"<li><strong>{_esc(field.replace('_', ' ').title())}</strong>: {_esc(str(value))}</li>")
+            label_info = _FIELD_LABELS.get(field)
+            if label_info:
+                display_label, suffix = label_info
+                findings.append(f"<li><strong>{_esc(display_label)}</strong>: {_esc(str(value))}{suffix}</li>")
+            else:
+                findings.append(f"<li><strong>{_esc(field.replace('_', ' ').title())}</strong>: {_esc(str(value))}</li>")
 
         if findings:
             parts.append("<ul>" + "\n".join(findings[:20]) + "</ul>")
@@ -512,38 +547,47 @@ def _build_platform_fallback(deep_wizard_block, l2_results):
 
 
 def _build_roadmap_fallback(deep_wizard_block):
-    """Build a basic roadmap from wizard data when Opus doesn't provide one (Fix 19)."""
+    """Build roadmap from gap_to_revenue issues + wizard data when Opus doesn't provide one."""
     items = []
 
-    # Check for critical issues across wizards
+    # Use gap_to_revenue issues (now properly populated)
+    gap_revenue = deep_wizard_block.get("gap_to_revenue", {})
+    gap_issues = gap_revenue.get("issues", [])
+    for issue in gap_issues:
+        sev = issue.get("severity", "medium")
+        phase = "urgent" if sev == "critical" else "month1" if sev == "high" else "month2"
+        platform = issue.get("platform", "")
+        desc = issue.get("issue", "")
+        items.append((phase, f"[{platform}] {desc}"))
+
+    # Additional wizard-based items not covered by gap_to_revenue
     iub = deep_wizard_block.get("iubenda_data", {})
-    if iub.get("triage_score") in ("D", "F"):
-        items.append(("urgent", "Fix Consent Mode v2 — configurare Advanced per recuperare conversioni modellate"))
-    if iub.get("consent_mode_v2") == "none":
+    cm = iub.get("consent_mode_v2") or iub.get("consent_mode", "")
+    if cm == "none" and not any("Consent Mode" in i[1] for i in items):
         items.append(("urgent", "Implementare Consent Mode v2 in Google Tag Manager"))
 
-    gtm = deep_wizard_block.get("gtm_data", {})
-    gap = gtm.get("gap_analysis", {})
-    if gap.get("missing_critical"):
-        items.append(("urgent", f"Aggiungere tag GTM critici mancanti: {', '.join(gap['missing_critical'])}"))
-
     gads = deep_wizard_block.get("gads_data", {})
-    if gads.get("ga4_gap_critical"):
-        items.append(("urgent", "Risolvere GA4-Google Ads conversion gap — tracking rotto"))
     if gads.get("enhanced_conversions_status") in ("Not set up", "Needs attention"):
-        items.append(("month1", "Configurare Enhanced Conversions per migliorare match rate"))
+        if not any("Enhanced Conversions" in i[1] for i in items):
+            items.append(("month1", "Configurare Enhanced Conversions per migliorare match rate"))
 
     meta = deep_wizard_block.get("meta_data", {})
     if meta.get("capi_status") == "pixel_only":
-        items.append(("month1", "Implementare Meta CAPI per migliorare Event Match Quality"))
-
-    gsc = deep_wizard_block.get("gsc_data", {})
-    sitemap_check = gsc.get("sitemap_cross_check", {})
-    if sitemap_check.get("is_critical"):
-        items.append(("urgent", "Risolvere mismatch sitemap tra robots.txt e GSC"))
+        if not any("CAPI" in i[1] for i in items):
+            items.append(("month1", "Implementare Meta CAPI per migliorare Event Match Quality"))
 
     if not items:
         return '<p>Nessun problema critico identificato nei dati wizard.</p>'
+
+    # Dedup
+    seen = set()
+    unique_items = []
+    for phase, desc in items:
+        key = desc[:80]
+        if key not in seen:
+            seen.add(key)
+            unique_items.append((phase, desc))
+    items = unique_items
 
     phase_labels = {"urgent": "Settimana 1-2 (Quick Wins)", "month1": "Settimana 3-4", "month2": "Mese 2", "month3": "Mese 3+"}
     parts = []
@@ -557,6 +601,40 @@ def _build_roadmap_fallback(deep_wizard_block):
             parts.append('</div>')
 
     return "\n".join(parts)
+
+
+def _build_filo_fallback(deep_wizard_block):
+    """Build a narrative 'filo conduttore' from wizard data when Opus doesn't provide one."""
+    iub = deep_wizard_block.get("iubenda_data", {})
+    gads = deep_wizard_block.get("gads_data", {})
+    meta = deep_wizard_block.get("meta_data", {})
+
+    parts = []
+    rr = iub.get("rejection_rate", 0)
+    cm = iub.get("consent_mode_v2") or iub.get("consent_mode", "")
+    if iub and rr:
+        parts.append(
+            f"<p>Il {_esc(str(rr))}% degli utenti rifiuta i cookie. "
+            f"Con Consent Mode <strong>{_esc(cm)}</strong>, "
+            f"{'le conversioni vengono modellate ma non osservate direttamente' if cm == 'advanced' else 'i dati di questi utenti vanno persi'}. "
+            f"Questo impatta direttamente la qualità dei dati che alimentano Smart Bidding e audience.</p>"
+        )
+    if gads:
+        active = gads.get("conversions_active", "")
+        if active in ("No", "Alcune"):
+            days = gads.get("inactive_days", "")
+            parts.append(
+                f"<p>Le conversioni Google Ads sono <strong>{'inattive' if active == 'No' else 'parzialmente attive'}</strong>"
+                f"{f' da {_esc(str(days))} giorni' if days else ''}. "
+                f"Smart Bidding non riceve segnali freschi, con probabile inflazione del CPA.</p>"
+            )
+    if meta and meta.get("capi_status") == "pixel_only":
+        parts.append(
+            "<p>Meta opera con solo Pixel lato client, senza CAPI server-side. "
+            "L'Event Match Quality è ridotto, le audience di retargeting sono incomplete.</p>"
+        )
+
+    return "\n".join(parts) if parts else ""
 
 
 def _build_appendix_fallback(l2_results):
@@ -675,43 +753,84 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
     cost_l3 = f"${synthesis_output.get('cost_usd', 0):.4f}" if synthesis_output.get("success") else "N/A"
     synthesis_model = synthesis_output.get("model", "N/A")
 
-    # If synthesis failed, show data-only sections
+    # If synthesis failed, build rich exec summary from data
     if not synthesis_output.get("success"):
-        exec_summary = (
-            f"<p><strong>Nota:</strong> La sintesi narrativa Opus non &egrave; disponibile "
-            f"({_esc(synthesis_output.get('error', 'errore sconosciuto'))}). "
-            f"Il report contiene i dati strutturati raccolti durante l'audit.</p>"
-            f"<p>Trust Score: <strong>{score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>"
-        )
+        exec_parts = []
+        exec_parts.append(f"<p><strong>Trust Score: {score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>")
+        exec_parts.append(f"<p>Piattaforme auditate: {_esc(', '.join(platforms) if platforms else 'N/A')}. "
+                          f"Business type: {_esc(business_type)}.</p>")
 
-    # Build platform analysis: Opus synthesis + wizard data fallback + L2 (Fix 17, 19, 21)
+        # Summarize key findings from wizard data
+        iub = deep_wizard_block.get("iubenda_data", {})
+        if iub:
+            rr = iub.get("rejection_rate", "N/A")
+            cm = iub.get("consent_mode_v2") or iub.get("consent_mode", "N/A")
+            ts_grade = iub.get("triage_score", "N/A")
+            exec_parts.append(f"<p><strong>Consent:</strong> Triage Score {_esc(str(ts_grade))}, "
+                              f"rejection rate {_esc(str(rr))}%, Consent Mode: {_esc(str(cm))}.</p>")
+        gtm = deep_wizard_block.get("gtm_data", {})
+        if gtm:
+            tag_count = gtm.get("tag_count", "N/A")
+            exec_parts.append(f"<p><strong>GTM:</strong> {_esc(str(tag_count))} tag nel container.</p>")
+        gads = deep_wizard_block.get("gads_data", {})
+        if gads:
+            conv = gads.get("conversions_total", "N/A")
+            active = gads.get("conversions_active", "N/A")
+            exec_parts.append(f"<p><strong>Google Ads:</strong> {_esc(str(conv))} conversioni totali, "
+                              f"attive: {_esc(str(active))}.</p>")
+        meta_d = deep_wizard_block.get("meta_data", {})
+        if meta_d:
+            emq = meta_d.get("emq_score", "N/A")
+            capi = meta_d.get("capi_status", "N/A")
+            exec_parts.append(f"<p><strong>Meta:</strong> EMQ {_esc(str(emq))}/10, "
+                              f"CAPI: {_esc(str(capi))}.</p>")
+
+        # Collect ALL anomalies for executive view
+        all_anomalies = []
+        for wk in ["iubenda_data", "gtm_data", "gads_data", "meta_data", "gsc_data"]:
+            wd = deep_wizard_block.get(wk, {})
+            if wd.get("anomalies_detected"):
+                platform_name = wk.replace("_data", "").upper()
+                all_anomalies.append(f"<li><strong>{platform_name}:</strong> {_esc(wd['anomalies_detected'][:300])}</li>")
+        if all_anomalies:
+            exec_parts.append("<p><strong>Anomalie critiche rilevate:</strong></p>")
+            exec_parts.append("<ul>" + "\n".join(all_anomalies) + "</ul>")
+
+        exec_summary = "\n".join(exec_parts)
+
+    # Build platform analysis: Opus synthesis only (Epic C — no raw L2 dump)
     platform_html = ""
     if platform_analysis_text:
         platform_html = _md_to_html(platform_analysis_text)
-    # Always add wizard data + L2 per-platform sections (Fix 21: merge Quick+Deep)
-    platform_fallback = _build_platform_fallback(deep_wizard_block, l2_results)
-    if platform_fallback:
-        platform_html += "\n" + platform_fallback
+    # Fallback to wizard data only (no L2 raw) when synthesis sections are empty
+    if not platform_html:
+        platform_fallback = _build_platform_fallback(deep_wizard_block, None)
+        if platform_fallback:
+            platform_html = platform_fallback
 
     # Build roadmap: Opus or fallback from wizard data (Fix 19)
     roadmap_html = _md_to_html(roadmap_text) if roadmap_text else _build_roadmap_fallback(deep_wizard_block)
 
-    # Build appendix: Opus synthesis + L2 results (Fix 17, 19)
+    # Build appendix: Opus synthesis or L2 fallback
     appendix_html = ""
     if appendix_text:
         appendix_html = _md_to_html(appendix_text)
-    # Always append full L2 results (Fix 17)
-    l2_html = _build_l2_section_html(l2_results)
-    if l2_html:
-        appendix_html += "\n<h3>Analisi L2 Complete</h3>\n" + l2_html
-    if not appendix_html:
+    if not appendix_html and l2_results:
         appendix_html = _build_appendix_fallback(l2_results)
+    if not appendix_html:
+        appendix_html = '<p>Appendice tecnica non disponibile.</p>'
 
-    # Build executive summary fallback (Fix 19)
-    exec_html = _md_to_html(exec_summary) if exec_summary else (
-        f"<p>Trust Score: <strong>{score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>"
-        f"<p>Piattaforme auditate: {_esc(', '.join(platforms))}</p>"
-    )
+    # Build executive summary — use _md_to_html only for Opus text, not HTML fallback
+    if exec_summary and synthesis_output.get("success"):
+        exec_html = _md_to_html(exec_summary)
+    elif exec_summary:
+        # Already HTML from our fallback builder
+        exec_html = exec_summary
+    else:
+        exec_html = (
+            f"<p>Trust Score: <strong>{score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>"
+            f"<p>Piattaforme auditate: {_esc(', '.join(platforms))}</p>"
+        )
 
     # Populate template (ADR-4: str.replace)
     replacements = {
@@ -728,7 +847,7 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         "{{pillar_cards_html}}": pillar_cards,
         "{{executive_summary}}": exec_html,
         "{{consent_impact_chain}}": chain_html,
-        "{{filo_conduttore_narrative}}": _md_to_html(filo) if filo else "",
+        "{{filo_conduttore_narrative}}": _md_to_html(filo) if filo else _build_filo_fallback(deep_wizard_block),
         "{{gap_to_revenue_table}}": gap_table + (_md_to_html(gap_narrative) if gap_narrative else ""),
         "{{priority_roadmap}}": roadmap_html,
         "{{platform_analysis}}": platform_html if platform_html else '<p>Nessuna piattaforma auditata.</p>',
