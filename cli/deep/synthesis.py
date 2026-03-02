@@ -139,8 +139,9 @@ def _format_wizard_summary(key, data):
         parts.append(f"Health: {data['health_score']}")
     if data.get("emq_score"):
         parts.append(f"EMQ: {data['emq_score']}")
-    if data.get("consent_mode_status"):
-        parts.append(f"CM: {data['consent_mode_status']}")
+    cm_val = data.get("consent_mode_v2") or data.get("consent_mode_status")
+    if cm_val:
+        parts.append(f"CM: {cm_val}")
     if data.get("rejection_rate") is not None:
         parts.append(f"Rejection: {data['rejection_rate']}%")
     if data.get("conversions_total") is not None:
