@@ -224,23 +224,26 @@ def _build_gap_table(gap_revenue):
 
     rows = []
     rows.append('<table class="gap-table">')
-    rows.append('<tr><th>Piattaforma</th><th>Problema</th><th>Severit&agrave;</th><th>Impatto &euro;/mese</th></tr>')
+    rows.append('<tr><th>Piattaforma</th><th>Problema</th><th>Severit&agrave;</th><th>Impatto su Conversioni</th></tr>')
 
-    for issue in sorted(issues, key=lambda x: x.get("impact_max", 0), reverse=True):
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    for issue in sorted(issues, key=lambda x: sev_order.get(x.get("severity", "low"), 4)):
         sev = issue.get("severity", "medium")
         css = SEVERITY_CSS.get(sev, "")
         leverage = '<span class="leverage-badge">LEVA</span>' if issue.get("is_leverage_node") else ""
+        impact_text = _esc(issue.get("impact_label", ""))
         rows.append(
             f'<tr>'
             f'<td>{_esc(issue.get("platform", ""))}</td>'
             f'<td>{_esc(issue.get("issue", ""))}{leverage}</td>'
             f'<td class="{css}">{_esc(sev.upper())}</td>'
-            f'<td>&euro;{issue.get("impact_min", 0):,.0f}&ndash;&euro;{issue.get("impact_max", 0):,.0f}</td>'
+            f'<td>{impact_text}</td>'
             f'</tr>'
         )
 
-    total_label = gap_revenue.get("total_impact_label", "")
-    rows.append(f'<tr class="gap-total"><td colspan="3">TOTALE IMPATTO STIMATO</td><td>{_esc(total_label)}</td></tr>')
+    n_issues = len(issues)
+    n_leverage = len(gap_revenue.get("leverage_nodes", []))
+    rows.append(f'<tr class="gap-total"><td colspan="3">TOTALE PROBLEMI</td><td>{n_issues} problemi, {n_leverage} nodi di leva</td></tr>')
     rows.append('</table>')
 
     # Leverage nodes callout
@@ -453,7 +456,7 @@ def _build_platform_fallback(deep_wizard_block, l2_results):
         # Render key wizard findings
         findings = []
         for field, value in wdata.items():
-            if field.startswith("_") or field in ("container_raw", "evidence_screenshots"):
+            if field.startswith("_") or field in ("container_raw", "evidence_screenshots", "anomalies_detected", "operator_notes"):
                 continue
             if isinstance(value, (dict, list)):
                 continue
