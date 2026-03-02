@@ -165,23 +165,54 @@ def _ask_select(prompt, options, allow_multiple=False, help_text=None):
             return [] if allow_multiple else ""
 
 
+def _ask_multiline(prompt, max_chars=2000):
+    """Collect multi-line free-text input.
+
+    Reads lines until user types 'FINE' on a line by itself (case-insensitive).
+    Single Enter on first line = skip (returns "").
+
+    Args:
+        prompt: Header text to display
+        max_chars: Maximum characters (default 2000)
+
+    Returns:
+        str (joined with newlines) or "" if skipped
+    """
+    print(f"\n  ── {prompt} (opzionale, max {max_chars} caratteri) ──")
+    print("  ℹ Scrivi le tue note (scrivi FINE su una riga vuota per terminare).")
+    print("  ℹ Premi Invio subito per saltare.")
+
+    lines = []
+    first_line = True
+    try:
+        while True:
+            line = input("  │ " if lines else "  → ")
+            if first_line and not line.strip():
+                return ""
+            first_line = False
+            if line.strip().upper() == "FINE":
+                break
+            lines.append(line)
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+    if not lines:
+        return ""
+
+    raw = "\n".join(lines).strip()
+    if len(raw) > max_chars:
+        raw = raw[:max_chars]
+        print(f"  ℹ Testo troncato a {max_chars} caratteri.")
+    return raw
+
+
 def _ask_operator_notes():
     """Collect optional free-text operator notes (max 2000 chars).
 
     Returns:
         str or "" if skipped
     """
-    print("\n  ── Note libere operatore (opzionale, max 2000 caratteri) ──")
-    try:
-        raw = input("  → Note (Invio per saltare): ").strip()
-    except (EOFError, KeyboardInterrupt):
-        return ""
-    if not raw:
-        return ""
-    if len(raw) > 2000:
-        raw = raw[:2000]
-        print("  ℹ Note troncate a 2000 caratteri.")
-    return raw
+    return _ask_multiline("Note libere operatore")
 
 
 def _ask_evidence_screenshots(wizard_name):
@@ -248,6 +279,73 @@ def _ask_evidence_screenshots(wizard_name):
         print(f"  ✓ {len(saved_paths)} screenshot allegati")
 
     return saved_paths
+
+
+def _ask_folder_path(prompt, help_text=None):
+    """Standard folder path input. Returns folder path or None if skipped.
+
+    Reads all CSV files inside the folder and returns their contents.
+
+    Args:
+        prompt: Question text (Italian)
+        help_text: Contextual instruction
+
+    Returns:
+        Tuple (folder_path, dict of {filename: content}) or (None, {}) if skipped
+    """
+    SKIP_SYNONYMS = {'skip', 'no', 'non disponibile', 'non ce l\'ho', 'n/a', 'nessuno', 'non ho'}
+
+    if help_text:
+        print(f"  ℹ {help_text}")
+
+    while True:
+        try:
+            raw = input(f"  → {prompt} (o 'skip' per saltare): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None, {}
+
+        if raw.lower() in SKIP_SYNONYMS:
+            print("  ○ Saltato.")
+            return None, {}
+
+        if not raw:
+            print("  ⚠ Inserisci un percorso cartella o 'skip' per saltare.")
+            continue
+
+        path = raw.strip('"').strip("'")
+        path = os.path.expanduser(path)
+
+        if not os.path.isdir(path):
+            # Maybe it's a file — check parent
+            if os.path.isfile(path):
+                print(f"  ⚠ Hai inserito un file, non una cartella. Uso la cartella: {os.path.dirname(path)}")
+                path = os.path.dirname(path)
+            else:
+                print(f"  ⚠ Cartella non trovata: {path}")
+                continue
+
+        # Read all CSV files
+        csv_files = {}
+        for fname in sorted(os.listdir(path)):
+            if fname.lower().endswith('.csv'):
+                fpath = os.path.join(path, fname)
+                content = None
+                for encoding in ('utf-8', 'utf-8-sig', 'latin-1', 'cp1252'):
+                    try:
+                        with open(fpath, encoding=encoding) as f:
+                            content = f.read()
+                        break
+                    except (UnicodeDecodeError, UnicodeError):
+                        continue
+                if content:
+                    csv_files[fname] = content
+
+        if not csv_files:
+            print(f"  ⚠ Nessun file CSV trovato in: {path}")
+            continue
+
+        print(f"  ✓ {len(csv_files)} file CSV trovati: {', '.join(csv_files.keys())}")
+        return path, csv_files
 
 
 def _ask_file_path(prompt, validation_fn=None, help_text=None):

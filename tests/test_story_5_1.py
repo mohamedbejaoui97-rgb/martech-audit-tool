@@ -301,9 +301,9 @@ class TestRunWizardGads(unittest.TestCase):
             "1",      # Active: Sì
             "1",      # GA4: Sì
             "1",      # Detail: No
-            "CPC troppo alto",  # anomalies
-            "Notare il gap",    # operator notes
-            "n",                # evidence
+            "CPC troppo alto", "FINE",  # anomalies multiline
+            "Notare il gap", "FINE",    # operator notes multiline
+            "n",                        # evidence
         ]
         result = run_wizard_gads(BPROF_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["anomalies_detected"], "CPC troppo alto")

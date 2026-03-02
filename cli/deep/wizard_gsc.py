@@ -14,7 +14,7 @@ import urllib.request
 import urllib.error
 import ssl
 
-from deep.input_helpers import _ask_input, _ask_select, _ask_file_path, _ask_operator_notes, _ask_evidence_screenshots
+from deep.input_helpers import _ask_input, _ask_select, _ask_file_path, _ask_folder_path, _ask_operator_notes, _ask_evidence_screenshots, _ask_multiline
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -249,6 +249,48 @@ def analyze_trends(rows):
         "declining_pages": [],  # Requires two-period comparison
         "opportunities": opportunities[:20],  # Cap at 20
     }
+
+
+# ─── COVERAGE CSV PARSING (Fix 15) ─────────────────────────────────────────
+
+COVERAGE_FILE_PATTERNS = {
+    "problemi critici": "critical_issues",
+    "problemi non critici": "non_critical_issues",
+    "metadati": "metadata",
+    "grafico": "chart",
+    "critical": "critical_issues",
+    "non-critical": "non_critical_issues",
+    "not indexed": "not_indexed",
+}
+
+
+def parse_coverage_csv(filename, content):
+    """Parse a GSC Coverage/Indexing CSV export.
+
+    Returns dict with parsed data (rows or key-value pairs).
+    """
+    lines = content.strip().split("\n")
+    if len(lines) < 2:
+        return {"rows": [], "filename": filename}
+
+    delimiter = _detect_delimiter(lines[0])
+    reader = csv.reader(io.StringIO(content), delimiter=delimiter)
+
+    try:
+        headers = next(reader)
+    except StopIteration:
+        return {"rows": [], "filename": filename}
+
+    rows = []
+    for row in reader:
+        if row:
+            row_dict = {}
+            for i, val in enumerate(row):
+                key = headers[i].strip() if i < len(headers) else f"col_{i}"
+                row_dict[key] = val.strip()
+            rows.append(row_dict)
+
+    return {"rows": rows, "headers": [h.strip() for h in headers], "filename": filename, "row_count": len(rows)}
 
 
 SITEMAP_GSC_STATUS_OPTIONS = [
@@ -539,46 +581,50 @@ def run_wizard_gsc(business_profile, discovery_block):
             for m in sitemap_check.get("mismatches", []):
                 print(f"     🔸 {m}")
 
-        # ── 3. CSV rendimento upload (FR35, FR39) ──
+        # ── 3. CSV Rendimento — folder input (Fix 14) ──
         perf_rows = []
-        perf_path, perf_content = _ask_file_path(
-            "Percorso CSV export rendimento GSC (ultimi 3 mesi)",
-            validation_fn=_validate_csv_content,
-            help_text="Vai su GSC > Rendimento > Esporta > CSV. Seleziona ultimi 3 mesi"
-        )
-
-        if perf_content:
-            start = time.time()
-            perf_rows = parse_gsc_csv(perf_content)
-            parse_time = time.time() - start
-            print(f"  ✓ CSV rendimento parsato in {parse_time:.2f}s — {len(perf_rows)} righe")
-
-        # ── 4. CSV pagine upload (FR36) ──
         pages_csv_rows = []
-        pages_path, pages_content = _ask_file_path(
-            "Percorso CSV export pagine GSC",
-            validation_fn=_validate_csv_content,
-            help_text="Vai su GSC > Pagine > Esporta > CSV"
+        perf_folder, perf_csvs = _ask_folder_path(
+            "Cartella export Rendimento GSC (trascina la cartella)",
+            help_text="Vai su GSC > Rendimento > Esporta > Scarica CSV. "
+                      "Trascina qui la CARTELLA scaricata (contiene Query.csv, Pagine.csv, etc.)"
         )
 
-        if pages_content:
+        if perf_csvs:
             start = time.time()
-            pages_csv_rows = parse_gsc_csv(pages_content)
+            for fname, content in perf_csvs.items():
+                rows = parse_gsc_csv(content)
+                fname_lower = fname.lower()
+                if any(k in fname_lower for k in ("pagin", "page", "url")):
+                    pages_csv_rows.extend(rows)
+                    print(f"  ✓ {fname}: {len(rows)} righe (pagine)")
+                else:
+                    perf_rows.extend(rows)
+                    print(f"  ✓ {fname}: {len(rows)} righe (rendimento)")
             parse_time = time.time() - start
-            print(f"  ✓ CSV pagine parsato in {parse_time:.2f}s — {len(pages_csv_rows)} righe")
+            print(f"  ✓ Totale parsato in {parse_time:.2f}s — "
+                  f"{len(perf_rows)} righe rendimento, {len(pages_csv_rows)} righe pagine")
+
+        # ── 4. CSV Indicizzazione/Coverage — folder input (Fix 15) ──
+        coverage_data = []
+        cov_folder, cov_csvs = _ask_folder_path(
+            "Cartella export Indicizzazione/Coverage GSC (opzionale)",
+            help_text="Vai su GSC > Pagine > Esporta > Scarica CSV. "
+                      "Contiene: Problemi critici.csv, Problemi non critici.csv, etc."
+        )
+
+        if cov_csvs:
+            for fname, content in cov_csvs.items():
+                parsed = parse_coverage_csv(fname, content)
+                coverage_data.append(parsed)
+                print(f"  ✓ Coverage: {fname} — {parsed.get('row_count', 0)} righe")
 
         # ── 5. Trend analysis + opportunities (FR37, FR38) ──
         all_rows = perf_rows + pages_csv_rows
         trends = analyze_trends(all_rows)
 
         # ── Anomalies + Operator notes ──
-        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
-        try:
-            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            anomalies = ""
-        if anomalies and len(anomalies) > 2000:
-            anomalies = anomalies[:2000]
+        anomalies = _ask_multiline("Anomalie rilevate")
 
         notes = _ask_operator_notes()
 
@@ -593,6 +639,7 @@ def run_wizard_gsc(business_profile, discovery_block):
             "opportunities": trends.get("opportunities", []),
             "_performance_row_count": len(perf_rows),
             "_pages_row_count": len(pages_csv_rows),
+            "coverage_data": coverage_data,
             "robots_txt": robots_data,
             "sitemap_cross_check": sitemap_check,
             "gsc_sitemap_urls": gsc_sitemap_urls,

@@ -350,6 +350,240 @@ def _build_evidence_html(deep_wizard_block):
     return "\n".join(parts)
 
 
+# ─── L2 RESULTS HTML (Fix 17) ──────────────────────────────────────────────
+
+L2_LABELS = {
+    "performance": "Performance",
+    "cwv": "Core Web Vitals",
+    "seo": "SEO",
+    "seo_deep": "SEO Deep",
+    "accessibility": "Accessibilità",
+    "security": "Sicurezza",
+    "robots": "Robots.txt",
+    "sitemap": "Sitemap",
+    "datalayer": "DataLayer",
+    "cro": "CRO",
+    "advertising": "Advertising",
+}
+
+# Map L2 analysis types to wizard platform sections for merging
+L2_PLATFORM_MAP = {
+    "iubenda": [],
+    "gtm": ["datalayer"],
+    "gads": ["advertising", "cro"],
+    "meta": ["advertising", "cro"],
+    "gsc": ["seo", "seo_deep", "robots", "sitemap"],
+}
+
+
+def _build_l2_section_html(l2_results):
+    """Build HTML for all L2 analysis results (Fix 17)."""
+    if not l2_results:
+        return ""
+
+    parts = []
+    for atype, result in l2_results.items():
+        label = L2_LABELS.get(atype, atype.title())
+        parts.append(f'<div class="platform-section">')
+        parts.append(f'<h3>L2 — {_esc(label)}</h3>')
+        parts.append('<div class="platform-content">')
+        if isinstance(result, str):
+            if result.startswith("Errore:"):
+                parts.append(f'<p style="color:#ef4444">{_esc(result)}</p>')
+            else:
+                parts.append(_md_to_html(result))
+        elif isinstance(result, dict):
+            # Try to extract text content from dict
+            text = result.get("text", result.get("analysis", ""))
+            if text:
+                parts.append(_md_to_html(text))
+            else:
+                parts.append(f'<pre style="font-size:12px;overflow-x:auto">{_esc(json.dumps(result, ensure_ascii=False, indent=2)[:3000])}</pre>')
+        parts.append('</div></div>')
+
+    return "\n".join(parts)
+
+
+def _build_l2_for_platform(platform, l2_results):
+    """Build L2 results HTML relevant to a specific platform (Fix 21)."""
+    if not l2_results:
+        return ""
+
+    relevant_types = L2_PLATFORM_MAP.get(platform, [])
+    if not relevant_types:
+        return ""
+
+    parts = []
+    for atype in relevant_types:
+        result = l2_results.get(atype)
+        if not result or (isinstance(result, str) and result.startswith("Errore:")):
+            continue
+        label = L2_LABELS.get(atype, atype.title())
+        parts.append(f'<h4>Analisi L2: {_esc(label)}</h4>')
+        if isinstance(result, str):
+            parts.append(_md_to_html(result[:3000]))
+        elif isinstance(result, dict):
+            text = result.get("text", result.get("analysis", ""))
+            if text:
+                parts.append(_md_to_html(text[:3000]))
+
+    return "\n".join(parts)
+
+
+def _build_platform_fallback(deep_wizard_block, l2_results):
+    """Build platform analysis from wizard data + L2 when Opus section is empty (Fix 19)."""
+    wizard_configs = {
+        "iubenda_data": ("Iubenda — Consent & Privacy", "iubenda"),
+        "gtm_data": ("GTM — Implementation Quality", "gtm"),
+        "gads_data": ("Google Ads — Conversioni", "gads"),
+        "meta_data": ("Meta — Event Match Quality", "meta"),
+        "gsc_data": ("GSC — Data Foundation", "gsc"),
+    }
+
+    parts = []
+    for key, (label, platform) in wizard_configs.items():
+        wdata = deep_wizard_block.get(key, {})
+        if not wdata:
+            continue
+
+        parts.append(f'<div class="platform-section">')
+        parts.append(f'<h3>{_esc(label)}</h3>')
+        parts.append('<div class="platform-content">')
+
+        # Render key wizard findings
+        findings = []
+        for field, value in wdata.items():
+            if field.startswith("_") or field in ("container_raw", "evidence_screenshots"):
+                continue
+            if isinstance(value, (dict, list)):
+                continue
+            findings.append(f"<li><strong>{_esc(field.replace('_', ' ').title())}</strong>: {_esc(str(value))}</li>")
+
+        if findings:
+            parts.append("<ul>" + "\n".join(findings[:20]) + "</ul>")
+
+        # Anomalies
+        if wdata.get("anomalies_detected"):
+            parts.append(f'<div style="background:#fef2f2;padding:12px;border-radius:8px;margin:8px 0;border-left:4px solid #ef4444">')
+            parts.append(f'<strong>Anomalie rilevate dall\'operatore:</strong><br>{_esc(wdata["anomalies_detected"])}')
+            parts.append('</div>')
+
+        # Operator notes
+        if wdata.get("operator_notes"):
+            parts.append(f'<div style="background:#fffbeb;padding:12px;border-radius:8px;margin:8px 0;border-left:4px solid #f59e0b">')
+            parts.append(f'<strong>Note operatore:</strong><br>{_esc(wdata["operator_notes"])}')
+            parts.append('</div>')
+
+        # L2 results for this platform (Fix 21)
+        l2_html = _build_l2_for_platform(platform, l2_results)
+        if l2_html:
+            parts.append(l2_html)
+
+        # Evidence screenshots for this platform (Fix 20)
+        screenshots = wdata.get("evidence_screenshots", [])
+        if screenshots:
+            parts.append('<h4>Screenshot Evidence</h4>')
+            parts.append('<div style="display:flex;flex-wrap:wrap;gap:12px">')
+            for path in screenshots:
+                if not os.path.isfile(path):
+                    continue
+                ext = os.path.splitext(path)[1].lower()
+                mime = MIME_MAP.get(ext, "image/png")
+                try:
+                    with open(path, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode("ascii")
+                    parts.append(
+                        f'<div style="max-width:400px">'
+                        f'<img src="data:{mime};base64,{b64}" '
+                        f'style="max-width:100%;border:1px solid #e5e7eb;border-radius:8px" '
+                        f'alt="Evidence {_esc(os.path.basename(path))}">'
+                        f'</div>'
+                    )
+                except Exception:
+                    continue
+            parts.append('</div>')
+
+        parts.append('</div></div>')
+
+    return "\n".join(parts)
+
+
+def _build_roadmap_fallback(deep_wizard_block):
+    """Build a basic roadmap from wizard data when Opus doesn't provide one (Fix 19)."""
+    items = []
+
+    # Check for critical issues across wizards
+    iub = deep_wizard_block.get("iubenda_data", {})
+    if iub.get("triage_score") in ("D", "F"):
+        items.append(("urgent", "Fix Consent Mode v2 — configurare Advanced per recuperare conversioni modellate"))
+    if iub.get("consent_mode_v2") == "none":
+        items.append(("urgent", "Implementare Consent Mode v2 in Google Tag Manager"))
+
+    gtm = deep_wizard_block.get("gtm_data", {})
+    gap = gtm.get("gap_analysis", {})
+    if gap.get("missing_critical"):
+        items.append(("urgent", f"Aggiungere tag GTM critici mancanti: {', '.join(gap['missing_critical'])}"))
+
+    gads = deep_wizard_block.get("gads_data", {})
+    if gads.get("ga4_gap_critical"):
+        items.append(("urgent", "Risolvere GA4-Google Ads conversion gap — tracking rotto"))
+    if gads.get("enhanced_conversions_status") in ("Not set up", "Needs attention"):
+        items.append(("month1", "Configurare Enhanced Conversions per migliorare match rate"))
+
+    meta = deep_wizard_block.get("meta_data", {})
+    if meta.get("capi_status") == "pixel_only":
+        items.append(("month1", "Implementare Meta CAPI per migliorare Event Match Quality"))
+
+    gsc = deep_wizard_block.get("gsc_data", {})
+    sitemap_check = gsc.get("sitemap_cross_check", {})
+    if sitemap_check.get("is_critical"):
+        items.append(("urgent", "Risolvere mismatch sitemap tra robots.txt e GSC"))
+
+    if not items:
+        return '<p>Nessun problema critico identificato nei dati wizard.</p>'
+
+    phase_labels = {"urgent": "Settimana 1-2 (Quick Wins)", "month1": "Settimana 3-4", "month2": "Mese 2", "month3": "Mese 3+"}
+    parts = []
+    for phase in ("urgent", "month1", "month2", "month3"):
+        phase_items = [item for p, item in items if p == phase]
+        if phase_items:
+            parts.append(f'<div class="roadmap-phase"><div class="roadmap-phase-title">{phase_labels[phase]}</div>')
+            for item in phase_items:
+                css = phase
+                parts.append(f'<div class="roadmap-item"><span class="roadmap-priority {css}">{phase.upper()}</span><span>{_esc(item)}</span></div>')
+            parts.append('</div>')
+
+    return "\n".join(parts)
+
+
+def _build_appendix_fallback(l2_results):
+    """Build technical appendix from L2 results when Opus doesn't provide one (Fix 19)."""
+    if not l2_results:
+        return '<p>Dati L2 non disponibili per l\'appendice tecnica.</p>'
+
+    parts = []
+    # Group L2 results by technical relevance
+    tech_types = ["performance", "cwv", "security", "accessibility", "robots", "sitemap", "datalayer"]
+    for atype in tech_types:
+        result = l2_results.get(atype)
+        if not result or (isinstance(result, str) and result.startswith("Errore:")):
+            continue
+        label = L2_LABELS.get(atype, atype.title())
+        parts.append(f'<div class="fix-block">')
+        parts.append(f'<h4>{_esc(label)}</h4>')
+        if isinstance(result, str):
+            parts.append(_md_to_html(result[:5000]))
+        elif isinstance(result, dict):
+            text = result.get("text", result.get("analysis", ""))
+            if text:
+                parts.append(_md_to_html(text[:5000]))
+            else:
+                parts.append(f'<pre style="font-size:12px">{_esc(json.dumps(result, ensure_ascii=False, indent=2)[:3000])}</pre>')
+        parts.append('</div>')
+
+    return "\n".join(parts) if parts else '<p>Nessun dato tecnico L2 disponibile.</p>'
+
+
 # ─── PUBLIC API ─────────────────────────────────────────────────────────────
 
 def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
@@ -390,16 +624,43 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
     coverage_pct = round(trust_result.get("coverage", 0) * 100)
     pillars = trust_result.get("pillars", {})
 
-    # Parse synthesis sections
-    synthesis_text = synthesis_output.get("synthesis_text", "")
-    sections = _extract_synthesis_sections(synthesis_text)
+    # Parse synthesis sections — ADR-6: prefer section_results when available
+    section_results = synthesis_output.get("section_results", {})
+    if section_results:
+        # Sectional synthesis (ADR-6): direct access to per-section output
+        def _get_section_text(sid):
+            r = section_results.get(sid, {})
+            return r.get("text", "") if r.get("success") else ""
 
-    exec_summary = _find_section(sections, "EXECUTIVE", "SUMMARY")
-    filo = _find_section(sections, "FILO", "CONDUTTORE")
-    platform_analysis_text = _find_section(sections, "PIATTAFORMA", "PLATFORM")
-    roadmap_text = _find_section(sections, "ROADMAP", "PRIORITY")
-    appendix_text = _find_section(sections, "APPENDICE", "TECNICA", "APPENDIX")
-    gap_narrative = _find_section(sections, "GAP", "REVENUE")
+        exec_summary = _get_section_text("exec_summary")
+        filo = ""  # filo is embedded in exec_summary section
+        gap_narrative = _get_section_text("gap_roadmap")
+        roadmap_text = gap_narrative  # gap + roadmap are in the same section
+        appendix_text = _get_section_text("technical_appendix")
+
+        # Build platform text from individual platform sections
+        platform_parts = []
+        for sid in ("platform_consent", "platform_gtm", "platform_gads", "platform_meta", "platform_seo"):
+            t = _get_section_text(sid)
+            if t:
+                platform_parts.append(t)
+        platform_analysis_text = "\n\n".join(platform_parts)
+
+        # Trust analysis goes into exec summary if present
+        trust_text = _get_section_text("trust_analysis")
+        if trust_text:
+            exec_summary = exec_summary + "\n\n" + trust_text if exec_summary else trust_text
+    else:
+        # Legacy monolithic synthesis: parse by ## headers
+        synthesis_text = synthesis_output.get("synthesis_text", "")
+        sections = _extract_synthesis_sections(synthesis_text)
+
+        exec_summary = _find_section(sections, "EXECUTIVE", "SUMMARY")
+        filo = _find_section(sections, "FILO", "CONDUTTORE")
+        platform_analysis_text = _find_section(sections, "PIATTAFORMA", "PLATFORM")
+        roadmap_text = _find_section(sections, "ROADMAP", "PRIORITY")
+        appendix_text = _find_section(sections, "APPENDICE", "TECNICA", "APPENDIX")
+        gap_narrative = _find_section(sections, "GAP", "REVENUE")
 
     # Build components
     radar_svg = _build_radar_svg(pillars)
@@ -420,6 +681,35 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
             f"<p>Trust Score: <strong>{score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>"
         )
 
+    # Build platform analysis: Opus synthesis + wizard data fallback + L2 (Fix 17, 19, 21)
+    platform_html = ""
+    if platform_analysis_text:
+        platform_html = _md_to_html(platform_analysis_text)
+    # Always add wizard data + L2 per-platform sections (Fix 21: merge Quick+Deep)
+    platform_fallback = _build_platform_fallback(deep_wizard_block, l2_results)
+    if platform_fallback:
+        platform_html += "\n" + platform_fallback
+
+    # Build roadmap: Opus or fallback from wizard data (Fix 19)
+    roadmap_html = _md_to_html(roadmap_text) if roadmap_text else _build_roadmap_fallback(deep_wizard_block)
+
+    # Build appendix: Opus synthesis + L2 results (Fix 17, 19)
+    appendix_html = ""
+    if appendix_text:
+        appendix_html = _md_to_html(appendix_text)
+    # Always append full L2 results (Fix 17)
+    l2_html = _build_l2_section_html(l2_results)
+    if l2_html:
+        appendix_html += "\n<h3>Analisi L2 Complete</h3>\n" + l2_html
+    if not appendix_html:
+        appendix_html = _build_appendix_fallback(l2_results)
+
+    # Build executive summary fallback (Fix 19)
+    exec_html = _md_to_html(exec_summary) if exec_summary else (
+        f"<p>Trust Score: <strong>{score}/100 ({grade})</strong> — {_esc(coverage_label)}</p>"
+        f"<p>Piattaforme auditate: {_esc(', '.join(platforms))}</p>"
+    )
+
     # Populate template (ADR-4: str.replace)
     replacements = {
         "{{client_name}}": _esc(client_name),
@@ -433,13 +723,13 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         "{{trust_coverage_pct}}": str(coverage_pct),
         "{{trust_radar_svg}}": radar_svg,
         "{{pillar_cards_html}}": pillar_cards,
-        "{{executive_summary}}": _md_to_html(exec_summary) if exec_summary else '<p style="color:#999">Non disponibile</p>',
+        "{{executive_summary}}": exec_html,
         "{{consent_impact_chain}}": chain_html,
         "{{filo_conduttore_narrative}}": _md_to_html(filo) if filo else "",
         "{{gap_to_revenue_table}}": gap_table + (_md_to_html(gap_narrative) if gap_narrative else ""),
-        "{{priority_roadmap}}": _md_to_html(roadmap_text) if roadmap_text else '<p style="color:#999">Non disponibile</p>',
-        "{{platform_analysis}}": _md_to_html(platform_analysis_text) if platform_analysis_text else '<p style="color:#999">Non disponibile</p>',
-        "{{technical_appendix}}": _md_to_html(appendix_text) if appendix_text else '<p style="color:#999">Non disponibile</p>',
+        "{{priority_roadmap}}": roadmap_html,
+        "{{platform_analysis}}": platform_html if platform_html else '<p>Nessuna piattaforma auditata.</p>',
+        "{{technical_appendix}}": appendix_html if appendix_html else '<p>Nessun dato tecnico disponibile.</p>',
         "{{cost_l2}}": _esc(str(cost_l2)),
         "{{cost_l3}}": _esc(cost_l3),
         "{{platforms_list}}": _esc(", ".join(platforms)) if platforms else "N/A",

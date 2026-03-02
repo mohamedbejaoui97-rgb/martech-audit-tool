@@ -264,7 +264,12 @@ class TestRunWizardIubenda(unittest.TestCase):
 
     @patch('builtins.input')
     def test_wizard_with_operator_notes(self, mock_input):
-        mock_input.side_effect = ["42", "2", "1", "Banner non blocca", "Nota test", "n"]
+        mock_input.side_effect = [
+            "42", "2", "1",                   # rejection, consent, banner
+            "Banner non blocca", "FINE",       # anomalies multiline
+            "Nota test", "FINE",               # notes multiline
+            "n",                               # evidence
+        ]
         result = run_wizard_iubenda(BUSINESS_PROFILE_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result["anomalies_detected"], "Banner non blocca")
         self.assertEqual(result["operator_notes"], "Nota test")

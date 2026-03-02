@@ -5,7 +5,7 @@ and runs cross-checks against GTM data.
 FRs: FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25.
 """
 
-from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots, _ask_multiline
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -359,13 +359,7 @@ def run_wizard_gads(business_profile, discovery_block, deep_wizard_block=None):
                 actions = _collect_conversion_actions(num_actions)
 
         # ── 8. Anomalies + Operator notes ──
-        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
-        try:
-            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            anomalies = ""
-        if anomalies and len(anomalies) > 2000:
-            anomalies = anomalies[:2000]
+        anomalies = _ask_multiline("Anomalie rilevate")
 
         notes = _ask_operator_notes()
 

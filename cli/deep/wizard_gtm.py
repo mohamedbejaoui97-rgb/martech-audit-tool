@@ -9,7 +9,7 @@ NFRs: NFR1, NFR13, NFR18.
 import json
 import time
 
-from deep.input_helpers import _ask_file_path, _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
+from deep.input_helpers import _ask_file_path, _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots, _ask_multiline
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -462,7 +462,8 @@ def run_wizard_gtm(business_profile, discovery_block):
         # ── Show immediate results (FR16) ──
         _show_results(parsed, gap)
 
-        # ── Operator notes ──
+        # ── Anomalies + Operator notes ──
+        anomalies = _ask_multiline("Anomalie rilevate")
         notes = _ask_operator_notes()
 
         # ── Build return dict ──
@@ -479,6 +480,8 @@ def run_wizard_gtm(business_profile, discovery_block):
         }
         if gtm_partial_notes:
             result["gtm_partial_notes"] = gtm_partial_notes
+        if anomalies:
+            result["anomalies_detected"] = anomalies
         if notes:
             result["operator_notes"] = notes
 

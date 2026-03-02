@@ -5,7 +5,7 @@ and runs cross-checks against L0 discovery and GTM data.
 FRs: FR26, FR27, FR28, FR29, FR30, FR31, FR32.
 """
 
-from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots, _ask_multiline
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -308,13 +308,7 @@ def run_wizard_meta(business_profile, discovery_block, deep_wizard_block=None):
         }
 
         # ── Anomalies + Operator notes ──
-        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
-        try:
-            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            anomalies = ""
-        if anomalies and len(anomalies) > 2000:
-            anomalies = anomalies[:2000]
+        anomalies = _ask_multiline("Anomalie rilevate")
 
         notes = _ask_operator_notes()
 

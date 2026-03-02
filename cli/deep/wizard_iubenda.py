@@ -5,7 +5,7 @@ Calculates Triage Score and cross-checks with L0 auto_discover() data.
 FRs: FR6, FR7, FR8, FR9, FR10, FR11.
 """
 
-from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots
+from deep.input_helpers import _ask_input, _ask_select, _ask_operator_notes, _ask_evidence_screenshots, _ask_multiline
 
 
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -264,13 +264,7 @@ def run_wizard_iubenda(business_profile, discovery_block):
         _show_results(data)
 
         # ── 6. Anomalies + Operator notes ──
-        print("\n  ── Anomalie rilevate (opzionale, max 2000 caratteri) ──")
-        try:
-            anomalies = input("  → Anomalie (Invio per saltare): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            anomalies = ""
-        if anomalies and len(anomalies) > 2000:
-            anomalies = anomalies[:2000]
+        anomalies = _ask_multiline("Anomalie rilevate")
         if anomalies:
             data["anomalies_detected"] = anomalies
 

@@ -311,9 +311,10 @@ class TestRunWizardGtm(unittest.TestCase):
 
     @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_multiline', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
     @patch('deep.wizard_gtm._ask_select', return_value="Sì")
-    def test_wizard_happy_path(self, mock_select, mock_file, mock_notes, mock_ev):
+    def test_wizard_happy_path(self, mock_select, mock_file, mock_ml, mock_notes, mock_ev):
         tags = [_make_tag("Conversion Linker", "cvt_c"),
                 _make_tag("GA4 Event", "gaawc", consent=True)]
         content = _make_container(tags=tags)
@@ -328,27 +329,30 @@ class TestRunWizardGtm(unittest.TestCase):
 
     @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_multiline', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
     @patch('deep.wizard_gtm._ask_select', return_value="Sì")
-    def test_wizard_skip_returns_empty(self, mock_select, mock_file, mock_notes, mock_ev):
+    def test_wizard_skip_returns_empty(self, mock_select, mock_file, mock_ml, mock_notes, mock_ev):
         mock_file.return_value = (None, None)
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result, {})
 
     @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_multiline', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
     @patch('deep.wizard_gtm._ask_select', return_value="Sì")
-    def test_wizard_malformed_json_returns_empty(self, mock_select, mock_file, mock_notes, mock_ev):
+    def test_wizard_malformed_json_returns_empty(self, mock_select, mock_file, mock_ml, mock_notes, mock_ev):
         mock_file.return_value = ("/tmp/bad.json", "not json")
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
         self.assertEqual(result, {})
 
     @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_multiline', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
     @patch('deep.wizard_gtm._ask_select', return_value="Sì")
-    def test_wizard_returns_parse_time(self, mock_select, mock_file, mock_notes, mock_ev):
+    def test_wizard_returns_parse_time(self, mock_select, mock_file, mock_ml, mock_notes, mock_ev):
         content = _make_container(tags=[_make_tag("T1")])
         mock_file.return_value = ("/tmp/c.json", content)
         result = run_wizard_gtm(BUSINESS_ECOMMERCE, EMPTY_DISCOVERY)
@@ -357,9 +361,10 @@ class TestRunWizardGtm(unittest.TestCase):
 
     @patch('deep.wizard_gtm._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gtm._ask_operator_notes', return_value="")
+    @patch('deep.wizard_gtm._ask_multiline', return_value="")
     @patch('deep.wizard_gtm._ask_file_path')
     @patch('deep.wizard_gtm._ask_select', return_value="Sì")
-    def test_wizard_lead_gen_business_type(self, mock_select, mock_file, mock_notes, mock_ev):
+    def test_wizard_lead_gen_business_type(self, mock_select, mock_file, mock_ml, mock_notes, mock_ev):
         content = _make_container(tags=[_make_tag("Form Submit", "html")])
         mock_file.return_value = ("/tmp/c.json", content)
         result = run_wizard_gtm(BUSINESS_LEAD_GEN, EMPTY_DISCOVERY)

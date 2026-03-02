@@ -296,9 +296,9 @@ class TestRunWizardMeta(unittest.TestCase):
             "1", "1", "1", "1", "1", "1",
             "7",
             "1",
-            "EMQ fluttuante",   # anomalies
-            "Controllare CAPI", # operator notes
-            "n",                # evidence
+            "EMQ fluttuante", "FINE",   # anomalies multiline
+            "Controllare CAPI", "FINE", # operator notes multiline
+            "n",                        # evidence
         ]
         result = run_wizard_meta(BPROF_ECOM, EMPTY_DISC)
         self.assertEqual(result["anomalies_detected"], "EMQ fluttuante")

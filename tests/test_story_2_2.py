@@ -555,7 +555,7 @@ class TestAskOperatorNotes(unittest.TestCase):
 
     def test_returns_text(self):
         from deep.input_helpers import _ask_operator_notes
-        with patch('builtins.input', return_value='Test note'):
+        with patch('builtins.input', side_effect=['Test note', 'FINE']):
             result = _ask_operator_notes()
         self.assertEqual(result, 'Test note')
 
@@ -568,7 +568,7 @@ class TestAskOperatorNotes(unittest.TestCase):
     def test_truncates_at_2000(self):
         from deep.input_helpers import _ask_operator_notes
         long_text = 'x' * 2500
-        with patch('builtins.input', return_value=long_text):
+        with patch('builtins.input', side_effect=[long_text, 'FINE']):
             result = _ask_operator_notes()
         self.assertEqual(len(result), 2000)
 

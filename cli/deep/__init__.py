@@ -161,8 +161,9 @@ def run_deep_mode(url, args):
         try:
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
             if api_key:
-                analysis_types = ['performance', 'cwv', 'seo', 'seo_deep', 'accessibility',
-                                  'security', 'robots', 'sitemap', 'datalayer', 'cro', 'advertising']
+                # ADR-6: Deep mode drops security + accessibility (no wizard data to enrich)
+                analysis_types = ['performance', 'cwv', 'seo', 'seo_deep',
+                                  'robots', 'sitemap', 'datalayer', 'cro', 'advertising']
                 google_key = os.environ.get("GOOGLE_API_KEY", "")
                 homepage_html = extra_htmls.get("homepage", "") if isinstance(extra_htmls, dict) else ""
 
