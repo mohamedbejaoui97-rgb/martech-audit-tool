@@ -358,7 +358,12 @@ def _build_director_briefing(wizard_data, conflicts, l2_new_only, trust_result):
     parts.append("\n=== TRUST SCORE + GAP-TO-REVENUE ===")
     ts = trust_result or {}
     parts.append(f"Score: {ts.get('score', 'N/A')}/100 ({ts.get('grade', '?')})")
-    for p in ts.get("pillars", []):
+    pillars_raw = ts.get("pillars", {})
+    if isinstance(pillars_raw, dict):
+        pillar_list = [{"name": v.get("label", k), "score": v.get("score", 0)} for k, v in pillars_raw.items()]
+    else:
+        pillar_list = pillars_raw if isinstance(pillars_raw, list) else []
+    for p in pillar_list:
         parts.append(f"  {p.get('name', '?')}: {p.get('score', 0)}/100")
     gr = wizard_data.get("gap_to_revenue", {})
     issues = gr.get("issues", [])
