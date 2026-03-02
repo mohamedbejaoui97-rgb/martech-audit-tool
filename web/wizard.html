@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Audit Wizard — MarTech Audit Tool</title>
+<style>
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #242834;
+  --border: #2e3345; --text: #e4e6eb; --text2: #8b8fa3;
+  --accent: #6366f1; --accent-light: #818cf8; --accent-bg: rgba(99,102,241,.1);
+  --green: #22c55e; --green-bg: rgba(34,197,94,.1);
+  --red: #ef4444; --red-bg: rgba(239,68,68,.1);
+  --orange: #f59e0b; --orange-bg: rgba(245,158,11,.1);
+  --radius: 8px; --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height:100vh; }
+a { color: var(--accent-light); }
+
+/* Layout */
+.app { display:flex; min-height:100vh; }
+.sidebar { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:20px 0; flex-shrink:0; position:sticky; top:0; height:100vh; }
+.sidebar h2 { padding:0 20px 16px; font-size:14px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
+.sidebar .logo { padding:0 20px 24px; font-size:18px; font-weight:700; color:var(--accent-light); }
+.step-list { list-style:none; }
+.step-item { display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer; font-size:14px; color:var(--text2); transition:.15s; border-left:3px solid transparent; }
+.step-item:hover { background:var(--surface2); }
+.step-item.active { color:var(--text); background:var(--accent-bg); border-left-color:var(--accent); font-weight:600; }
+.step-item.done { color:var(--green); }
+.step-item.disabled { opacity:.4; cursor:not-allowed; }
+.step-dot { width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0; }
+.step-item.active .step-dot { background:var(--accent); }
+.step-item.done .step-dot { background:var(--green); }
+
+.main { flex:1; padding:32px 48px; max-width:800px; }
+.main h1 { font-size:22px; margin-bottom:8px; }
+.main .subtitle { color:var(--text2); margin-bottom:24px; font-size:14px; }
+
+/* Forms */
+.form-group { margin-bottom:20px; }
+.form-group label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+.form-group .help { font-size:12px; color:var(--text2); margin-top:4px; font-style:italic; }
+input[type="text"], input[type="number"], input[type="url"], textarea, select {
+  width:100%; padding:10px 14px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:var(--radius); color:var(--text); font-size:14px; font-family:var(--font);
+  outline:none; transition:.15s;
+}
+input:focus, textarea:focus, select:focus { border-color:var(--accent); }
+textarea { resize:vertical; min-height:80px; }
+select { cursor:pointer; }
+
+/* Radio & Checkbox groups */
+.radio-group, .checkbox-group { display:flex; flex-wrap:wrap; gap:8px; }
+.radio-group label, .checkbox-group label {
+  display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--surface2);
+  border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; font-size:13px;
+  font-weight:normal; text-transform:none; letter-spacing:0; transition:.15s;
+}
+.radio-group label:hover, .checkbox-group label:hover { border-color:var(--accent); }
+.radio-group input:checked+span, .checkbox-group input:checked+span { color:var(--accent-light); }
+.radio-group label:has(input:checked), .checkbox-group label:has(input:checked) {
+  border-color:var(--accent); background:var(--accent-bg);
+}
+
+/* Event grid (Meta wizard) */
+.event-grid { display:grid; grid-template-columns:1fr auto; gap:4px 12px; align-items:center; }
+.event-grid .event-name { font-size:13px; font-weight:500; }
+.event-grid select { width:auto; padding:6px 10px; font-size:12px; }
+
+/* Buttons */
+.btn { padding:10px 24px; border:none; border-radius:var(--radius); font-size:14px; font-weight:600; cursor:pointer; transition:.15s; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent-light); }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+.btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-secondary:hover { border-color:var(--accent); }
+.btn-row { display:flex; gap:12px; margin-top:24px; }
+
+/* File drop zone */
+.drop-zone {
+  border:2px dashed var(--border); border-radius:var(--radius); padding:32px; text-align:center;
+  color:var(--text2); cursor:pointer; transition:.15s; position:relative;
+}
+.drop-zone:hover, .drop-zone.dragover { border-color:var(--accent); background:var(--accent-bg); }
+.drop-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.drop-zone .icon { font-size:32px; margin-bottom:8px; }
+.drop-zone .label { font-size:14px; }
+.drop-zone .files { margin-top:12px; font-size:12px; color:var(--green); }
+
+/* Alerts */
+.alert { padding:12px 16px; border-radius:var(--radius); font-size:13px; margin-bottom:16px; }
+.alert-info { background:var(--accent-bg); border:1px solid var(--accent); }
+.alert-success { background:var(--green-bg); border:1px solid var(--green); color:var(--green); }
+.alert-warning { background:var(--orange-bg); border:1px solid var(--orange); color:var(--orange); }
+.alert-error { background:var(--red-bg); border:1px solid var(--red); color:var(--red); }
+
+/* Progress */
+.progress-container { margin-top:24px; }
+.progress-bar-track { width:100%; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:var(--accent); transition:width .3s; border-radius:4px; }
+.progress-phases { margin-top:16px; }
+.progress-phase { display:flex; align-items:center; gap:10px; padding:8px 0; font-size:14px; color:var(--text2); }
+.progress-phase.active { color:var(--text); font-weight:500; }
+.progress-phase.done { color:var(--green); }
+.progress-phase .phase-icon { width:20px; text-align:center; }
+
+/* Results card */
+.result-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-top:16px; }
+.result-card h3 { font-size:15px; margin-bottom:12px; }
+.result-card .metric { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.result-card .metric:last-child { border-bottom:none; }
+.result-card .metric .value { font-weight:600; }
+
+/* GTM preview */
+.gtm-preview { background:var(--surface2); border-radius:var(--radius); padding:16px; margin-top:12px; font-size:13px; }
+.gtm-preview .stat { display:inline-block; margin-right:20px; }
+.gtm-preview .stat .n { font-size:18px; font-weight:700; color:var(--accent-light); }
+
+/* Hidden step */
+.step-content { display:none; }
+.step-content.visible { display:block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar">
+    <div class="logo">Deep Audit</div>
+    <h2>Steps</h2>
+    <ul class="step-list" id="stepList">
+      <li class="step-item active" data-step="start"><span class="step-dot"></span>Start</li>
+      <li class="step-item disabled" data-step="iubenda"><span class="step-dot"></span>Iubenda</li>
+      <li class="step-item disabled" data-step="gtm"><span class="step-dot"></span>GTM</li>
+      <li class="step-item disabled" data-step="gads"><span class="step-dot"></span>Google Ads</li>
+      <li class="step-item disabled" data-step="meta"><span class="step-dot"></span>Meta</li>
+      <li class="step-item disabled" data-step="gsc"><span class="step-dot"></span>GSC</li>
+      <li class="step-item disabled" data-step="run"><span class="step-dot"></span>Run Audit</li>
+    </ul>
+  </nav>
+
+  <main class="main">
+
+    <!-- ═══ STEP: START ═══ -->
+    <div class="step-content visible" id="step-start">
+      <h1>Business Profile</h1>
+      <p class="subtitle">Configura il profilo del cliente e seleziona le piattaforme da auditare.</p>
+
+      <div class="form-group">
+        <label>URL del sito</label>
+        <input type="url" id="startUrl" placeholder="https://esempio.it" value="">
+      </div>
+
+      <div class="form-group">
+        <label>Business Type</label>
+        <div class="radio-group">
+          <label><input type="radio" name="businessType" value="ecommerce" checked><span>Ecommerce</span></label>
+          <label><input type="radio" name="businessType" value="lead_gen"><span>Lead Generation</span></label>
+          <label><input type="radio" name="businessType" value="both"><span>Entrambi</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Piattaforme disponibili</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="iubenda" checked><span>Iubenda</span></label>
+          <label><input type="checkbox" value="gtm" checked><span>GTM</span></label>
+          <label><input type="checkbox" value="gads" checked><span>Google Ads</span></label>
+          <label><input type="checkbox" value="meta" checked><span>Meta</span></label>
+          <label><input type="checkbox" value="gsc" checked><span>GSC</span></label>
+        </div>
+      </div>
+
+      <div id="startAlert"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnStart">Avvia Discovery</button>
+      </div>
+
+      <div id="l0Signals" style="display:none">
+        <div class="result-card">
+          <h3>L0 Discovery Signals</h3>
+          <div id="l0Content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP: IUBENDA ═══ -->
+    <div class="step-content" id="step-iubenda">
+      <h1>Iubenda — Consent & Privacy</h1>
+      <p class="subtitle">Tasso di rifiuto, Consent Mode v2, servizi nel banner.</p>
+
+      <div class="form-group">
+        <label>Tasso di rifiuto cookie (%)</label>
+        <input type="number" id="iub_rejection" min="0" max="100" step="0.1" placeholder="35">
+        <div class="help">Dashboard Iubenda > Cookie Solution > Statistiche</div>
+      </div>
+
+      <div class="form-group">
+        <label>Consent Mode v2</label>
+        <div class="radio-group">
+          <label><input type="radio" name="iub_cm" value="none"><span>Assente</span></label>
+          <label><input type="radio" name="iub_cm" value="basic"><span>Basic</span></label>
+          <label><input type="radio" name="iub_cm" value="advanced"><span>Advanced</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Servizi nel banner Iubenda</label>
+        <div class="checkbox-group" id="iub_services">
+          <label><input type="checkbox" value="Google Analytics"><span>Google Analytics</span></label>
+          <label><input type="checkbox" value="Google Ads"><span>Google Ads</span></label>
+          <label><input type="checkbox" value="Meta Pixel (Facebook)"><span>Meta Pixel</span></label>
+          <label><input type="checkbox" value="LinkedIn Insight Tag"><span>LinkedIn</span></label>
+          <label><input type="checkbox" value="TikTok Pixel"><span>TikTok</span></label>
+          <label><input type="checkbox" value="Hotjar"><span>Hotjar</span></label>
+          <label><input type="checkbox" value="Microsoft Clarity"><span>Clarity</span></label>
+          <label><input type="checkbox" value="HubSpot"><span>HubSpot</span></label>
+          <label><input type="checkbox" value="Mailchimp"><span>Mailchimp</span></label>
+          <label><input type="checkbox" value="Google Tag Manager"><span>GTM</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Anomalie rilevate</label>
+        <textarea id="iub_anomalies" placeholder="Es. banner non blocca script terze parti..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Evidence screenshots</label>
+        <div class="drop-zone" data-wizard="iubenda">
+          <div class="icon">+</div>
+          <div class="label">Trascina screenshots o clicca per caricare</div>
+          <input type="file" multiple accept="image/*">
+          <div class="files"></div>
+        </div>
+      </div>
+
+      <div id="iubAlert"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="W.prevStep()">Indietro</button>
+        <button class="btn btn-primary" id="btnIubenda">Salva e Continua</button>
+      </div>
+      <div id="iubResult"></div>
+    </div>
+
+    <!-- ═══ STEP: GTM ═══ -->
+    <div class="step-content" id="step-gtm">
+      <h1>GTM — Implementation Quality</h1>
+      <p class="subtitle">Carica il container JSON per l'analisi automatica.</p>
+
+      <div class="form-group">
+        <label>Il cliente usa GTM?</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gtm_usage" value="yes" checked><span>Si</span></label>
+          <label><input type="radio" name="gtm_usage" value="no"><span>No</span></label>
+          <label><input type="radio" name="gtm_usage" value="partial"><span>Parzialmente</span></label>
+        </div>
+      </div>
+
+      <div class="form-group" id="gtmFileGroup">
+        <label>Container JSON Export</label>
+        <div class="drop-zone" id="gtmDropZone">
+          <div class="icon">{ }</div>
+          <div class="label">Trascina il file JSON o clicca per caricare</div>
+          <input type="file" accept=".json,application/json" id="gtmFileInput">
+          <div class="files" id="gtmFileName"></div>
+        </div>
+        <div class="help">GTM > Admin > Export Container > Scarica JSON</div>
+        <div id="gtmPreview" class="gtm-preview" style="display:none"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Anomalie rilevate</label>
+        <textarea id="gtm_anomalies" placeholder="Es. tag duplicati, consent non configurato..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Evidence screenshots</label>
+        <div class="drop-zone" data-wizard="gtm">
+          <div class="icon">+</div>
+          <div class="label">Trascina screenshots o clicca per caricare</div>
+          <input type="file" multiple accept="image/*">
+          <div class="files"></div>
+        </div>
+      </div>
+
+      <div id="gtmAlert"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="W.prevStep()">Indietro</button>
+        <button class="btn btn-primary" id="btnGtm">Salva e Continua</button>
+      </div>
+      <div id="gtmResult"></div>
+    </div>
+
+    <!-- ═══ STEP: GOOGLE ADS ═══ -->
+    <div class="step-content" id="step-gads">
+      <h1>Google Ads — Conversion Reliability</h1>
+      <p class="subtitle">Conversion actions, diagnostiche, attribuzione.</p>
+
+      <div class="form-group">
+        <label>Conversion actions totali</label>
+        <input type="number" id="gads_total" min="0" max="100" placeholder="5">
+      </div>
+      <div class="form-group">
+        <label>Primary conversions</label>
+        <input type="number" id="gads_primary" min="0" max="100" placeholder="2">
+      </div>
+      <div class="form-group">
+        <label>Secondary conversions</label>
+        <input type="number" id="gads_secondary" min="0" max="100" placeholder="3">
+      </div>
+
+      <div class="form-group">
+        <label>Enhanced Conversions</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gads_ec" value="Excellent"><span>Excellent</span></label>
+          <label><input type="radio" name="gads_ec" value="Needs attention"><span>Needs attention</span></label>
+          <label><input type="radio" name="gads_ec" value="Not set up"><span>Not set up</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Consent Mode diagnostica</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gads_cm" value="Excellent"><span>Excellent</span></label>
+          <label><input type="radio" name="gads_cm" value="Needs attention"><span>Needs attention</span></label>
+          <label><input type="radio" name="gads_cm" value="Not set up"><span>Not set up</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Modello attribuzione</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gads_attr" value="Data-driven"><span>Data-driven</span></label>
+          <label><input type="radio" name="gads_attr" value="Last-click"><span>Last-click</span></label>
+          <label><input type="radio" name="gads_attr" value="Altro"><span>Altro</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Conversioni attive (ultimi 7gg)?</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gads_active" value="Si"><span>Si</span></label>
+          <label><input type="radio" name="gads_active" value="No"><span>No</span></label>
+          <label><input type="radio" name="gads_active" value="Alcune"><span>Alcune</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>GA4 registra gli stessi eventi?</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gads_ga4" value="Si"><span>Si</span></label>
+          <label><input type="radio" name="gads_ga4" value="No"><span>No</span></label>
+          <label><input type="radio" name="gads_ga4" value="Non so"><span>Non so</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Anomalie rilevate</label>
+        <textarea id="gads_anomalies" placeholder="Es. conversioni inattive da 68 giorni..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Evidence screenshots</label>
+        <div class="drop-zone" data-wizard="gads">
+          <div class="icon">+</div>
+          <div class="label">Trascina screenshots o clicca per caricare</div>
+          <input type="file" multiple accept="image/*">
+          <div class="files"></div>
+        </div>
+      </div>
+
+      <div id="gadsAlert"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="W.prevStep()">Indietro</button>
+        <button class="btn btn-primary" id="btnGads">Salva e Continua</button>
+      </div>
+    </div>
+
+    <!-- ═══ STEP: META ═══ -->
+    <div class="step-content" id="step-meta">
+      <h1>Meta — Event Match Quality</h1>
+      <p class="subtitle">Pixel ID, CAPI, EMQ score, eventi.</p>
+
+      <div class="form-group">
+        <label>Meta Pixel ID</label>
+        <input type="text" id="meta_pixel" placeholder="123456789012345" pattern="[0-9]{10,20}">
+        <div class="help" id="metaPixelL0"></div>
+      </div>
+
+      <div class="form-group">
+        <label>CAPI configurazione</label>
+        <div class="radio-group">
+          <label><input type="radio" name="meta_capi" value="pixel_only"><span>Solo Pixel</span></label>
+          <label><input type="radio" name="meta_capi" value="pixel_capi"><span>Pixel + CAPI</span></label>
+          <label><input type="radio" name="meta_capi" value="capi_only"><span>Solo CAPI</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>EMQ Score (0-10)</label>
+        <input type="number" id="meta_emq" min="0" max="10" step="0.1" placeholder="6.5">
+        <div class="help">Events Manager > Dataset > Panoramica > Event Match Quality</div>
+      </div>
+
+      <div class="form-group">
+        <label>Status eventi</label>
+        <div class="event-grid" id="metaEvents"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Attribution window</label>
+        <div class="radio-group">
+          <label><input type="radio" name="meta_attr" value="7d_1d"><span>7d click + 1d view</span></label>
+          <label><input type="radio" name="meta_attr" value="1d_1d"><span>1d click + 1d view</span></label>
+          <label><input type="radio" name="meta_attr" value="7d"><span>7d click</span></label>
+          <label><input type="radio" name="meta_attr" value="other"><span>Altro</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Anomalie rilevate</label>
+        <textarea id="meta_anomalies" placeholder="Es. EMQ basso, eventi mancanti..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Evidence screenshots</label>
+        <div class="drop-zone" data-wizard="meta">
+          <div class="icon">+</div>
+          <div class="label">Trascina screenshots o clicca per caricare</div>
+          <input type="file" multiple accept="image/*">
+          <div class="files"></div>
+        </div>
+      </div>
+
+      <div id="metaAlert"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="W.prevStep()">Indietro</button>
+        <button class="btn btn-primary" id="btnMeta">Salva e Continua</button>
+      </div>
+    </div>
+
+    <!-- ═══ STEP: GSC ═══ -->
+    <div class="step-content" id="step-gsc">
+      <h1>GSC — Data Foundation</h1>
+      <p class="subtitle">Sitemap, indicizzazione, CSV export.</p>
+
+      <div class="form-group">
+        <label>Stato sitemap</label>
+        <div class="radio-group">
+          <label><input type="radio" name="gsc_sitemap" value="ok"><span>OK</span></label>
+          <label><input type="radio" name="gsc_sitemap" value="errors"><span>Errori</span></label>
+          <label><input type="radio" name="gsc_sitemap" value="not_submitted"><span>Non inviata</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Pagine indicizzate</label>
+        <input type="number" id="gsc_indexed" min="0" placeholder="1200">
+      </div>
+      <div class="form-group">
+        <label>Pagine totali (indicizzate + non)</label>
+        <input type="number" id="gsc_submitted" min="0" placeholder="1500">
+      </div>
+
+      <div class="form-group">
+        <label>Motivi non indicizzazione</label>
+        <div class="checkbox-group" id="gsc_issues">
+          <label><input type="checkbox" value="Crawled - currently not indexed"><span>Crawled not indexed</span></label>
+          <label><input type="checkbox" value="Discovered - currently not crawled"><span>Discovered not crawled</span></label>
+          <label><input type="checkbox" value="Noindex tag"><span>Noindex tag</span></label>
+          <label><input type="checkbox" value="Redirect"><span>Redirect</span></label>
+          <label><input type="checkbox" value="Soft 404"><span>Soft 404</span></label>
+          <label><input type="checkbox" value="URL bloccato da robots.txt"><span>Robots.txt block</span></label>
+          <label><input type="checkbox" value="Server error (5xx)"><span>Server error</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>CSV Rendimento (opzionale)</label>
+        <div class="drop-zone" id="gscPerfDrop">
+          <div class="icon">CSV</div>
+          <div class="label">Trascina CSV export Rendimento</div>
+          <input type="file" accept=".csv,text/csv" id="gscPerfFile">
+          <div class="files" id="gscPerfName"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Anomalie rilevate</label>
+        <textarea id="gsc_anomalies" placeholder="Es. sitemap non aggiornata, pagine importanti non indicizzate..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Evidence screenshots</label>
+        <div class="drop-zone" data-wizard="gsc">
+          <div class="icon">+</div>
+          <div class="label">Trascina screenshots o clicca per caricare</div>
+          <input type="file" multiple accept="image/*">
+          <div class="files"></div>
+        </div>
+      </div>
+
+      <div id="gscAlert"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="W.prevStep()">Indietro</button>
+        <button class="btn btn-primary" id="btnGsc">Salva e Continua</button>
+      </div>
+    </div>
+
+    <!-- ═══ STEP: RUN ═══ -->
+    <div class="step-content" id="step-run">
+      <h1>Deep Audit in corso</h1>
+      <p class="subtitle" id="runSubtitle">Avvia il pipeline: Trust Score, L2 Analysis, Synthesis, Report.</p>
+
+      <div id="runNotStarted">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnRun">Avvia Deep Audit</button>
+        </div>
+      </div>
+
+      <div class="progress-container" id="progressContainer" style="display:none">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-phases" id="progressPhases">
+          <div class="progress-phase" data-phase="trust_score"><span class="phase-icon">&#9675;</span> Trust Score</div>
+          <div class="progress-phase" data-phase="l2_analysis"><span class="phase-icon">&#9675;</span> L2 Analysis (9 parallele)</div>
+          <div class="progress-phase" data-phase="synthesis"><span class="phase-icon">&#9675;</span> Synthesis (Opus + Sonnet)</div>
+          <div class="progress-phase" data-phase="report"><span class="phase-icon">&#9675;</span> Report Generation</div>
+        </div>
+      </div>
+
+      <div id="runResult" style="display:none">
+        <div class="alert alert-success" id="runResultMsg"></div>
+        <div class="btn-row">
+          <a class="btn btn-primary" id="btnOpenReport" href="#" target="_blank">Apri Report</a>
+        </div>
+      </div>
+
+      <div id="runError" style="display:none">
+        <div class="alert alert-error" id="runErrorMsg"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// Wizard Controller
+// ═══════════════════════════════════════════════════════════════════════════════
+const W = {
+  sessionId: null,
+  businessProfile: null,
+  allSteps: ['start','iubenda','gtm','gads','meta','gsc','run'],
+  activeSteps: ['start'],
+  currentStep: 'start',
+  gtmJsonB64: null,
+  gscPerfB64: null,
+
+  // ─── Navigation ─────────────────────────────────────────────────────────
+  goTo(step) {
+    if (!this.activeSteps.includes(step)) return;
+    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('visible'));
+    document.getElementById('step-' + step)?.classList.add('visible');
+    document.querySelectorAll('.step-item').forEach(el => {
+      el.classList.remove('active');
+      if (el.dataset.step === step) el.classList.add('active');
+    });
+    this.currentStep = step;
+    // Populate dynamic content
+    if (step === 'meta') this._buildMetaEvents();
+  },
+
+  nextStep() {
+    const idx = this.activeSteps.indexOf(this.currentStep);
+    if (idx < this.activeSteps.length - 1) this.goTo(this.activeSteps[idx + 1]);
+  },
+
+  prevStep() {
+    const idx = this.activeSteps.indexOf(this.currentStep);
+    if (idx > 0) this.goTo(this.activeSteps[idx - 1]);
+  },
+
+  _enableStep(step) {
+    if (!this.activeSteps.includes(step)) this.activeSteps.push(step);
+    const el = document.querySelector(`.step-item[data-step="${step}"]`);
+    if (el) el.classList.remove('disabled');
+  },
+
+  _markDone(step) {
+    const el = document.querySelector(`.step-item[data-step="${step}"]`);
+    if (el) el.classList.add('done');
+  },
+
+  // ─── API Helpers ────────────────────────────────────────────────────────
+  async _post(path, body) {
+    const resp = await fetch(path, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    return resp.json();
+  },
+
+  _radioVal(name) {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : '';
+  },
+
+  _checkboxVals(containerId) {
+    return [...document.querySelectorAll(`#${containerId} input:checked`)].map(el => el.value);
+  },
+
+  _showAlert(id, msg, type='info') {
+    document.getElementById(id).innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  },
+
+  // ─── START ──────────────────────────────────────────────────────────────
+  async start() {
+    const url = document.getElementById('startUrl').value.trim();
+    if (!url) return this._showAlert('startAlert', 'URL obbligatorio', 'error');
+
+    const businessType = this._radioVal('businessType');
+    const platforms = [...document.querySelectorAll('#step-start .checkbox-group input:checked')].map(el => el.value);
+    if (!platforms.length) return this._showAlert('startAlert', 'Seleziona almeno una piattaforma', 'error');
+
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStart').textContent = 'Discovery in corso...';
+    this._showAlert('startAlert', 'L0 Discovery in corso... (potrebbe richiedere 30-60s)', 'info');
+
+    try {
+      const data = await this._post('/api/deep/start', { url, business_type: businessType, platforms });
+      if (data.error) throw new Error(data.error);
+
+      this.sessionId = data.session_id;
+      this.businessProfile = data.business_profile;
+
+      // Show L0 signals
+      const sig = data.l0_signals || {};
+      let html = '';
+      if (sig.pixels_detected?.length) html += `<div class="metric"><span>Pixel rilevati</span><span class="value">${sig.pixels_detected.join(', ')}</span></div>`;
+      if (sig.tag_managers?.length) html += `<div class="metric"><span>Tag Manager</span><span class="value">${sig.tag_managers.join(', ')}</span></div>`;
+      if (sig.consent_platforms?.length) html += `<div class="metric"><span>Consent</span><span class="value">${sig.consent_platforms.join(', ')}</span></div>`;
+      if (!html) html = '<div class="metric"><span>Nessun segnale L0 rilevato</span><span></span></div>';
+      document.getElementById('l0Content').innerHTML = html;
+      document.getElementById('l0Signals').style.display = 'block';
+
+      // Enable platform steps + run
+      platforms.forEach(p => this._enableStep(p));
+      this._enableStep('run');
+      this._markDone('start');
+      this._showAlert('startAlert', `Session creata: ${this.sessionId}`, 'success');
+
+      // Auto-navigate to first wizard
+      setTimeout(() => this.nextStep(), 500);
+    } catch (e) {
+      this._showAlert('startAlert', `Errore: ${e.message}`, 'error');
+    } finally {
+      document.getElementById('btnStart').disabled = false;
+      document.getElementById('btnStart').textContent = 'Avvia Discovery';
+    }
+  },
+
+  // ─── WIZARD SUBMIT HELPERS ──────────────────────────────────────────────
+  async _submitWizard(name, body, alertId) {
+    body.session_id = this.sessionId;
+    try {
+      const data = await this._post(`/api/deep/wizard/${name}`, body);
+      if (data.error) throw new Error(data.error);
+      this._markDone(name);
+      this.nextStep();
+      return data;
+    } catch (e) {
+      this._showAlert(alertId, `Errore: ${e.message}`, 'error');
+      return null;
+    }
+  },
+
+  // ─── IUBENDA ────────────────────────────────────────────────────────────
+  async submitIubenda() {
+    const rejection = parseFloat(document.getElementById('iub_rejection').value);
+    if (isNaN(rejection) || rejection < 0 || rejection > 100) return this._showAlert('iubAlert', 'Tasso rifiuto: 0-100', 'error');
+    const cm = this._radioVal('iub_cm');
+    if (!cm) return this._showAlert('iubAlert', 'Seleziona Consent Mode v2', 'error');
+
+    const result = await this._submitWizard('iubenda', {
+      rejection_rate: rejection,
+      consent_mode_v2: cm,
+      banner_services: this._checkboxVals('iub_services'),
+      anomalies_detected: document.getElementById('iub_anomalies').value,
+    }, 'iubAlert');
+
+    if (result?.wizard_data) {
+      const d = result.wizard_data;
+      let html = `<div class="result-card"><h3>Risultati</h3>`;
+      html += `<div class="metric"><span>Triage Score</span><span class="value">${d.triage_score || '?'}</span></div>`;
+      html += `<div class="metric"><span>Dettaglio</span><span class="value">${d.triage_detail || ''}</span></div>`;
+      if (d.l0_mismatches?.length) {
+        html += `<div class="metric"><span>Mismatch L0</span><span class="value" style="color:var(--orange)">${d.l0_mismatches.length} trovati</span></div>`;
+      }
+      html += `</div>`;
+      document.getElementById('iubResult').innerHTML = html;
+    }
+  },
+
+  // ─── GTM ────────────────────────────────────────────────────────────────
+  async submitGtm() {
+    const usage = this._radioVal('gtm_usage');
+    const body = {
+      gtm_usage: usage,
+      anomalies_detected: document.getElementById('gtm_anomalies').value,
+    };
+    if (this.gtmJsonB64 && usage !== 'no') {
+      body.gtm_json_base64 = this.gtmJsonB64;
+    }
+
+    const result = await this._submitWizard('gtm', body, 'gtmAlert');
+    if (result?.wizard_data) {
+      const d = result.wizard_data;
+      if (d.tag_count !== undefined) {
+        let html = `<div class="result-card"><h3>Gap Analysis</h3>`;
+        html += `<div class="metric"><span>Tags</span><span class="value">${d.tag_count}</span></div>`;
+        html += `<div class="metric"><span>Triggers</span><span class="value">${d.trigger_count}</span></div>`;
+        html += `<div class="metric"><span>Variables</span><span class="value">${d.variable_count}</span></div>`;
+        const gap = d.gap_analysis || {};
+        if (gap.missing_critical?.length)
+          html += `<div class="metric"><span>Critical mancanti</span><span class="value" style="color:var(--red)">${gap.missing_critical.join(', ')}</span></div>`;
+        html += `</div>`;
+        document.getElementById('gtmResult').innerHTML = html;
+      }
+    }
+  },
+
+  // ─── GADS ───────────────────────────────────────────────────────────────
+  async submitGads() {
+    await this._submitWizard('gads', {
+      summary: {
+        total: parseInt(document.getElementById('gads_total').value) || 0,
+        primary: parseInt(document.getElementById('gads_primary').value) || 0,
+        secondary: parseInt(document.getElementById('gads_secondary').value) || 0,
+      },
+      enhanced_conversions_status: this._radioVal('gads_ec'),
+      consent_mode_status: this._radioVal('gads_cm'),
+      attribution_model: this._radioVal('gads_attr'),
+      conversions_active: this._radioVal('gads_active'),
+      ga4_match: this._radioVal('gads_ga4'),
+      anomalies_detected: document.getElementById('gads_anomalies').value,
+    }, 'gadsAlert');
+  },
+
+  // ─── META ───────────────────────────────────────────────────────────────
+  _buildMetaEvents() {
+    const bt = this.businessProfile?.business_type || 'ecommerce';
+    const ecom = ['PageView','ViewContent','AddToCart','InitiateCheckout','AddPaymentInfo','Purchase'];
+    const lead = ['PageView','Lead','Contact','CompleteRegistration','SubmitApplication'];
+    let events = bt === 'lead_gen' ? lead : bt === 'both' ? [...new Set([...ecom,...lead])] : ecom;
+    const grid = document.getElementById('metaEvents');
+    grid.innerHTML = events.map(ev => `
+      <span class="event-name">${ev}</span>
+      <select data-event="${ev}">
+        <option value="ok">Funziona</option>
+        <option value="error">Errori</option>
+        <option value="missing">Manca</option>
+      </select>
+    `).join('');
+  },
+
+  async submitMeta() {
+    const pixelId = document.getElementById('meta_pixel').value.trim();
+    if (!pixelId || !/^\d{10,20}$/.test(pixelId)) return this._showAlert('metaAlert', 'Pixel ID: 10-20 cifre', 'error');
+    const emq = parseFloat(document.getElementById('meta_emq').value);
+    if (isNaN(emq) || emq < 0 || emq > 10) return this._showAlert('metaAlert', 'EMQ: 0-10', 'error');
+
+    const events = {};
+    document.querySelectorAll('#metaEvents select').forEach(sel => { events[sel.dataset.event] = sel.value; });
+
+    await this._submitWizard('meta', {
+      pixel_id: pixelId,
+      capi_status: this._radioVal('meta_capi'),
+      emq_score: emq,
+      events,
+      attribution_window: this._radioVal('meta_attr'),
+      anomalies_detected: document.getElementById('meta_anomalies').value,
+    }, 'metaAlert');
+  },
+
+  // ─── GSC ────────────────────────────────────────────────────────────────
+  async submitGsc() {
+    const body = {
+      sitemap_status: this._radioVal('gsc_sitemap'),
+      pages_indexed: parseInt(document.getElementById('gsc_indexed').value) || 0,
+      pages_submitted: parseInt(document.getElementById('gsc_submitted').value) || 0,
+      indexing_issues: this._checkboxVals('gsc_issues'),
+      anomalies_detected: document.getElementById('gsc_anomalies').value,
+    };
+    if (this.gscPerfB64) body.performance_csv_base64 = this.gscPerfB64;
+
+    await this._submitWizard('gsc', body, 'gscAlert');
+  },
+
+  // ─── RUN PIPELINE ──────────────────────────────────────────────────────
+  async runPipeline() {
+    document.getElementById('runNotStarted').style.display = 'none';
+    document.getElementById('progressContainer').style.display = 'block';
+    document.getElementById('runResult').style.display = 'none';
+    document.getElementById('runError').style.display = 'none';
+    document.getElementById('runSubtitle').textContent = 'Pipeline in esecuzione...';
+
+    // Start pipeline
+    await this._post('/api/deep/run', { session_id: this.sessionId });
+
+    // Connect SSE
+    const evtSource = new EventSource(`/api/deep/status?session_id=${this.sessionId}`);
+    const phaseOrder = ['trust_score','l2_analysis','synthesis','report'];
+    let lastPhase = '';
+
+    evtSource.addEventListener('phase', (e) => {
+      const d = JSON.parse(e.data);
+      const pct = (d.progress / d.total) * 100;
+      document.getElementById('progressBar').style.width = pct + '%';
+
+      // Update phase indicators
+      if (d.phase !== lastPhase) {
+        if (lastPhase) {
+          const prev = document.querySelector(`.progress-phase[data-phase="${lastPhase}"]`);
+          if (prev) { prev.classList.remove('active'); prev.classList.add('done'); prev.querySelector('.phase-icon').textContent = '\u2713'; }
+        }
+        const cur = document.querySelector(`.progress-phase[data-phase="${d.phase}"]`);
+        if (cur) { cur.classList.add('active'); cur.querySelector('.phase-icon').textContent = '\u25CF'; }
+        lastPhase = d.phase;
+      }
+
+      // Update detail text
+      const cur = document.querySelector(`.progress-phase[data-phase="${d.phase}"]`);
+      if (cur && d.detail) cur.innerHTML = `<span class="phase-icon">${cur.querySelector('.phase-icon').textContent}</span> ${d.detail}`;
+    });
+
+    evtSource.addEventListener('complete', (e) => {
+      evtSource.close();
+      const d = JSON.parse(e.data);
+      document.getElementById('progressBar').style.width = '100%';
+      document.getElementById('runSubtitle').textContent = 'Audit completato!';
+      document.getElementById('runResult').style.display = 'block';
+      document.getElementById('runResultMsg').textContent = `Trust Score: ${d.trust_score}/100 (${d.grade})`;
+      if (d.report_url) {
+        document.getElementById('btnOpenReport').href = d.report_url;
+      }
+      // Mark all phases done
+      document.querySelectorAll('.progress-phase').forEach(el => {
+        el.classList.remove('active'); el.classList.add('done');
+        el.querySelector('.phase-icon').textContent = '\u2713';
+      });
+      this._markDone('run');
+    });
+
+    evtSource.addEventListener('error', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        document.getElementById('runError').style.display = 'block';
+        document.getElementById('runErrorMsg').textContent = d.message || 'Pipeline error';
+      } catch {
+        // SSE connection error
+      }
+      evtSource.close();
+    });
+  },
+
+  // ─── Evidence Upload ────────────────────────────────────────────────────
+  async uploadEvidence(wizardName, files) {
+    if (!this.sessionId || !files.length) return;
+    const formData = new FormData();
+    formData.append('wizard_name', wizardName);
+    for (const f of files) formData.append('files[]', f);
+    await fetch('/api/deep/evidence', { method: 'POST', body: formData });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Event Bindings
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Sidebar navigation
+  document.querySelectorAll('.step-item').forEach(el => {
+    el.addEventListener('click', () => W.goTo(el.dataset.step));
+  });
+
+  // Button bindings
+  document.getElementById('btnStart').addEventListener('click', () => W.start());
+  document.getElementById('btnIubenda').addEventListener('click', () => W.submitIubenda());
+  document.getElementById('btnGtm').addEventListener('click', () => W.submitGtm());
+  document.getElementById('btnGads').addEventListener('click', () => W.submitGads());
+  document.getElementById('btnMeta').addEventListener('click', () => W.submitMeta());
+  document.getElementById('btnGsc').addEventListener('click', () => W.submitGsc());
+  document.getElementById('btnRun').addEventListener('click', () => W.runPipeline());
+
+  // GTM file drop + client-side preview (2.9)
+  const gtmInput = document.getElementById('gtmFileInput');
+  const gtmDrop = document.getElementById('gtmDropZone');
+
+  function handleGtmFile(file) {
+    document.getElementById('gtmFileName').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      W.gtmJsonB64 = btoa(unescape(encodeURIComponent(text)));
+      // Client-side preview
+      try {
+        const data = JSON.parse(text);
+        const cv = data.containerVersion || (data.exportContainers?.[0]?.containerVersion) || {};
+        const tags = cv.tag?.length || 0;
+        const triggers = cv.trigger?.length || 0;
+        const vars = (cv.variable?.length || 0) + (cv.builtInVariable?.length || 0);
+        const name = cv.container?.name || cv.containerId || '';
+        const preview = document.getElementById('gtmPreview');
+        preview.style.display = 'block';
+        preview.innerHTML = `
+          <span class="stat"><span class="n">${tags}</span> Tags</span>
+          <span class="stat"><span class="n">${triggers}</span> Triggers</span>
+          <span class="stat"><span class="n">${vars}</span> Variables</span>
+          ${name ? `<br><span style="color:var(--text2);margin-top:4px;display:inline-block">Container: ${name}</span>` : ''}
+        `;
+      } catch { document.getElementById('gtmPreview').style.display = 'none'; }
+    };
+    reader.readAsText(file);
+  }
+  gtmInput.addEventListener('change', (e) => { if (e.target.files[0]) handleGtmFile(e.target.files[0]); });
+  gtmDrop.addEventListener('dragover', (e) => { e.preventDefault(); gtmDrop.classList.add('dragover'); });
+  gtmDrop.addEventListener('dragleave', () => gtmDrop.classList.remove('dragover'));
+  gtmDrop.addEventListener('drop', (e) => { e.preventDefault(); gtmDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleGtmFile(e.dataTransfer.files[0]); });
+
+  // GSC Performance CSV
+  const gscInput = document.getElementById('gscPerfFile');
+  const gscDrop = document.getElementById('gscPerfDrop');
+  function handleGscFile(file) {
+    document.getElementById('gscPerfName').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => { W.gscPerfB64 = btoa(unescape(encodeURIComponent(e.target.result))); };
+    reader.readAsText(file);
+  }
+  gscInput.addEventListener('change', (e) => { if (e.target.files[0]) handleGscFile(e.target.files[0]); });
+  gscDrop.addEventListener('dragover', (e) => { e.preventDefault(); gscDrop.classList.add('dragover'); });
+  gscDrop.addEventListener('dragleave', () => gscDrop.classList.remove('dragover'));
+  gscDrop.addEventListener('drop', (e) => { e.preventDefault(); gscDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleGscFile(e.dataTransfer.files[0]); });
+
+  // Evidence drop zones (2.7)
+  document.querySelectorAll('.drop-zone[data-wizard]').forEach(zone => {
+    const wizardName = zone.dataset.wizard;
+    const input = zone.querySelector('input[type="file"]');
+    const filesDiv = zone.querySelector('.files');
+
+    function handleFiles(files) {
+      const names = [...files].map(f => f.name).join(', ');
+      filesDiv.textContent = names;
+      W.uploadEvidence(wizardName, files);
+    }
+    input.addEventListener('change', (e) => handleFiles(e.target.files));
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+  });
+});
+</script>
+</body>
+</html>
