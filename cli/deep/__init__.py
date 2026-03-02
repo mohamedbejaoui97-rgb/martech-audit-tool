@@ -208,7 +208,7 @@ def run_deep_mode(url, args):
                 from concurrent.futures import ThreadPoolExecutor, as_completed
                 run_analysis = cli_audit.run_analysis
 
-                with ThreadPoolExecutor(max_workers=2) as executor:
+                with ThreadPoolExecutor(max_workers=5) as executor:
                     futures = {
                         executor.submit(run_analysis, atype, url, api_key, google_key,
                                         homepage_html, extra_htmls, discovery_block): atype
