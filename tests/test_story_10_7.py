@@ -161,21 +161,18 @@ REALISTIC_WIZARD_BLOCK = {
     "gap_to_revenue": {
         "issues": [
             {"platform": "GTM", "issue": "Conversion Linker mancante", "severity": "critical",
-             "impact_min": 3000, "impact_max": 7000, "is_leverage_node": True,
+             "impact_label": "Impatto critico su conversioni e revenue", "is_leverage_node": True,
              "affects": ["Google Ads", "Meta"]},
             {"platform": "Google Ads", "issue": "Enhanced Conversions non configurate", "severity": "high",
-             "impact_min": 1500, "impact_max": 3500, "is_leverage_node": False, "affects": []},
+             "impact_label": "Impatto alto su tracking e ottimizzazione", "is_leverage_node": False, "affects": []},
             {"platform": "Meta", "issue": "CAPI mancante, EMQ 4/10", "severity": "high",
-             "impact_min": 1200, "impact_max": 2800, "is_leverage_node": False, "affects": []},
+             "impact_label": "Impatto alto su tracking e ottimizzazione", "is_leverage_node": False, "affects": []},
             {"platform": "Iubenda", "issue": "CM v2 Basic con 38% rejection", "severity": "high",
-             "impact_min": 2000, "impact_max": 5000, "is_leverage_node": True,
+             "impact_label": "Impatto alto su tracking e ottimizzazione", "is_leverage_node": True,
              "affects": ["Google Ads", "Meta", "GA4"]},
             {"platform": "GSC", "issue": "35% pagine non indicizzate", "severity": "medium",
-             "impact_min": 500, "impact_max": 1500, "is_leverage_node": False, "affects": []},
+             "impact_label": "Impatto moderato su qualità dati", "is_leverage_node": False, "affects": []},
         ],
-        "total_impact_min": 8200,
-        "total_impact_max": 19800,
-        "total_impact_label": "€8,200–€19,800/mese",
         "leverage_nodes": [
             {"issue": "Conversion Linker mancante", "affects": ["Google Ads", "Meta"]},
             {"issue": "CM v2 Basic con 38% rejection", "affects": ["Google Ads", "Meta", "GA4"]},
@@ -278,7 +275,7 @@ MOCK_SECTION_RESPONSES = {
         "Consent Health a 35/100 causa effetto cascata su tutte le piattaforme."
     ),
     "gap_roadmap": _make_mock_response(
-        "## GAP-TO-REVENUE E ROADMAP\nImpatto stimato: €8,200-€19,800/mese.\n"
+        "## GAP-TO-REVENUE E ROADMAP\n5 problemi identificati, 2 nodi di leva.\n"
         "- Settimana 1-2: Aggiungere Conversion Linker\n"
         "- Settimana 2-3: Upgrade CM v2 ad Advanced\n"
         "- Mese 2: Implementare Meta CAPI\n"
@@ -657,7 +654,7 @@ class TestE2EReportGeneration(unittest.TestCase):
             self.assertIn("sev-critical", content)
             self.assertIn("sev-high", content)
             self.assertIn("TOTALE", content)
-            self.assertIn("€8,200", content)
+            self.assertIn("problemi", content)
         finally:
             mod.OUTPUT_DIR = orig
 
@@ -1011,12 +1008,12 @@ class TestE2EReportComponents(unittest.TestCase):
         self.assertIn(">40<", svg)
         self.assertIn(">30<", svg)
 
-    def test_gap_table_sorted_by_impact(self):
+    def test_gap_table_sorted_by_severity(self):
         html = _build_gap_table(REALISTIC_WIZARD_BLOCK["gap_to_revenue"])
-        # First row should be highest impact (Conversion Linker: 7000 max)
+        # First row should be highest severity (Conversion Linker: critical)
         linker_pos = html.find("Conversion Linker")
-        emq_pos = html.find("EMQ")
-        self.assertGreater(emq_pos, linker_pos, "Issues should be sorted by impact_max descending")
+        gsc_pos = html.find("non indicizzate")
+        self.assertGreater(gsc_pos, linker_pos, "Issues should be sorted by severity descending")
 
     def test_gap_table_leverage_nodes(self):
         html = _build_gap_table(REALISTIC_WIZARD_BLOCK["gap_to_revenue"])

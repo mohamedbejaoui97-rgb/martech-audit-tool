@@ -1,7 +1,7 @@
 """Measurement Trust Score — Cross-platform intelligence.
 
 Calculates a unified Trust Score (0-100) across all audited platforms,
-plus Gap-to-Revenue estimates in €/mese.
+plus Gap-to-Revenue qualitative impact analysis.
 FRs: FR45, FR46, FR47, FR48, FR49, FR50.
 NFR: NFR3.
 """
@@ -37,12 +37,12 @@ GRADE_THRESHOLDS = [
     (90, "A"), (75, "B"), (60, "C"), (40, "D"),
 ]
 
-# Gap-to-Revenue base estimates €/mese by issue severity
-REVENUE_IMPACT = {
-    "critical": (2000, 5000),
-    "high":     (800, 2000),
-    "medium":   (300, 800),
-    "low":      (50, 300),
+# Gap-to-Revenue qualitative impact labels by severity
+IMPACT_LABELS = {
+    "critical": "Impatto critico su conversioni e revenue",
+    "high":     "Impatto alto su tracking e ottimizzazione",
+    "medium":   "Impatto moderato su qualità dati",
+    "low":      "Impatto limitato, ottimizzazione consigliata",
 }
 
 
@@ -391,30 +391,21 @@ def _collect_issues(deep_wizard_block):
 
 
 def calculate_gap_to_revenue(deep_wizard_block):
-    """Estimate revenue impact in €/mese for each identified problem (FR47).
+    """Identify problems and their qualitative impact on conversions (FR47).
 
     Returns:
-        dict with issues (list), total_impact_range, leverage_nodes
+        dict with issues (list), leverage_nodes — no monetary values.
     """
     issues = _collect_issues(deep_wizard_block)
 
-    total_min = 0
-    total_max = 0
     for issue in issues:
         sev = issue["severity"]
-        min_val, max_val = REVENUE_IMPACT.get(sev, (0, 0))
-        issue["impact_min"] = min_val
-        issue["impact_max"] = max_val
-        total_min += min_val
-        total_max += max_val
+        issue["impact_label"] = IMPACT_LABELS.get(sev, "Impatto da valutare")
 
     leverage_nodes = [i for i in issues if i.get("is_leverage_node")]
 
     return {
         "issues": issues,
-        "total_impact_min": total_min,
-        "total_impact_max": total_max,
-        "total_impact_label": f"€{total_min:,.0f}–€{total_max:,.0f}/mese",
         "leverage_nodes": leverage_nodes,
     }
 

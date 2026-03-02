@@ -156,10 +156,14 @@ def _format_wizard_summary(key, data):
     return " | ".join(parts)
 
 
-def _format_wizard_full(data):
+MAX_WIZARD_FULL_CHARS = 8000
+
+
+def _format_wizard_full(data, max_chars=MAX_WIZARD_FULL_CHARS):
     """Structured text for wizard data (for dedicated platform section).
 
     Converts JSON to readable key: value lines. ~40% fewer tokens than json.dumps(indent=2).
+    Capped at max_chars to prevent token overflow.
     """
     if not data:
         return "(nessun dato)"
@@ -172,14 +176,19 @@ def _format_wizard_full(data):
             lines.append(f"\n  [{k}]")
             for k2, v2 in v.items():
                 if isinstance(v2, (dict, list)):
-                    lines.append(f"    {k2}: {json.dumps(v2, ensure_ascii=False)}")
+                    raw = json.dumps(v2, ensure_ascii=False)
+                    lines.append(f"    {k2}: {raw[:500]}")
                 else:
-                    lines.append(f"    {k2}: {v2}")
+                    lines.append(f"    {k2}: {str(v2)[:300]}")
         elif isinstance(v, list):
-            lines.append(f"  {k}: {json.dumps(v, ensure_ascii=False)}")
+            raw = json.dumps(v, ensure_ascii=False)
+            lines.append(f"  {k}: {raw[:1000]}")
         else:
-            lines.append(f"  {k}: {v}")
-    return "\n".join(lines)
+            lines.append(f"  {k}: {str(v)[:300]}")
+    result = "\n".join(lines)
+    if len(result) > max_chars:
+        result = result[:max_chars] + f"\n  ... [troncato a {max_chars} caratteri]"
+    return result
 
 
 def _format_l2_result(result):
@@ -223,6 +232,12 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
             parts.append("=== BUSINESS PROFILE ===")
             parts.append(_format_wizard_full(bp))
 
+        elif key == "business_profile_summary":
+            parts.append("=== BUSINESS PROFILE (Summary) ===")
+            parts.append(f"  domain: {bp.get('domain', '?')}")
+            parts.append(f"  business_type: {bp.get('business_type', '?')}")
+            parts.append(f"  platforms: {', '.join(bp.get('platforms', []))}")
+
         elif key == "trust_score_summary":
             ts = trust_result or {}
             parts.append("=== TRUST SCORE (Summary) ===")
@@ -238,9 +253,10 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
         elif key == "gap_to_revenue_summary":
             gr = deep_wizard_block.get("gap_to_revenue", {})
             parts.append("=== GAP-TO-REVENUE (Summary) ===")
-            parts.append(f"Impatto totale: {gr.get('total_impact_label', 'N/A')}")
-            for gap in gr.get("gaps", [])[:5]:
-                parts.append(f"  - {gap.get('platform','?')}: {gap.get('description','?')} [{gap.get('severity','?')}] {gap.get('impact_label','')}")
+            issues = gr.get("issues", [])
+            parts.append(f"Problemi identificati: {len(issues)}, Nodi di leva: {len(gr.get('leverage_nodes', []))}")
+            for gap in issues[:5]:
+                parts.append(f"  - {gap.get('platform','?')}: {gap.get('issue','?')} [{gap.get('severity','?')}] {gap.get('impact_label','')}")
 
         elif key == "gap_to_revenue":
             parts.append("=== GAP-TO-REVENUE (Full) ===")
@@ -468,9 +484,18 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
     """
     print("\n  🧠 Avvio sintesi sezionale (Act 3 — ADR-6)...")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY", "")
     if not api_key:
-        print("  ⚠ ANTHROPIC_API_KEY non configurata — sintesi saltata")
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "credentials", ".env")
+        if os.path.exists(env_path):
+            with open(env_path) as _ef:
+                for _line in _ef:
+                    _line = _line.strip()
+                    if _line.startswith("CLAUDE_API_KEY=") or _line.startswith("ANTHROPIC_API_KEY="):
+                        api_key = _line.split("=", 1)[1].strip()
+                        break
+    if not api_key:
+        print("  ⚠ API key non trovata (ANTHROPIC_API_KEY / CLAUDE_API_KEY) — sintesi saltata")
         return _fallback_result("API key mancante")
 
     sections_cfg = _load_sections_config()

@@ -68,13 +68,10 @@ SAMPLE_WIZARD_BLOCK = {
     "gap_to_revenue": {
         "issues": [
             {"platform": "GTM", "issue": "Conversion Linker mancante", "severity": "critical",
-             "impact_min": 2000, "impact_max": 5000, "is_leverage_node": True, "affects": ["Google Ads", "Meta"]},
+             "impact_label": "Impatto critico su conversioni e revenue", "is_leverage_node": True, "affects": ["Google Ads", "Meta"]},
             {"platform": "Meta", "issue": "EMQ basso", "severity": "high",
-             "impact_min": 800, "impact_max": 2000, "is_leverage_node": False, "affects": []},
+             "impact_label": "Impatto alto su tracking e ottimizzazione", "is_leverage_node": False, "affects": []},
         ],
-        "total_impact_min": 2800,
-        "total_impact_max": 7000,
-        "total_impact_label": "€2,800–€7,000/mese",
         "leverage_nodes": [
             {"issue": "Conversion Linker mancante", "affects": ["Google Ads", "Meta"]},
         ],
@@ -94,7 +91,7 @@ Il 42% di rifiuto cookie con CM v2 Basic causa perdite significative.
 Ogni pilastro mostra aree di miglioramento.
 
 ## 4. GAP-TO-REVENUE
-I problemi identificati generano un impatto stimato di €2,800-7,000/mese.
+2 problemi identificati, 1 nodo di leva. Impatto qualitativo su conversioni e tracking.
 
 ## 5. PRIORITY ROADMAP
 - Settimana 1-2: Aggiungere Conversion Linker

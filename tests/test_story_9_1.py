@@ -69,7 +69,7 @@ SAMPLE_WIZARD_BLOCK = {
         "pages_submitted": 200,
     },
     "trust_score": {"score": 62, "grade": "C"},
-    "gap_to_revenue": {"total_impact_label": "€2,200-€5,600/mese", "gaps": []},
+    "gap_to_revenue": {"issues": [], "leverage_nodes": []},
     "consent_impact_chain": {"steps": ["consent", "tracking", "bidding"]},
     "leverage_nodes": [],
     "attribution_comparison": {},

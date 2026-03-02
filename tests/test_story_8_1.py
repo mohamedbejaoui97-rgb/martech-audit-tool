@@ -261,30 +261,31 @@ class TestGapToRevenue(unittest.TestCase):
     def test_bad_setup_has_issues(self):
         result = calculate_gap_to_revenue(FULL_BAD)
         self.assertGreater(len(result["issues"]), 0)
-        self.assertGreater(result["total_impact_min"], 0)
-        self.assertGreater(result["total_impact_max"], result["total_impact_min"])
 
     def test_good_setup_fewer_issues(self):
         result_good = calculate_gap_to_revenue(FULL_GOOD)
         result_bad = calculate_gap_to_revenue(FULL_BAD)
         self.assertLess(len(result_good["issues"]), len(result_bad["issues"]))
 
-    def test_each_issue_has_impact(self):
+    def test_each_issue_has_impact_label(self):
         result = calculate_gap_to_revenue(FULL_BAD)
         for issue in result["issues"]:
-            self.assertIn("impact_min", issue)
-            self.assertIn("impact_max", issue)
-            self.assertGreater(issue["impact_max"], 0)
+            self.assertIn("impact_label", issue)
+            self.assertIsInstance(issue["impact_label"], str)
+            self.assertGreater(len(issue["impact_label"]), 0)
 
-    def test_total_label_format(self):
+    def test_no_euro_values(self):
         result = calculate_gap_to_revenue(FULL_BAD)
-        self.assertIn("€", result["total_impact_label"])
-        self.assertIn("/mese", result["total_impact_label"])
+        self.assertNotIn("total_impact_label", result)
+        self.assertNotIn("total_impact_min", result)
+        self.assertNotIn("total_impact_max", result)
+        for issue in result["issues"]:
+            self.assertNotIn("impact_min", issue)
+            self.assertNotIn("impact_max", issue)
 
     def test_empty_data(self):
         result = calculate_gap_to_revenue({})
         self.assertEqual(result["issues"], [])
-        self.assertEqual(result["total_impact_min"], 0)
 
 
 # ─── Consent Impact Chain Tests (FR48) ────────────────────────────────────

@@ -860,7 +860,7 @@ _FALLBACK_OSMANI_BASE = """You are a senior web quality auditor trained on Googl
 For EVERY finding, use this exact format:
 **FINDING [SEVERITY]:** Title
 - Problema: detailed description of the current state
-- Impatto: quantified business impact (e.g., -20% CTR, +0.5s LCP, €X lost revenue, legal risk)
+- Impatto: qualitative business impact (e.g., degraded tracking, lost conversions, legal risk, reduced data quality)
 - Fix: specific actionable recommendation with code snippets where applicable, and expected result after fix
 
 Severity levels: CRITICO (immediate fix, revenue/legal impact), ALTO (fix within 1 month, significant impact), MEDIO (fix within 3 months), BASSO (nice to have).

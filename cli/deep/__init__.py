@@ -96,9 +96,23 @@ def run_deep_mode(url, args):
         cli_audit = importlib.import_module("cli-audit")
         auto_discover = cli_audit.auto_discover
 
-        # ── L0 Discovery ──
+        # ── L0 Discovery + SquirrelScan ──
         domain = url.replace('https://', '').replace('http://', '').rstrip('/')
         discovery_block, homepage_html, resp_headers, extra_htmls = auto_discover(domain, [], use_render=False)
+
+        # SquirrelScan — merge crawl data into discovery
+        if getattr(cli_audit, 'SQUIRREL_BIN', None):
+            print("  🐿️ SquirrelScan in avvio...")
+            try:
+                from concurrent.futures import ThreadPoolExecutor as _SqTPE
+                with _SqTPE(max_workers=1) as _sq_exec:
+                    _sq_future = _sq_exec.submit(cli_audit.run_squirrelscan, domain, 100)
+                    _scan_data = _sq_future.result(timeout=310)
+                if _scan_data and hasattr(cli_audit, 'squirrelscan_to_discovery'):
+                    cli_audit.squirrelscan_to_discovery(_scan_data, discovery_block)
+                    print("  ✓ SquirrelScan completato e integrato")
+            except Exception as _e:
+                print(f"  ⚠ SquirrelScan: {_e}")
 
         # ── Run Wizards (Progressive Disclosure — FR4) ──
         wizard_count = sum(1 for p, _, _ in WIZARD_SEQUENCE if p in business_profile.get("platforms", []))
@@ -153,24 +167,45 @@ def run_deep_mode(url, args):
 
         print(f"\n  ✅ Trust Score: {trust_result.get('score', 0)}/100 "
               f"({trust_result.get('grade', 'N/A')}) — {trust_result.get('coverage_label', '')}")
-        if gap_revenue.get("total_impact_label"):
-            print(f"  ℹ Gap-to-Revenue: {gap_revenue['total_impact_label']}")
+        n_issues = len(gap_revenue.get("issues", []))
+        n_leverage = len(gap_revenue.get("leverage_nodes", []))
+        if n_issues:
+            print(f"  ℹ Gap-to-Revenue: {n_issues} problemi identificati, {n_leverage} nodi di leva")
 
         # ── Act 2: L2 AI Analyses (existing, from cli-audit.py) ──
         l2_results = {}
         try:
-            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY", "")
+            if not api_key:
+                env_path = os.path.join(TOOL_DIR, "credentials", ".env")
+                if os.path.exists(env_path):
+                    with open(env_path) as _ef:
+                        for _line in _ef:
+                            _line = _line.strip()
+                            if _line.startswith("CLAUDE_API_KEY=") or _line.startswith("ANTHROPIC_API_KEY="):
+                                api_key = _line.split("=", 1)[1].strip()
+                                break
+            google_key = os.environ.get("GOOGLE_API_KEY", "")
+            if not google_key:
+                env_path = os.path.join(TOOL_DIR, "credentials", ".env")
+                if os.path.exists(env_path):
+                    with open(env_path) as _ef:
+                        for _line in _ef:
+                            _line = _line.strip()
+                            if _line.startswith("GOOGLE_API_KEY="):
+                                google_key = _line.split("=", 1)[1].strip()
+                                break
+
             if api_key:
                 # ADR-6: Deep mode drops security + accessibility (no wizard data to enrich)
                 analysis_types = ['performance', 'cwv', 'seo', 'seo_deep',
                                   'robots', 'sitemap', 'datalayer', 'cro', 'advertising']
-                google_key = os.environ.get("GOOGLE_API_KEY", "")
                 homepage_html = extra_htmls.get("homepage", "") if isinstance(extra_htmls, dict) else ""
 
                 print(f"\n  🚀 Avvio {len(analysis_types)} analisi L2 in parallelo...")
                 l2_start = time.time()
 
-                from concurrent.futures import ThreadPoolExecutor
+                from concurrent.futures import ThreadPoolExecutor, as_completed
                 run_analysis = cli_audit.run_analysis
 
                 with ThreadPoolExecutor(max_workers=3) as executor:
@@ -179,17 +214,20 @@ def run_deep_mode(url, args):
                                         homepage_html, extra_htmls, discovery_block): atype
                         for atype in analysis_types
                     }
-                    for future in futures:
+                    for future in as_completed(futures, timeout=200):
+                        atype_key = futures[future]
                         try:
-                            atype, result = future.result(timeout=180)
-                            l2_results[atype] = result
+                            _atype, result = future.result(timeout=10)
+                            l2_results[_atype] = result
+                            print(f"    ✓ {_atype}")
                         except Exception as e:
-                            l2_results[futures[future]] = f"Errore: {e}"
+                            l2_results[atype_key] = f"Errore: {e}"
+                            print(f"    ⚠ {atype_key}: {e}")
 
                 l2_elapsed = time.time() - l2_start
                 print(f"  ✓ {len(l2_results)} analisi L2 completate in {l2_elapsed:.1f}s")
             else:
-                print("  ⚠ ANTHROPIC_API_KEY non configurata — analisi L2 saltate")
+                print("  ⚠ API key non trovata (ANTHROPIC_API_KEY / CLAUDE_API_KEY) — analisi L2 saltate")
         except Exception as e:
             print(f"  ⚠ Errore analisi L2: {e}")
 
