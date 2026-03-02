@@ -804,7 +804,7 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         platform_html = _md_to_html(platform_analysis_text)
     # Fallback to wizard data only (no L2 raw) when synthesis sections are empty
     if not platform_html:
-        platform_fallback = _build_platform_fallback(deep_wizard_block, None)
+        platform_fallback = _build_platform_fallback(deep_wizard_block, l2_results)
         if platform_fallback:
             platform_html = platform_fallback
 
