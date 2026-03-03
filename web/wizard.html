@@ -482,12 +482,22 @@ select { cursor:pointer; }
       </div>
 
       <div class="form-group">
-        <label>CSV Rendimento (opzionale)</label>
+        <label>CSV Rendimento (Query, Pages, Countries, Devices)</label>
         <div class="drop-zone" id="gscPerfDrop">
           <div class="icon">CSV</div>
-          <div class="label">Trascina CSV export Rendimento</div>
-          <input type="file" accept=".csv,text/csv" id="gscPerfFile">
+          <div class="label">Trascina uno o più CSV export Rendimento</div>
+          <input type="file" accept=".csv,text/csv" id="gscPerfFile" multiple>
           <div class="files" id="gscPerfName"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>CSV Copertura (opzionale)</label>
+        <div class="drop-zone" id="gscCoverageDrop">
+          <div class="icon">CSV</div>
+          <div class="label">Trascina CSV export Copertura</div>
+          <input type="file" accept=".csv,text/csv" id="gscCoverageFile">
+          <div class="files" id="gscCoverageName"></div>
         </div>
       </div>
 
@@ -807,7 +817,13 @@ const W = {
       indexing_issues: this._checkboxVals('gsc_issues'),
       anomalies_detected: document.getElementById('gsc_anomalies').value,
     };
-    if (this.gscPerfB64) body.performance_csv_base64 = this.gscPerfB64;
+    if (Object.keys(this.gscPerfFiles).length) {
+      body.performance_csvs_base64 = this.gscPerfFiles;
+      // Backward compat: single file fallback
+      const keys = Object.keys(this.gscPerfFiles);
+      if (keys.length === 1) body.performance_csv_base64 = this.gscPerfFiles[keys[0]];
+    }
+    if (this.gscCoverageB64) body.coverage_csv_base64 = this.gscCoverageB64;
 
     await this._submitWizard('gsc', body, 'gscAlert');
   },
@@ -943,19 +959,42 @@ document.addEventListener('DOMContentLoaded', () => {
   gtmDrop.addEventListener('dragleave', () => gtmDrop.classList.remove('dragover'));
   gtmDrop.addEventListener('drop', (e) => { e.preventDefault(); gtmDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleGtmFile(e.dataTransfer.files[0]); });
 
-  // GSC Performance CSV
+  // GSC Performance CSVs (multi-file)
+  W.gscPerfFiles = {};
   const gscInput = document.getElementById('gscPerfFile');
   const gscDrop = document.getElementById('gscPerfDrop');
-  function handleGscFile(file) {
-    document.getElementById('gscPerfName').textContent = file.name;
-    const reader = new FileReader();
-    reader.onload = (e) => { W.gscPerfB64 = btoa(unescape(encodeURIComponent(e.target.result))); };
-    reader.readAsText(file);
+  function handleGscFiles(files) {
+    const nameList = [];
+    for (const file of files) {
+      nameList.push(file.name);
+      const reader = new FileReader();
+      const fname = file.name;
+      reader.onload = (e) => {
+        W.gscPerfFiles[fname] = btoa(unescape(encodeURIComponent(e.target.result)));
+      };
+      reader.readAsText(file);
+    }
+    document.getElementById('gscPerfName').textContent = nameList.join(', ');
   }
-  gscInput.addEventListener('change', (e) => { if (e.target.files[0]) handleGscFile(e.target.files[0]); });
+  gscInput.addEventListener('change', (e) => { if (e.target.files.length) handleGscFiles(e.target.files); });
   gscDrop.addEventListener('dragover', (e) => { e.preventDefault(); gscDrop.classList.add('dragover'); });
   gscDrop.addEventListener('dragleave', () => gscDrop.classList.remove('dragover'));
-  gscDrop.addEventListener('drop', (e) => { e.preventDefault(); gscDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleGscFile(e.dataTransfer.files[0]); });
+  gscDrop.addEventListener('drop', (e) => { e.preventDefault(); gscDrop.classList.remove('dragover'); if (e.dataTransfer.files.length) handleGscFiles(e.dataTransfer.files); });
+
+  // GSC Coverage CSV
+  W.gscCoverageB64 = '';
+  const gscCovInput = document.getElementById('gscCoverageFile');
+  const gscCovDrop = document.getElementById('gscCoverageDrop');
+  function handleGscCoverageFile(file) {
+    document.getElementById('gscCoverageName').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => { W.gscCoverageB64 = btoa(unescape(encodeURIComponent(e.target.result))); };
+    reader.readAsText(file);
+  }
+  gscCovInput.addEventListener('change', (e) => { if (e.target.files[0]) handleGscCoverageFile(e.target.files[0]); });
+  gscCovDrop.addEventListener('dragover', (e) => { e.preventDefault(); gscCovDrop.classList.add('dragover'); });
+  gscCovDrop.addEventListener('dragleave', () => gscCovDrop.classList.remove('dragover'));
+  gscCovDrop.addEventListener('drop', (e) => { e.preventDefault(); gscCovDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleGscCoverageFile(e.dataTransfer.files[0]); });
 
   // Evidence drop zones (2.7)
   document.querySelectorAll('.drop-zone[data-wizard]').forEach(zone => {

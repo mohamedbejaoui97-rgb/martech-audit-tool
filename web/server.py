@@ -240,32 +240,71 @@ def _handle_wizard_gsc(body, session):
     robots_data = fetch_robots_txt(url)
     data['robots_txt'] = robots_data
 
-    # Parse performance CSV if provided
+    # Parse performance CSVs — multi-file (ADR-7) or legacy single file
     perf_rows = []
     pages_rows = []
-    perf_b64 = data.pop('performance_csv_base64', '')
-    if perf_b64:
+    csvs_b64 = data.pop('performance_csvs_base64', {})
+    legacy_b64 = data.pop('performance_csv_base64', '')
+    if not csvs_b64 and legacy_b64:
+        csvs_b64 = {'performance.csv': legacy_b64}
+    for fname, b64val in csvs_b64.items():
         try:
-            content = base64.b64decode(perf_b64).decode('utf-8')
+            content = base64.b64decode(b64val).decode('utf-8')
             rows = parse_gsc_csv(content)
-            perf_rows.extend(rows)
+            if not rows:
+                continue
+            # Classify by headers: query column → perf, page column (no query) → pages
+            sample = rows[0]
+            has_query = any(k.lower() in ('query', 'top queries', 'queries') for k in sample.keys())
+            has_page = any(k.lower() in ('page', 'pages', 'url') for k in sample.keys())
+            if has_query:
+                perf_rows.extend(rows)
+            elif has_page:
+                pages_rows.extend(rows)
+            else:
+                perf_rows.extend(rows)  # countries/devices → treat as perf metadata
         except Exception:
             pass
 
-    # Parse coverage CSV if provided
+    # Build ADR-7 structured dicts
+    if perf_rows:
+        # Build summary dict matching synthesis expectations
+        total_clicks = sum(float(r.get('clicks', r.get('Clicks', r.get('Clic', 0))) or 0) for r in perf_rows)
+        total_imp = sum(float(r.get('impressions', r.get('Impressions', r.get('Impressioni', 0))) or 0) for r in perf_rows)
+        avg_ctr = f"{(total_clicks / total_imp * 100):.1f}%" if total_imp > 0 else "N/A"
+        positions = [float(r.get('position', r.get('Position', r.get('Posizione', 0))) or 0) for r in perf_rows if float(r.get('position', r.get('Position', r.get('Posizione', 0))) or 0) > 0]
+        avg_pos = f"{sum(positions) / len(positions):.1f}" if positions else "N/A"
+        data['csv_performance'] = {
+            'date_range': '',
+            'total_rows': len(perf_rows),
+            'rows': perf_rows[:200],
+            'summary': {
+                'total_clicks': int(total_clicks),
+                'total_impressions': int(total_imp),
+                'avg_ctr': avg_ctr,
+                'avg_position': avg_pos,
+            },
+        }
+    if pages_rows:
+        data['csv_pages'] = {
+            'total_rows': len(pages_rows),
+            'rows': pages_rows[:100],
+        }
+
+    # Parse coverage CSV (ADR-7)
     coverage_b64 = data.pop('coverage_csv_base64', '')
-    coverage_data = []
     if coverage_b64:
         try:
             from deep.wizard_gsc import parse_coverage_csv
             content = base64.b64decode(coverage_b64).decode('utf-8')
-            coverage_data.append(parse_coverage_csv('coverage.csv', content))
+            parsed = parse_coverage_csv('coverage.csv', content)
+            data['csv_coverage'] = parsed.get('rows', []) if isinstance(parsed, dict) else parsed
         except Exception:
             pass
 
-    data['coverage_data'] = coverage_data
-    data['_performance_row_count'] = len(perf_rows)
-    data['_pages_row_count'] = len(pages_rows)
+    # Map indexed/submitted to ADR-7 field names
+    data['gsc_pages_indexed'] = data.get('pages_indexed', 0)
+    data['gsc_pages_total_in_property'] = data.get('pages_submitted', 0)
 
     # Trend analysis
     all_rows = perf_rows + pages_rows
