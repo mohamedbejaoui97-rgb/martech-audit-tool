@@ -125,7 +125,8 @@ class TestConfigLoader(unittest.TestCase):
         config = _load_sections_config()
         expected = {"exec_summary", "trust_analysis", "gap_roadmap",
                     "platform_consent", "platform_gtm", "platform_gads",
-                    "platform_meta", "platform_seo", "technical_appendix"}
+                    "platform_meta", "platform_seo", "platform_cro",
+                    "technical_appendix"}
         self.assertEqual(set(config["sections"].keys()), expected)
 
     def test_each_section_has_required_fields(self):
@@ -332,15 +333,19 @@ class TestFallbackResult(unittest.TestCase):
 # ─── TEST: API KEY FROM ENV (NFR7) ─────────────────────────────────────────
 
 class TestApiKeyFromEnv(unittest.TestCase):
-    @patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}, clear=False)
+    @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "", "CLAUDE_API_KEY": ""}, clear=False)
     def test_missing_api_key_returns_fallback(self):
-        result = run_synthesis(SAMPLE_WIZARD_BLOCK, SAMPLE_DISCOVERY, SAMPLE_L2_RESULTS, SAMPLE_TRUST_RESULT)
+        _real_exists = os.path.exists
+        with patch('deep.synthesis.os.path.exists', side_effect=lambda p: False if 'credentials' in p else _real_exists(p)):
+            result = run_synthesis(SAMPLE_WIZARD_BLOCK, SAMPLE_DISCOVERY, SAMPLE_L2_RESULTS, SAMPLE_TRUST_RESULT)
         self.assertFalse(result["success"])
         self.assertIn("API key", result["error"])
 
-    @patch.dict(os.environ, {}, clear=True)
+    @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "", "CLAUDE_API_KEY": ""}, clear=False)
     def test_no_env_var_returns_fallback(self):
-        result = run_synthesis(SAMPLE_WIZARD_BLOCK, SAMPLE_DISCOVERY, SAMPLE_L2_RESULTS, SAMPLE_TRUST_RESULT)
+        _real_exists = os.path.exists
+        with patch('deep.synthesis.os.path.exists', side_effect=lambda p: False if 'credentials' in p else _real_exists(p)):
+            result = run_synthesis(SAMPLE_WIZARD_BLOCK, SAMPLE_DISCOVERY, SAMPLE_L2_RESULTS, SAMPLE_TRUST_RESULT)
         self.assertFalse(result["success"])
 
 
