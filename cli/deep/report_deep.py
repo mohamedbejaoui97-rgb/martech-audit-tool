@@ -59,10 +59,45 @@ def _italian_date():
 
 
 def _md_to_html(text):
-    """Minimal markdown → HTML conversion for synthesis output."""
+    """Minimal markdown → HTML conversion for synthesis output (ADR-10)."""
     if not text:
         return ""
-    t = _esc(text)
+
+    # ── Phase 0: Extract code blocks BEFORE escaping (ADR-10b) ──
+    code_blocks = []
+    def _stash_code(m):
+        lang = m.group(1) or ""
+        code = html.escape(m.group(2))
+        idx = len(code_blocks)
+        code_blocks.append(
+            f'<pre style="background:#f3f4f6;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px">'
+            f'<code class="lang-{lang}">{code}</code></pre>'
+        )
+        return f"\x00CODEBLOCK{idx}\x00"
+    t = re.sub(r'```(\w*)\n(.*?)```', _stash_code, text, flags=re.DOTALL)
+
+    # ── Phase 1: Extract markdown tables BEFORE escaping (ADR-10a) ──
+    table_blocks = []
+    def _stash_table(m):
+        lines = m.group(0).strip().split('\n')
+        rows_html = []
+        for i, line in enumerate(lines):
+            cells = [c.strip() for c in line.strip().strip('|').split('|')]
+            if i == 1 and all(set(c.strip()) <= set('-: ') for c in cells):
+                continue  # skip separator row
+            tag = 'th' if i == 0 else 'td'
+            row = ''.join(f'<{tag}>{html.escape(c)}</{tag}>' for c in cells)
+            rows_html.append(f'<tr>{row}</tr>')
+        idx = len(table_blocks)
+        table_blocks.append(
+            '<table class="md-table" style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">'
+            + '\n'.join(rows_html) + '</table>'
+        )
+        return f"\x00TABLE{idx}\x00"
+    t = re.sub(r'(?:^\|.+\|$\n?){2,}', _stash_table, t, flags=re.MULTILINE)
+
+    # ── Phase 2: Escape + convert inline markdown ──
+    t = _esc(t)
     # Headers
     t = re.sub(r'^#{4}\s+(.+)$', r'<h4>\1</h4>', t, flags=re.MULTILINE)
     t = re.sub(r'^#{3}\s+(.+)$', r'<h3>\1</h3>', t, flags=re.MULTILINE)
@@ -83,6 +118,13 @@ def _md_to_html(text):
     t = re.sub(r'(?<!</p>)\n(?!<)', '<br>\n', t)
     if not t.startswith('<'):
         t = '<p>' + t + '</p>'
+
+    # ── Phase 3: Restore stashed blocks ──
+    for i, block in enumerate(code_blocks):
+        t = t.replace(f"\x00CODEBLOCK{i}\x00", block)
+    for i, block in enumerate(table_blocks):
+        t = t.replace(f"\x00TABLE{i}\x00", block)
+
     return t
 
 

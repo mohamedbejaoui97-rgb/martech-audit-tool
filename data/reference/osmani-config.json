@@ -602,7 +602,12 @@
           "l2_new_findings",
           "schema_reading_kb",
           "l2_seo",
-          "l2_seo_deep"
+          "l2_seo_deep",
+          "squirrelscan_summary",
+          "discovery_headings",
+          "gsc_csv_performance",
+          "gsc_csv_pages",
+          "gsc_csv_coverage"
         ],
         "requires_platform": "gsc"
       },
@@ -615,7 +620,9 @@
           "l2_new_findings",
           "l2_performance",
           "l2_cwv",
-          "business_profile_summary"
+          "business_profile_summary",
+          "squirrelscan_summary",
+          "crux_field_data"
         ]
       },
       "technical_appendix": {

@@ -558,6 +558,83 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
                 parts.append("=== ROBOTS.TXT ===")
                 parts.append(rt["raw_content"][:4000])
 
+        elif key == "squirrelscan_summary":
+            ss = deep_wizard_block.get("_squirrelscan_summary", {})
+            if ss:
+                parts.append("=== SQUIRRELSCAN CRAWL RESULTS ===")
+                parts.append(f"Pages crawled: {ss.get('pages_crawled', 0)}")
+                parts.append(f"Total issues: {ss.get('total_issues', 0)}")
+                for cat, count in ss.get("by_category", {}).items():
+                    parts.append(f"  {cat}: {count} issues")
+                critical = ss.get("critical_issues", [])
+                if critical:
+                    parts.append("Critical/High issues:")
+                    for ci in critical:
+                        parts.append(f"  - [{ci.get('category','')}] {ci.get('name','')}: {ci.get('description','')}")
+
+        elif key == "discovery_headings":
+            if isinstance(discovery_block, str):
+                heading_lines = [l for l in discovery_block.split('\n')
+                                 if any(kw in l.lower() for kw in ['h1', 'h2', 'heading', 'intestazion'])]
+                if heading_lines:
+                    parts.append("=== HEADING ANALYSIS (L0) ===")
+                    parts.extend(heading_lines[:30])
+
+        elif key == "crux_field_data":
+            crux = deep_wizard_block.get("_crux_field_data", {})
+            if crux and crux.get("record", {}).get("metrics"):
+                metrics = crux["record"]["metrics"]
+                parts.append("=== CrUX FIELD DATA (real users, p75, 28-day) ===")
+                for mk, label in [
+                    ("largest_contentful_paint", "LCP"),
+                    ("interaction_to_next_paint", "INP"),
+                    ("cumulative_layout_shift", "CLS"),
+                    ("experimental_time_to_first_byte", "TTFB"),
+                ]:
+                    m = metrics.get(mk, {})
+                    p75 = m.get("percentiles", {}).get("p75")
+                    if p75 is not None:
+                        unit = "ms" if mk != "cumulative_layout_shift" else ""
+                        parts.append(f"  {label} p75: {p75}{unit}")
+                parts.append("NOTE: CrUX = dati reali utenti (gold standard). Lighthouse = lab data (volatile). In caso di conflitto, CrUX prevale.")
+
+        elif key == "gsc_csv_performance":
+            csv_perf = deep_wizard_block.get("gsc_data", {}).get("csv_performance", {})
+            if csv_perf and csv_perf.get("rows"):
+                parts.append("=== GSC: SEARCH PERFORMANCE (CSV) ===")
+                if csv_perf.get("date_range"):
+                    parts.append(f"Period: {csv_perf['date_range']}")
+                s = csv_perf.get("summary", {})
+                if s:
+                    parts.append(f"Totals: {s.get('total_clicks',0)} clicks, {s.get('total_impressions',0)} impressions, "
+                                 f"CTR {s.get('avg_ctr','N/A')}, Pos {s.get('avg_position','N/A')}")
+                parts.append(f"Top rows ({len(csv_perf['rows'])} total):")
+                for row in csv_perf["rows"][:30]:
+                    parts.append(f"  {row.get('query', row.get('Query', ''))} | clicks={row.get('clicks', row.get('Clicks', ''))} "
+                                 f"| imp={row.get('impressions', row.get('Impressions', ''))} "
+                                 f"| ctr={row.get('ctr', row.get('CTR', ''))} "
+                                 f"| pos={row.get('position', row.get('Position', ''))}")
+
+        elif key == "gsc_csv_pages":
+            csv_pages = deep_wizard_block.get("gsc_data", {}).get("csv_pages", {})
+            if csv_pages and csv_pages.get("rows"):
+                parts.append("=== GSC: PAGE PERFORMANCE (CSV) ===")
+                parts.append(f"Pages ({len(csv_pages['rows'])} total):")
+                for row in csv_pages["rows"][:30]:
+                    parts.append(f"  {row.get('page', row.get('Page', row.get('url', '')))} | "
+                                 f"clicks={row.get('clicks', row.get('Clicks', ''))} | "
+                                 f"imp={row.get('impressions', row.get('Impressions', ''))}")
+
+        elif key == "gsc_csv_coverage":
+            csv_cov = deep_wizard_block.get("gsc_data", {}).get("csv_coverage", [])
+            if csv_cov:
+                parts.append("=== GSC: INDEX COVERAGE (CSV) ===")
+                for item in csv_cov[:20]:
+                    if isinstance(item, dict):
+                        parts.append(f"  {json.dumps(item, ensure_ascii=False)}")
+                    else:
+                        parts.append(f"  {item}")
+
         elif key == "schema_reading_kb":
             kb_path = os.path.join(TOOL_DIR, "data", "reference", "schema-reading-kb.md")
             try:
@@ -746,11 +823,22 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
     phase2_ids = [sid for sid in section_order
                   if sections.get(sid, {}).get("phase", 1) == 2]
 
-    # Filter by requires_platform
+    # Filter by requires_platform + wizard data existence (ADR-8)
+    _platform_wizard_map = {
+        "iubenda": "iubenda_data", "gtm": "gtm_data",
+        "gads": "gads_data", "meta": "meta_data", "gsc": "gsc_data",
+    }
+
     def _should_run(sid):
         req = sections.get(sid, {}).get("requires_platform")
         if req and req not in platforms:
             return False
+        # ADR-8: skip section if platform selected but wizard returned empty
+        if req:
+            wk = _platform_wizard_map.get(req)
+            if wk and not deep_wizard_block.get(wk):
+                print(f"    ℹ {sid} saltata — nessun dato wizard per {req}")
+                return False
         return True
 
     phase1_ids = [sid for sid in phase1_ids if _should_run(sid)]

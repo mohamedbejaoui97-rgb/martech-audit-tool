@@ -630,16 +630,50 @@ def run_wizard_gsc(business_profile, discovery_block):
 
         screenshots = _ask_evidence_screenshots("gsc")
 
+        # ADR-7: Build CSV data blocks with rows + metadata
+        csv_performance = {}
+        if perf_rows:
+            # ADR-7d: extract date range from rows (if Date column exists) or ask
+            date_vals = sorted(set(r.get("date", "") for r in perf_rows if r.get("date")))
+            if date_vals:
+                csv_date_range = f"{date_vals[0]} — {date_vals[-1]}"
+            else:
+                csv_date_range = _ask_input(
+                    "Periodo dell'export CSV rendimento (es: 2025-12-01 — 2026-02-28)",
+                    allow_empty=True,
+                    help_text="Se non sai, premi Invio. Utile per contestualizzare i dati."
+                ) or "non specificato"
+            total_clicks = sum(r.get("clicks", 0) for r in perf_rows)
+            total_impressions = sum(r.get("impressions", 0) for r in perf_rows)
+            csv_performance = {
+                "date_range": csv_date_range,
+                "total_rows": len(perf_rows),
+                "rows": perf_rows[:200],
+                "summary": {
+                    "total_clicks": total_clicks,
+                    "total_impressions": total_impressions,
+                    "avg_ctr": round(total_clicks / total_impressions * 100, 2) if total_impressions else 0,
+                    "avg_position": round(sum(r.get("position", 0) for r in perf_rows) / len(perf_rows), 1) if perf_rows else 0,
+                },
+            }
+
+        csv_pages = {}
+        if pages_csv_rows:
+            csv_pages = {
+                "total_rows": len(pages_csv_rows),
+                "rows": pages_csv_rows[:100],
+            }
+
         data = {
             "sitemap_status": sitemap_status,
-            "pages_indexed": pages_indexed,
-            "pages_submitted": pages_submitted,
+            "gsc_pages_indexed": pages_indexed,
+            "gsc_pages_total_in_property": pages_submitted,
             "indexing_issues": indexing_issues,
             "trend_analysis": trends,
             "opportunities": trends.get("opportunities", []),
-            "_performance_row_count": len(perf_rows),
-            "_pages_row_count": len(pages_csv_rows),
-            "coverage_data": coverage_data,
+            "csv_performance": csv_performance,
+            "csv_pages": csv_pages,
+            "csv_coverage": coverage_data,
             "robots_txt": robots_data,
             "sitemap_cross_check": sitemap_check,
             "gsc_sitemap_urls": gsc_sitemap_urls,

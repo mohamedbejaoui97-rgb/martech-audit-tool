@@ -110,6 +110,22 @@ def run_deep_mode(url, args):
                     _scan_data = _sq_future.result(timeout=310)
                 if _scan_data and hasattr(cli_audit, 'squirrelscan_to_discovery'):
                     cli_audit.squirrelscan_to_discovery(_scan_data, discovery_block)
+                    # ADR-11: store structured summary for synthesis
+                    _ss_issues = _scan_data.get("issues", [])
+                    _by_cat = {}
+                    for _iss in _ss_issues:
+                        cat = _iss.get("category", "Other")
+                        _by_cat[cat] = _by_cat.get(cat, 0) + 1
+                    deep_wizard_block["_squirrelscan_summary"] = {
+                        "pages_crawled": _scan_data.get("pages_crawled", _scan_data.get("pagesCrawled", 0)),
+                        "total_issues": len(_ss_issues),
+                        "by_category": _by_cat,
+                        "critical_issues": [
+                            {"name": i.get("name", ""), "description": i.get("description", "")[:200],
+                             "category": i.get("category", "")}
+                            for i in _ss_issues if i.get("severity") in ("critical", "high")
+                        ][:20],
+                    }
                     print("  ✓ SquirrelScan completato e integrato")
             except Exception as _e:
                 print(f"  ⚠ SquirrelScan: {_e}")
@@ -119,6 +135,10 @@ def run_deep_mode(url, args):
         completed = 0
 
         deep_wizard_block = {"business_profile": business_profile}
+
+        # ADR-9: Extract CrUX field data from discovery for synthesis
+        if isinstance(discovery_block, dict) and discovery_block.get("_crux_field_data"):
+            deep_wizard_block["_crux_field_data"] = discovery_block["_crux_field_data"]
 
         for platform, module_name, func_name in WIZARD_SEQUENCE:
             if platform in business_profile.get("platforms", []):

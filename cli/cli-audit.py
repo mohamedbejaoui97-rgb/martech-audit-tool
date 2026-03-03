@@ -777,6 +777,9 @@ def auto_discover(domain, extra_urls=None, use_render=False):
         log('📊', 'CrUX field data fetched', C.GREEN)
     budget_findings = validate_budgets(resources, crux_data, cfg)
     discovered.update(budget_findings)
+    # ADR-9: Store raw CrUX for deep mode synthesis
+    if crux_data and crux_data.get('record', {}).get('metrics'):
+        discovered['_crux_field_data'] = crux_data
 
     # ── Multi-Page Crawling ──
     discovered_pages = [{'url': url, 'type': 'homepage'}]

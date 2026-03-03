@@ -192,8 +192,8 @@ def _score_data_foundation(data):
         score -= 15
 
     # Indexing ratio
-    indexed = data.get("pages_indexed", 0)
-    submitted = data.get("pages_submitted", 0)
+    indexed = data.get("gsc_pages_indexed", data.get("pages_indexed", 0))
+    submitted = data.get("gsc_pages_total_in_property", data.get("pages_submitted", 0))
     if submitted > 0:
         ratio = indexed / submitted
         if ratio < 0.5:
