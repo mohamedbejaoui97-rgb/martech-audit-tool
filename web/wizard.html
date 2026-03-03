@@ -529,6 +529,12 @@ select { cursor:pointer; }
       <p class="subtitle" id="runSubtitle">Avvia il pipeline: Trust Score, L2 Analysis, Synthesis, Report.</p>
 
       <div id="runNotStarted">
+        <div class="form-group" style="margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--orange)">
+            <input type="checkbox" id="testModeToggle">
+            Test Mode (Sonnet — ~80% cheaper, lower quality)
+          </label>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="btnRun">Avvia Deep Audit</button>
         </div>
@@ -837,7 +843,8 @@ const W = {
     document.getElementById('runSubtitle').textContent = 'Pipeline in esecuzione...';
 
     // Start pipeline
-    await this._post('/api/deep/run', { session_id: this.sessionId });
+    const testMode = document.getElementById('testModeToggle').checked;
+    await this._post('/api/deep/run', { session_id: this.sessionId, test_mode: testMode });
 
     // Connect SSE
     const evtSource = new EventSource(`/api/deep/status?session_id=${this.sessionId}`);

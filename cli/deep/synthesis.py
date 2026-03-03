@@ -34,6 +34,13 @@ _PRICES = {
     "claude-sonnet-4-6": {"input":  3.0 / 1_000_000, "output": 15.0 / 1_000_000},
 }
 
+_TEST_MODE_MODEL = "claude-sonnet-4-6"
+
+
+def _is_test_mode():
+    """Check if test mode is active (all synthesis uses Sonnet)."""
+    return os.environ.get("SYNTHESIS_TEST_MODE", "").strip() in ("1", "true", "yes")
+
 WIZARD_KEYS = ["iubenda_data", "gtm_data", "gads_data", "meta_data", "gsc_data"]
 
 PLATFORM_MAP = {
@@ -679,6 +686,8 @@ def _synthesize_section(section_id, section_cfg, global_cfg, shared_rules,
         dict: {success, text, section_id, input_tokens, output_tokens, cost_usd, model, elapsed}
     """
     model = section_cfg.get("model", global_cfg.get("model_default", "claude-opus-4-6"))
+    if _is_test_mode():
+        model = _TEST_MODE_MODEL
     max_tokens = section_cfg.get("max_tokens", 5000)
     temperature = global_cfg.get("temperature", 0)
     timeout_s = global_cfg.get("timeout_seconds", 120)
@@ -790,6 +799,8 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
     Returns:
         dict with synthesis_text, section_results, cost info (NFR17 fallback on error)
     """
+    if _is_test_mode():
+        print("\n  ⚠ TEST MODE attivo — tutte le sezioni usano Sonnet (costo ~80% inferiore)")
     print("\n  🧠 Avvio sintesi sezionale (Act 3 — ADR-6)...")
 
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY", "")
@@ -857,7 +868,8 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
     # ── Phase 0: Opus Direttore (single call ~10K in → ~4K out) ──
     editorial_plan = ""
     _phase0_cost = {}
-    print("  🎯 Phase 0: Opus Direttore...")
+    _p0_model = _TEST_MODE_MODEL if _is_test_mode() else "claude-opus-4-6"
+    print(f"  🎯 Phase 0: {'Sonnet (TEST MODE)' if _is_test_mode() else 'Opus'} Direttore...")
     try:
         director_system = (
             "Sei il DIRETTORE EDITORIALE di un report di MarTech audit. "
@@ -878,13 +890,13 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
         )
         director_text, director_usage = _call_claude(
             api_key, director_system, director_briefing,
-            model="claude-opus-4-6", max_tokens=4096,
+            model=_p0_model, max_tokens=4096,
             temperature=0, timeout_s=180, max_retries=2,
         )
         editorial_plan = director_text
         d_in = director_usage.get("input_tokens", 0)
         d_out = director_usage.get("output_tokens", 0)
-        d_prices = _PRICES["claude-opus-4-6"]
+        d_prices = _PRICES[_p0_model]
         d_cost = (d_in * d_prices["input"]) + (d_out * d_prices["output"])
         print(f"    ✓ Opus Direttore ({d_in:,} in + {d_out:,} out, ${d_cost:.3f})")
         # Track Phase 0 cost separately (added to assembly later)
@@ -971,6 +983,8 @@ def _run_legacy_synthesis(api_key, deep_wizard_block, discovery_block, l2_result
     if not config:
         config = {"model": "claude-opus-4-6", "temperature": 0,
                   "max_tokens": 32000, "timeout_seconds": 300, "max_retries": 2}
+    if _is_test_mode():
+        config["model"] = _TEST_MODE_MODEL
 
     system_prompt = config.get("system_prompt", _FALLBACK_SYSTEM_PROMPT)
     user_template = config.get("user_prompt_template", "Ecco i dati. Produci la sintesi.\n\n{{data}}")

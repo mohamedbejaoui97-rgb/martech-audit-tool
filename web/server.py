@@ -338,6 +338,12 @@ def _run_pipeline(sid):
         return
     sess['status'] = 'running'
 
+    # Set test mode env var for synthesis module
+    if sess.get('test_mode'):
+        os.environ['SYNTHESIS_TEST_MODE'] = '1'
+    else:
+        os.environ.pop('SYNTHESIS_TEST_MODE', None)
+
     try:
         dwb = sess['deep_wizard_block']
         discovery = sess['discovery_block']
@@ -419,7 +425,8 @@ def _run_pipeline(sid):
         _push_event(sid, 'phase', {'phase': 'report', 'progress': 4, 'total': 5, 'detail': 'Generazione report...'})
         from deep.report_deep import generate_deep_report
         report_path = generate_deep_report(
-            synthesis_result, dwb, trust_result, l2_results=l2_results
+            synthesis_result, dwb, trust_result, l2_results=l2_results,
+            test_mode=sess.get('test_mode', False),
         )
         sess['report_path'] = report_path
         sess['status'] = 'complete'
@@ -702,6 +709,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if sess['status'] == 'running':
             return self._send_error(409, 'Pipeline already running')
+
+        # Test mode flag — forces all synthesis to use Sonnet
+        test_mode = body.get('test_mode', False)
+        sess['test_mode'] = test_mode
 
         # Run pipeline in background thread (ADR-7)
         thread = threading.Thread(target=_run_pipeline, args=(sid,), daemon=True)

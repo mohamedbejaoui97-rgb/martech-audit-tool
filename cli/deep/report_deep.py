@@ -710,7 +710,7 @@ def _build_appendix_fallback(l2_results):
 # ─── PUBLIC API ─────────────────────────────────────────────────────────────
 
 def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
-                         l2_results=None, cost_l2="N/A"):
+                         l2_results=None, cost_l2="N/A", test_mode=False):
     """Generate McKinsey-style HTML report for Deep mode (ADR-4).
 
     Args:
@@ -719,6 +719,7 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         trust_result: dict from trust_score.calculate_trust_score()
         l2_results: optional dict of L2 analysis results
         cost_l2: optional string with L2 cost info
+        test_mode: if True, adds a banner warning that Sonnet was used
 
     Returns:
         str: path to saved report file
@@ -911,6 +912,18 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
 
     for placeholder, value in replacements.items():
         report = report.replace(placeholder, value)
+
+    # Test mode banner
+    if test_mode:
+        test_banner = (
+            '<div style="background:#fef3c7;border:2px solid #f59e0b;color:#92400e;'
+            'padding:12px 20px;text-align:center;font-weight:700;font-size:15px;'
+            'position:sticky;top:0;z-index:9999;">'
+            '&#9888;&#65039; TEST MODE &mdash; Generated with Sonnet. '
+            'Final report should use Opus for higher quality.'
+            '</div>'
+        )
+        report = report.replace('<body>', f'<body>\n{test_banner}', 1)
 
     # Save report (NFR10: local output/ only)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
