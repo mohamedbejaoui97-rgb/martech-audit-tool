@@ -355,8 +355,8 @@ class TestE2ESynthesisPipeline(unittest.TestCase):
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key-e2e"})
     @patch('deep.synthesis.urllib.request.urlopen')
-    def test_e2e_all_9_sections_called(self, mock_urlopen):
-        """With 5 platforms, all 9 sections should be synthesized."""
+    def test_e2e_all_10_sections_called(self, mock_urlopen):
+        """With 5 platforms, all 10 sections should be synthesized."""
         mock_resp = MagicMock()
         mock_resp.read.return_value = _make_mock_response("## Output\nContent")
         mock_urlopen.return_value = mock_resp
@@ -369,7 +369,8 @@ class TestE2ESynthesisPipeline(unittest.TestCase):
         sr = result.get("section_results", {})
         expected = {"exec_summary", "trust_analysis", "gap_roadmap",
                     "platform_consent", "platform_gtm", "platform_gads",
-                    "platform_meta", "platform_seo", "technical_appendix"}
+                    "platform_meta", "platform_seo", "platform_cro",
+                    "technical_appendix"}
         self.assertEqual(set(sr.keys()), expected)
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key-e2e"})

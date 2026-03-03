@@ -128,6 +128,8 @@ def _format_wizard_summary(key, data):
     """One-liner summary of wizard data (for sections that need overview, not full data)."""
     if not data:
         return ""
+    if isinstance(data, str):
+        return f"[{key.replace('_data', '').upper()}] {data[:200]}"
 
     name = key.replace("_data", "").upper()
     parts = [f"[{name}]"]
@@ -169,6 +171,8 @@ def _format_wizard_full(data, max_chars=MAX_WIZARD_FULL_CHARS):
     """
     if not data:
         return "(nessun dato)"
+    if isinstance(data, str):
+        return data[:max_chars]
 
     lines = []
     for k, v in data.items():
@@ -442,7 +446,12 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
             parts.append("=== TRUST SCORE (Summary) ===")
             parts.append(f"Score: {ts.get('score', 'N/A')}/100 ({ts.get('grade', '?')})")
             parts.append(f"Coverage: {ts.get('coverage_label', '?')}")
-            for p in ts.get("pillars", []):
+            pillars_raw = ts.get("pillars", {})
+            if isinstance(pillars_raw, dict):
+                pillar_list = [{"name": v.get("label", k), "score": v.get("score", 0), "weight": v.get("weight_normalized", v.get("weight", 0))} for k, v in pillars_raw.items()]
+            else:
+                pillar_list = pillars_raw if isinstance(pillars_raw, list) else []
+            for p in pillar_list:
                 parts.append(f"  {p.get('name', '?')}: {p.get('score', 0)}/100 (peso {p.get('weight', 0)}%)")
 
         elif key == "trust_score_full":
@@ -530,7 +539,7 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
                 parts.append(str(tms)[:3000])
 
         # L2 results
-        elif key.startswith("l2_"):
+        elif key.startswith("l2_") and key not in ("l2_new_findings",):
             l2_type = key[3:]  # strip "l2_" prefix
             result = l2_results.get(l2_type, "") if isinstance(l2_results, dict) else ""
             if result:
@@ -548,6 +557,16 @@ def _build_section_data(section_id, data_keys, deep_wizard_block,
             if rt and rt.get("raw_content"):
                 parts.append("=== ROBOTS.TXT ===")
                 parts.append(rt["raw_content"][:4000])
+
+        elif key == "schema_reading_kb":
+            kb_path = os.path.join(TOOL_DIR, "data", "reference", "schema-reading-kb.md")
+            try:
+                with open(kb_path, "r", encoding="utf-8") as _f:
+                    kb_text = _f.read()
+                parts.append("=== SCHEMA READING KB (metodologia obbligatoria) ===")
+                parts.append(kb_text[:6000])
+            except FileNotFoundError:
+                pass
 
         elif key == "editorial_plan":
             if editorial_plan:

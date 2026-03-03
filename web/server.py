@@ -385,8 +385,8 @@ def _run_pipeline(sid):
         sess['report_path'] = report_path
         sess['status'] = 'complete'
 
-        # Make report path relative to web dir for serving
-        report_rel = os.path.relpath(report_path, TOOL_DIR) if report_path else None
+        # Make report URL relative to project root for /output/ route
+        report_rel = os.path.relpath(report_path, PROJECT_ROOT) if report_path else None
 
         _push_event(sid, 'complete', {
             'report_url': f'/{report_rel}' if report_rel else None,
@@ -431,6 +431,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._handle_proxy_headers()
             else:
                 self._handle_crux()
+        elif self.path.startswith('/output/'):
+            # Serve report files from PROJECT_ROOT/output/
+            normalized = urllib.parse.unquote(self.path)
+            if '..' in normalized:
+                self.send_response(403)
+                self.end_headers()
+                return
+            file_path = os.path.join(PROJECT_ROOT, normalized.lstrip('/'))
+            if os.path.isfile(file_path):
+                self.send_response(200)
+                if file_path.endswith('.html'):
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                else:
+                    self.send_header('Content-Type', 'application/octet-stream')
+                self.end_headers()
+                with open(file_path, 'rb') as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_response(404)
+                self.end_headers()
         else:
             normalized = urllib.parse.unquote(self.path)
             if '.env' in normalized or 'credentials' in normalized:

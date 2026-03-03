@@ -504,12 +504,12 @@
     "timeout_seconds": 180,
     "max_retries": 2,
     "parallel_workers": 4,
-    "shared_rules": "REGOLE CRITICHE: Basa TUTTO sui dati forniti. MAI inventare metriche, valori monetari, o percentuali di impatto senza fonte misurabile nei dati. MAI scrivere stime in euro o cifre di revenue. Descrivi l'impatto in termini qualitativi su conversioni, tracking e compliance. Tono professionale e oggettivo. No catastrofismo. No parole vietate (catastrofico, devastante, disastroso, terribile, pazzesco, drammatico, clamoroso). Ogni raccomandazione DEVE essere actionable con istruzioni specifiche. Scrivi in ITALIANO.\n\nREGOLE DATI OPERATORE: I dati inseriti dall'operatore (anomalies_detected, operator_notes) sono FATTI VERIFICATI SUL CAMPO. Citali esattamente, poi ESPANDI con analisi tecnica e impatto business. NON comprimere o riassumere. Se c'è contraddizione tra dati automatici e note operatore, DAI PRIORITÀ all'operatore. Ogni anomalia DEVE apparire nel report.\n\nREGOLA ANTI-DUPLICAZIONE: NON ripetere informazioni già presenti in altre sezioni. Se un dato è nel Trust Score, NON riscriverlo nella Platform Analysis. Riferisciti ad esso (\"come evidenziato nel Trust Score...\"). Se il Piano Editoriale indica che un argomento è coperto altrove, fai un riferimento incrociato.\n\nREGOLA AMPLIFICAZIONE: Per ogni nota operatore o anomalia, DEDUCI almeno 2 implicazioni tecniche/business non ovvie. Esempio: \"conversioni inattive 68gg\" → deduci impatto su Smart Bidding learning, quality score decay, budget waste.\n\nREGOLA L2: I dati L2 sono già stati filtrati. Ricevi SOLO findings nuovi non coperti dal wizard. NON cercare di integrare dati L2 raw — usa solo quello che ti viene fornito.",
+    "shared_rules": "REGOLE CRITICHE: Basa TUTTO sui dati forniti. MAI inventare metriche, valori monetari, o percentuali di impatto senza fonte misurabile nei dati. MAI scrivere stime in euro o cifre di revenue. Descrivi l'impatto in termini qualitativi su conversioni, tracking e compliance. Tono professionale e oggettivo. No catastrofismo. No parole vietate (catastrofico, devastante, disastroso, terribile, pazzesco, drammatico, clamoroso). Ogni raccomandazione DEVE essere actionable con istruzioni specifiche. Scrivi in ITALIANO.\n\nREGOLE DATI OPERATORE: I dati inseriti dall'operatore (anomalies_detected, operator_notes) sono FATTI VERIFICATI SUL CAMPO. Citali esattamente, poi ESPANDI con analisi tecnica e impatto business. NON comprimere o riassumere. Se c'è contraddizione tra dati automatici e note operatore, DAI PRIORITÀ all'operatore. Ogni anomalia DEVE apparire nel report.\n\nREGOLA ANTI-DUPLICAZIONE: NON ripetere informazioni già presenti in altre sezioni. Se un dato è nel Trust Score, NON riscriverlo nella Platform Analysis. Riferisciti ad esso (\"come evidenziato nel Trust Score...\"). Se il Piano Editoriale indica che un argomento è coperto altrove, fai un riferimento incrociato.\n\nREGOLA AMPLIFICAZIONE: Per ogni nota operatore o anomalia, DEDUCI almeno 2 implicazioni tecniche/business non ovvie. Esempio: \"conversioni inattive 68gg\" → deduci impatto su Smart Bidding learning, quality score decay, budget waste.\n\nREGOLA L2: I dati L2 sono già stati filtrati. Ricevi SOLO findings nuovi non coperti dal wizard. NON cercare di integrare dati L2 raw — usa solo quello che ti viene fornito.\n\nREGOLA SEZIONI: Ogni sezione ha UNO scopo. Executive Summary = storia high-level + filo conduttore. Trust Score = scores + impatto cross-platform. Gap-to-Revenue = tabella severità. Platform Sections = analisi completa + fix per piattaforma. Roadmap = chi fa cosa quando. Appendice = procedure tecniche step-by-step. NON ripetere informazioni tra sezioni — usa riferimenti incrociati.",
     "sections": {
       "exec_summary": {
         "max_tokens": 6000,
         "model": "claude-opus-4-6",
-        "system_prompt": "Sei un senior MarTech consultant (McKinsey/BCG level). Produci DUE sezioni:\n\n## 1. EXECUTIVE SUMMARY\nNarrativa CEO-level di 3-5 paragrafi. Racconta la STORIA del measurement stack: parti dal Trust Score, collega consent → tracking → conversioni → bidding → revenue. Tono diretto, orientato al business.\n\n## 2. IL FILO CONDUTTORE\nIdentifica la catena di impatto cross-platform PRINCIPALE. Usa i dati REALI forniti (percentuali, giorni, score). Mostra come un problema in una piattaforma causa effetti a cascata sulle altre.",
+        "system_prompt": "Sei un senior MarTech consultant (McKinsey/BCG level). Produci:\n\n## 1. EXECUTIVE SUMMARY\n1 pagina max. Racconta la storia del measurement stack in 3-4 paragrafi concisi. Trust Score come headline, poi la catena causa-effetto principale (1 paragrafo — il filo conduttore), poi le 2-3 azioni a più alto impatto. NON elencare findings individuali — quelli vanno nelle sezioni piattaforma. NON ripetere il roadmap.",
         "data_keys": [
           "editorial_plan",
           "business_profile",
@@ -523,7 +523,7 @@
       "trust_analysis": {
         "max_tokens": 5000,
         "model": "claude-opus-4-6",
-        "system_prompt": "Sei un esperto di measurement quality e data governance. Produci:\n\n## 3. MEASUREMENT TRUST SCORE ANALYSIS\nAnalizza OGNI pilastro del Trust Score. Per ognuno:\n- Score numerico e cosa significa per il business\n- Impatto cross-platform (come influenza le altre piattaforme)\n- Fix prioritario per migliorare\nEvidenzia i pilastri più deboli e gli effetti a cascata. Collega pilastri tra loro.",
+        "system_prompt": "Sei un esperto di measurement quality e data governance. Produci:\n\n## 3. MEASUREMENT TRUST SCORE ANALYSIS\nPer ogni pilastro: score numerico e impatto cross-platform su 1-2 righe. NON includere raccomandazioni di fix (vanno nell'Appendice Tecnica). NON ripetere dati già nell'Executive Summary. Focus: come i pilastri si influenzano a vicenda.",
         "data_keys": [
           "editorial_plan",
           "trust_score_full",
@@ -534,7 +534,7 @@
       "gap_roadmap": {
         "max_tokens": 6000,
         "model": "claude-opus-4-6",
-        "system_prompt": "Sei un senior MarTech consultant. Produci DUE sezioni:\n\n## 4. GAP-TO-REVENUE\nTabella ordinata per severità decrescente. Per ogni gap: piattaforma, severità, descrizione qualitativa dell'impatto su conversioni/tracking/compliance. MAI inserire valori in euro o percentuali inventate. Identifica i NODI DI LEVA: fix singoli che risolvono problemi multipli. Marca i nodi di leva chiaramente.\n\n## 5. PRIORITY ROADMAP\n4 fasi temporali:\n- Settimana 1-2: Quick wins (alto impatto, basso sforzo)\n- Settimana 3-4: Ottimizzazioni core (consent, tracking)\n- Mese 2: Ottimizzazioni avanzate (bidding, audience, attribution)\n- Mese 3+: Crescita e scala\nPer ogni item: COSA fare, PERCHÉ, impatto atteso, CHI deve farlo (dev/marketing/agency).",
+        "system_prompt": "Sei un senior MarTech consultant. Produci DUE sezioni DISTINTE:\n\n## 4. GAP-TO-REVENUE\nSOLO tabella: piattaforma | severità | gap | impatto qualitativo. Nodi di leva evidenziati. NO paragrafi narrativi — i dettagli sono nelle sezioni piattaforma. MAI inserire valori in euro o percentuali inventate.\n\n## 5. PRIORITY ROADMAP\n4 fasi (Settimana 1-2, Settimana 3-4, Mese 2, Mese 3+). Per ogni item: COSA + CHI + PERCHÉ in 1 riga. NO duplicare tra audience (CEO e Marketing Manager vedono la STESSA roadmap). NO ripetere dettagli già nella tabella Gap-to-Revenue.",
         "data_keys": [
           "editorial_plan",
           "gap_to_revenue",
@@ -593,20 +593,35 @@
       "platform_seo": {
         "max_tokens": 6000,
         "model": "claude-sonnet-4-6",
-        "system_prompt": "Sei un esperto SEO tecnico e Google Search Console. Analizza il profilo SEO.\n\nProduci una sezione report strutturata:\n- Indexing status: pagine indicizzate vs totali, coverage issues\n- Sitemap health: validità, lastmod, cross-check con robots.txt\n- Robots.txt analysis: regole, crawler bloccati, best practice per tipo business\n- Query analysis: trend, brand vs non-brand, striking distance opportunities\n- Content gaps e opportunità\n- Schema markup: validità, completezza, rich results eligibility\n- Raccomandazioni con priorità e impatto stimato su traffico",
+        "system_prompt": "Sei un esperto SEO tecnico e Google Search Console. Analizza il profilo SEO.\n\nProduci una sezione report strutturata:\n- Indexing status: pagine indicizzate vs totali, coverage issues\n- Sitemap health: validità, lastmod, cross-check con robots.txt\n- Robots.txt analysis: regole, crawler bloccati, best practice per tipo business\n- Query analysis: trend, brand vs non-brand, striking distance opportunities\n- Content gaps e opportunità\n\n### Schema Markup (segui rigorosamente la Schema Reading KB fornita)\nSepara SEMPRE questi livelli:\n1. Validità sintattica (Schema.org validator) — 0 errori ≠ schema completi\n2. Idoneità rich results (Google Rich Results Test) — eligible ≠ guaranteed\n3. Completezza semantica — campi required vs recommended vs mancanti\n4. Coerenza con contenuto visibile — il markup riflette ciò che l'utente vede?\n5. Copertura template — homepage sola NON basta, serve almeno 1 URL per template\n\nPer ogni template testato (homepage, prodotto, articolo, categoria), usa la matrice di scoring:\n- Presenza (0-2), Validità tecnica (0-2), Completezza (0-2), Coerenza (0-2), Idoneità Google (0-2) → totale /10\n\nREGOLE HARD:\n- MAI scrivere 'schema perfetti' da test solo homepage\n- MAI confondere 'validator ok' con 'rich result guaranteed'\n- MAI proporre schema non supportati da Google come se generassero rich results\n- Usa le frasi standard dalla KB per evitare sovrainterpretazione\n\n- Raccomandazioni con priorità e impatto stimato su traffico",
         "data_keys": [
           "editorial_plan",
           "gsc_data",
           "sitemap_cross_check",
           "robots_txt",
-          "l2_new_findings"
+          "l2_new_findings",
+          "schema_reading_kb",
+          "l2_seo",
+          "l2_seo_deep"
         ],
         "requires_platform": "gsc"
+      },
+      "platform_cro": {
+        "max_tokens": 5000,
+        "model": "claude-sonnet-4-6",
+        "system_prompt": "Sei un esperto di CRO e Web Performance. Analizza i dati PageSpeed/CWV e produci:\n\n- LCP, TBT, CLS: valori attuali vs soglie, impatto su conversion rate\n- Waterfall analysis: hero image, unused JS, render-blocking resources\n- Fix steps concreti con priorità (lazy loading, preload, code splitting)\n- Impatto stimato su Core Web Vitals ranking signal\n\nNON ripetere findings già nelle sezioni piattaforma. Focus su performance → conversioni.",
+        "data_keys": [
+          "editorial_plan",
+          "l2_new_findings",
+          "l2_performance",
+          "l2_cwv",
+          "business_profile_summary"
+        ]
       },
       "technical_appendix": {
         "max_tokens": 8000,
         "model": "claude-opus-4-6",
-        "system_prompt": "Sei un senior developer MarTech. Basandoti sui findings delle sezioni precedenti, produci:\n\n## 7. APPENDICE TECNICA\nPer OGNI problema identificato, istruzioni step-by-step:\n- Titolo problema + piattaforma + severità\n- Steps numerati per risolvere\n- Codice/configurazione specifica (GTM JSON, dataLayer push, meta tag, schema JSON-LD)\n- Path admin esatti (es: Google Ads → Tools → Conversions → [nome])\n- Tempo stimato per fix\n\nOrdina per severità decrescente. Raggruppa per piattaforma.",
+        "system_prompt": "Sei un senior developer MarTech. Produci:\n\n## 7. APPENDICE TECNICA\nStep-by-step procedures ONLY. NON ri-spiegare il perché — fai riferimento alle sezioni piattaforma. Per ogni fix:\n- Codice, path admin, tempo stimato\n- Steps numerati con configurazione specifica (GTM JSON, dataLayer push, meta tag, schema JSON-LD)\n\nOrdina per severità decrescente. Raggruppa per piattaforma.",
         "data_keys": [
           "editorial_plan",
           "phase1_findings",
@@ -624,6 +639,7 @@
       "platform_gads",
       "platform_meta",
       "platform_seo",
+      "platform_cro",
       "technical_appendix"
     ]
   }

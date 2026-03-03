@@ -715,13 +715,24 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
 
         exec_summary = _get_section_text("exec_summary")
         filo = ""  # filo is embedded in exec_summary section
-        gap_narrative = _get_section_text("gap_roadmap")
-        roadmap_text = gap_narrative  # gap + roadmap are in the same section
+        gap_roadmap_raw = _get_section_text("gap_roadmap")
         appendix_text = _get_section_text("technical_appendix")
+
+        # Split gap_roadmap output at ## 5 header to avoid duplicate roadmap
+        gap_narrative = ""
+        roadmap_text = ""
+        if gap_roadmap_raw:
+            split_match = re.split(r'(##\s*5\.)', gap_roadmap_raw, maxsplit=1)
+            if len(split_match) >= 3:
+                gap_narrative = split_match[0].strip()
+                roadmap_text = split_match[1] + split_match[2]
+            else:
+                gap_narrative = gap_roadmap_raw
+                roadmap_text = ""
 
         # Build platform text from individual platform sections
         platform_parts = []
-        for sid in ("platform_consent", "platform_gtm", "platform_gads", "platform_meta", "platform_seo"):
+        for sid in ("platform_consent", "platform_gtm", "platform_gads", "platform_meta", "platform_seo", "platform_cro"):
             t = _get_section_text(sid)
             if t:
                 platform_parts.append(t)
@@ -808,9 +819,6 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         if platform_fallback:
             platform_html = platform_fallback
 
-    # Build roadmap: Opus or fallback from wizard data (Fix 19)
-    roadmap_html = _md_to_html(roadmap_text) if roadmap_text else _build_roadmap_fallback(deep_wizard_block)
-
     # Build appendix: Opus synthesis or L2 fallback
     appendix_html = ""
     if appendix_text:
@@ -847,9 +855,9 @@ def generate_deep_report(synthesis_output, deep_wizard_block, trust_result,
         "{{pillar_cards_html}}": pillar_cards,
         "{{executive_summary}}": exec_html,
         "{{consent_impact_chain}}": chain_html,
-        "{{filo_conduttore_narrative}}": _md_to_html(filo) if filo else _build_filo_fallback(deep_wizard_block),
+        "{{filo_conduttore_narrative}}": _md_to_html(filo) if filo else ("" if section_results else _build_filo_fallback(deep_wizard_block)),
         "{{gap_to_revenue_table}}": gap_table + (_md_to_html(gap_narrative) if gap_narrative else ""),
-        "{{priority_roadmap}}": roadmap_html,
+        "{{priority_roadmap}}": _md_to_html(roadmap_text) if roadmap_text else _build_roadmap_fallback(deep_wizard_block),
         "{{platform_analysis}}": platform_html if platform_html else '<p>Nessuna piattaforma auditata.</p>',
         "{{technical_appendix}}": appendix_html if appendix_html else '<p>Nessun dato tecnico disponibile.</p>',
         "{{cost_l2}}": _esc(str(cost_l2)),
