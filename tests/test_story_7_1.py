@@ -272,6 +272,7 @@ class TestRunWizardGsc(unittest.TestCase):
             "https://example.com/sitemap.xml",  # gsc sitemap urls
             "1",    # gsc sitemap status: Operazione riuscita
             "",     # gsc last read
+            "",     # csv_date_range (ADR-7: no date column in test CSV)
         ]
         mock_folder.side_effect = [
             ("/tmp/perf", {"Query.csv": CSV_EN_COMMA, "Pages.csv": CSV_PAGES_EN}),
@@ -282,8 +283,8 @@ class TestRunWizardGsc(unittest.TestCase):
 
         self.assertIsInstance(result, dict)
         self.assertEqual(result["sitemap_status"], "ok")
-        self.assertEqual(result["pages_indexed"], 340)
-        self.assertEqual(result["pages_submitted"], 412)
+        self.assertEqual(result["gsc_pages_indexed"], 340)
+        self.assertEqual(result["gsc_pages_total_in_property"], 412)
         self.assertIsInstance(result["indexing_issues"], list)
         self.assertIn("trend_analysis", result)
         self.assertIn("opportunities", result)
@@ -305,8 +306,8 @@ class TestRunWizardGsc(unittest.TestCase):
 
         result = run_wizard_gsc(BPROF, EMPTY_DISC)
         self.assertIsInstance(result, dict)
-        self.assertEqual(result["_performance_row_count"], 0)
-        self.assertEqual(result["_pages_row_count"], 0)
+        self.assertEqual(result.get("csv_performance"), {})
+        self.assertEqual(result.get("csv_pages"), {})
 
     @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gsc._ask_operator_notes', return_value="")
@@ -334,6 +335,7 @@ class TestRunWizardGsc(unittest.TestCase):
         mock_input.side_effect = [
             "1", "200", "250", "1",  # sitemap, indexed, submitted, issues
             "", "", "1", "",         # robots, gsc sitemaps, status, last read
+            "",                      # csv_date_range (ADR-7: no date column)
         ]
         mock_folder.side_effect = [
             ("/tmp/perf", {"Query.csv": CSV_EN_COMMA}),
@@ -341,8 +343,8 @@ class TestRunWizardGsc(unittest.TestCase):
         ]
 
         result = run_wizard_gsc(BPROF, EMPTY_DISC)
-        self.assertGreater(result["_performance_row_count"], 0)
-        self.assertEqual(result["_pages_row_count"], 0)
+        self.assertGreater(result["csv_performance"]["total_rows"], 0)
+        self.assertEqual(result.get("csv_pages"), {})
 
     @patch('deep.wizard_gsc._ask_evidence_screenshots', return_value=[])
     @patch('deep.wizard_gsc._ask_operator_notes', return_value="")
