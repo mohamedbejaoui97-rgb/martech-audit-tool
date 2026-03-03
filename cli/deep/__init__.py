@@ -195,26 +195,9 @@ def run_deep_mode(url, args):
         # ── Act 2: L2 AI Analyses (existing, from cli-audit.py) ──
         l2_results = {}
         try:
-            api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY", "")
-            if not api_key:
-                env_path = os.path.join(TOOL_DIR, "credentials", ".env")
-                if os.path.exists(env_path):
-                    with open(env_path) as _ef:
-                        for _line in _ef:
-                            _line = _line.strip()
-                            if _line.startswith("CLAUDE_API_KEY=") or _line.startswith("ANTHROPIC_API_KEY="):
-                                api_key = _line.split("=", 1)[1].strip()
-                                break
-            google_key = os.environ.get("GOOGLE_API_KEY", "")
-            if not google_key:
-                env_path = os.path.join(TOOL_DIR, "credentials", ".env")
-                if os.path.exists(env_path):
-                    with open(env_path) as _ef:
-                        for _line in _ef:
-                            _line = _line.strip()
-                            if _line.startswith("GOOGLE_API_KEY="):
-                                google_key = _line.split("=", 1)[1].strip()
-                                break
+            from deep.env_utils import get_api_key, get_google_key
+            api_key = get_api_key()
+            google_key = get_google_key()
 
             if api_key:
                 # ADR-6: Deep mode drops security + accessibility (no wizard data to enrich)

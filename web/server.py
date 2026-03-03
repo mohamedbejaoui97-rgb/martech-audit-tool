@@ -375,8 +375,9 @@ def _run_pipeline(sid):
 
         # Phase 2: L2 Analyses
         _push_event(sid, 'phase', {'phase': 'l2_analysis', 'progress': 2, 'total': 5, 'detail': 'Avvio 9 analisi L2...'})
-        api_key = ENV.get('ANTHROPIC_API_KEY') or ENV.get('CLAUDE_API_KEY', '')
-        google_key = ENV.get('GOOGLE_API_KEY', '')
+        from deep.env_utils import get_api_key, get_google_key
+        api_key = get_api_key()
+        google_key = get_google_key()
         l2_results = {}
 
         if api_key:
@@ -952,7 +953,8 @@ class ThreadingHTTPServer(http.server.ThreadingHTTPServer):
 
 
 if __name__ == '__main__':
-    api_key_configured = bool(ENV.get('ANTHROPIC_API_KEY') or ENV.get('CLAUDE_API_KEY'))
+    from deep.env_utils import get_api_key
+    api_key_configured = bool(get_api_key())
     print(f"\n  MarTech Audit Tool")
     print(f"  http://localhost:{PORT}")
     print(f"  http://localhost:{PORT}/wizard.html  ← Deep Audit Wizard")

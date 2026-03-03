@@ -803,16 +803,8 @@ def run_synthesis(deep_wizard_block, discovery_block, l2_results, trust_result):
         print("\n  ⚠ TEST MODE attivo — tutte le sezioni usano Sonnet (costo ~80% inferiore)")
     print("\n  🧠 Avvio sintesi sezionale (Act 3 — ADR-6)...")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY", "")
-    if not api_key:
-        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "credentials", ".env")
-        if os.path.exists(env_path):
-            with open(env_path) as _ef:
-                for _line in _ef:
-                    _line = _line.strip()
-                    if _line.startswith("CLAUDE_API_KEY=") or _line.startswith("ANTHROPIC_API_KEY="):
-                        api_key = _line.split("=", 1)[1].strip()
-                        break
+    from deep.env_utils import get_api_key
+    api_key = get_api_key()
     if not api_key:
         print("  ⚠ API key non trovata (ANTHROPIC_API_KEY / CLAUDE_API_KEY) — sintesi saltata")
         return _fallback_result("API key mancante")
